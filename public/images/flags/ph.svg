@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600">
+  <!-- Blue top half -->
+  <rect width="900" height="300" fill="#0038A8"/>
+  <!-- Red bottom half -->
+  <rect y="300" width="900" height="300" fill="#CE1126"/>
+  <!-- White triangle -->
+  <polygon points="0,0 450,300 0,600" fill="#FFFFFF"/>
+  <!-- Sun -->
+  <circle cx="150" cy="300" r="70" fill="#FCD116"/>
+  <!-- Sun rays (8 rays) -->
+  <g fill="#FCD116">
+    <line x1="150" y1="215" x2="150" y2="185" stroke="#FCD116" stroke-width="8"/>
+    <line x1="150" y1="385" x2="150" y2="415" stroke="#FCD116" stroke-width="8"/>
+    <line x1="65" y1="300" x2="35" y2="300" stroke="#FCD116" stroke-width="8"/>
+    <line x1="235" y1="300" x2="265" y2="300" stroke="#FCD116" stroke-width="8"/>
+    <line x1="90" y1="240" x2="69" y2="219" stroke="#FCD116" stroke-width="8"/>
+    <line x1="210" y1="360" x2="231" y2="381" stroke="#FCD116" stroke-width="8"/>
+    <line x1="210" y1="240" x2="231" y2="219" stroke="#FCD116" stroke-width="8"/>
+    <line x1="90" y1="360" x2="69" y2="381" stroke="#FCD116" stroke-width="8"/>
+  </g>
+  <!-- 3 stars at triangle corners -->
+  <!-- Top star -->
+  <polygon points="60,80 67,102 90,102 72,116 79,138 60,124 41,138 48,116 30,102 53,102" fill="#FCD116"/>
+  <!-- Bottom star -->
+  <polygon points="60,520 67,542 90,542 72,556 79,578 60,564 41,578 48,556 30,542 53,542" fill="#FCD116"/>
+  <!-- Right star (near sun, left of triangle tip) -->
+  <polygon points="25,300 32,322 55,322 37,336 44,358 25,344 6,358 13,336 -5,322 18,322" fill="#FCD116"/>
+</svg>
