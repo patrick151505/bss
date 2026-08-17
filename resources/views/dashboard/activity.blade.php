@@ -12,7 +12,7 @@
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 
     {{-- Citizens --}}
-    <div class="card p-5">
+    <div class="card p-5 anim-card">
         <div class="flex items-center justify-between mb-3">
             <div class="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
                 <i class="mgc_group_line text-primary text-xl"></i>
@@ -21,7 +21,7 @@
                 +{{ $kpi['citizens_month'] }} mo
             </span>
         </div>
-        <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($kpi['total_citizens']) }}</p>
+        <p class="text-2xl font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $kpi['total_citizens'] }}">{{ number_format($kpi['total_citizens']) }}</p>
         <p class="text-xs text-gray-500 mt-1">Total Citizens</p>
         <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-1 text-xs text-gray-400">
             <i class="mgc_add_circle_line text-green-500"></i>
@@ -30,13 +30,13 @@
     </div>
 
     {{-- Households --}}
-    <div class="card p-5">
+    <div class="card p-5 anim-card">
         <div class="flex items-center justify-between mb-3">
             <div class="w-11 h-11 rounded-xl bg-info/10 flex items-center justify-center">
                 <i class="mgc_home_3_line text-info text-xl"></i>
             </div>
         </div>
-        <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($kpi['total_households']) }}</p>
+        <p class="text-2xl font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $kpi['total_households'] }}">{{ number_format($kpi['total_households']) }}</p>
         <p class="text-xs text-gray-500 mt-1">Households</p>
         <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-1 text-xs text-gray-400">
             <i class="mgc_document_2_line text-info"></i>
@@ -45,7 +45,7 @@
     </div>
 
     {{-- Blotter --}}
-    <div class="card p-5">
+    <div class="card p-5 anim-card">
         <div class="flex items-center justify-between mb-3">
             <div class="w-11 h-11 rounded-xl bg-warning/10 flex items-center justify-center">
                 <i class="mgc_alert_line text-warning text-xl"></i>
@@ -54,7 +54,7 @@
                 {{ $kpi['blotters_week'] }} this wk
             </span>
         </div>
-        <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ $kpi['blotters_open'] }}</p>
+        <p class="text-2xl font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $kpi['blotters_open'] }}">{{ $kpi['blotters_open'] }}</p>
         <p class="text-xs text-gray-500 mt-1">Open Blotter Cases</p>
         <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-1 text-xs text-gray-400">
             <i class="mgc_calendar_line text-warning"></i>
@@ -63,7 +63,7 @@
     </div>
 
     {{-- Budget --}}
-    <div class="card p-5">
+    <div class="card p-5 anim-card">
         <div class="flex items-center justify-between mb-3">
             <div class="w-11 h-11 rounded-xl bg-success/10 flex items-center justify-center">
                 <i class="mgc_wallet_3_line text-success text-xl"></i>
@@ -74,7 +74,7 @@
             </span>
             @endif
         </div>
-        <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">₱{{ number_format($kpi['budget_paid'], 0) }}</p>
+        <p class="text-2xl font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $kpi['budget_paid'] }}" data-prefix="₱">{{ "₱".number_format($kpi['budget_paid'], 0) }}</p>
         <p class="text-xs text-gray-500 mt-1">Total Disbursed (Paid)</p>
         <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-1 text-xs text-gray-400">
             <i class="mgc_check_circle_line text-success"></i>
@@ -399,6 +399,8 @@
         </table>
     </div>
 </div>
+
+@include('partials.stat-animations')
 
 @endsection
 

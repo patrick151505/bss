@@ -30,8 +30,15 @@ class AuthenticatedSessionController extends Controller
     {
         
         $request->authenticate();
-        
+
         $request->session()->regenerate();
+
+        // A configured landing page is an explicit preference — honor it directly
+        // rather than via intended(), which would otherwise prioritise whatever URL
+        // the user was bounced to login from and ignore their setting.
+        if ($landing = $request->user()->resolveLandingRoute()) {
+            return redirect()->route($landing);
+        }
 
         return redirect()->intended(RouteServiceProvider::HOME);
     }
@@ -50,6 +57,6 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        return redirect('/auth/logout-2');
+        return redirect()->route('login')->with('status', 'You have been logged out.');
     }
 }

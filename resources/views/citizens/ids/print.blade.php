@@ -9,7 +9,8 @@
     $setting  = \App\Models\Setting::instance();
     $profile  = $c?->profile ? asset(str_replace('public/', 'storage/', $c->profile)) : null;
     $qrValue  = $c?->qrcode ?? $setting->formatCitizenId($c?->id);
-    $qrUrl    = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' . urlencode($qrValue);
+    // QR generated locally (no internet) as an inline SVG data URI.
+    $qrUrl    = \App\Support\Qr::svgDataUri($qrValue, 200);
 
     $lname   = strtoupper($c?->lname ?? '');
     $fname   = $c?->fname ?? '';
@@ -22,10 +23,12 @@
     $photoUrl   = $profile ?? 'https://ui-avatars.com/api/?name=' . urlencode($fullName) . '&size=200&background=94a3b8&color=fff';
     $qrImgTag   = '<img src="' . $qrUrl . '" style="width:100%;height:100%;display:block;" alt="QR">';
 
-    // {{signature_img}} placeholder — filled after upload via JS; server sends empty tag initially
+    // {{signature_img}} placeholder — filled after upload via JS; server sends empty tag initially.
+    // Image fits inside its box (max-height/width 100%) so the designer-set box size controls it.
+    $sigImgStyle = 'max-height:100%;max-width:100%;height:auto;object-fit:contain;';
     $sigInitTag = $citizenId->sig_front
-        ? '<img src="' . asset(str_replace('public/', 'storage/', $citizenId->sig_front)) . '" id="sig-img-inner" style="display:block;height:22px;">'
-        : '<img id="sig-img-inner" style="display:none;height:22px;">';
+        ? '<img src="' . asset(str_replace('public/', 'storage/', $citizenId->sig_front)) . '" id="sig-img-inner" style="display:block;' . $sigImgStyle . '">'
+        : '<img id="sig-img-inner" style="display:none;' . $sigImgStyle . '">';
 
     $idNo       = $setting->formatCitizenId($c?->id);
     $bday       = $c?->bday?->format('M d, Y') ?? '—';
@@ -34,6 +37,9 @@
     $contact    = $c?->contact ?? '—';
     $since      = $c?->year_stay?->format('Y') ?? '—';
     $validUntil = $citizenId->valid_until?->format('M d, Y') ?? '—';
+    $dateIssued = $citizenId->created_at?->format('F d, Y') ?? '—';
+    // NOTE: column is spelled `pricinct_no` in eb_citizen (existing typo).
+    $precinctNo = $c?->pricinct_no ?: '—';
     $brgyName   = $setting->barangay_name ?? 'BARANGAY';
     $municity   = $setting->municipality ?? '';
     $province   = $setting->province ?? '';
@@ -54,32 +60,21 @@
     $useTemplate = $frontHtml !== '' || $backHtml !== '';
 
     if ($useTemplate) {
-        $vals = [
-            'full_name'       => strtoupper($fullNameFormal),
-            'fname'           => $fname, 'lname' => $lname,
-            'mname'           => $mname, 'suffix' => $suffix,
-            'id_no'           => $idNo,
-            'qrcode_value'    => $qrValue,
-            'bday'            => $bday,
-            'gender'          => $gender,
-            'address'         => $address,
-            'contact'         => $contact,
-            'since'           => $since,
-            'valid_until'     => $validUntil,
-            'brgy_name'       => $brgyName,
-            'municipality'    => $municity,
-            'province'        => $province,
-            'captain'         => $captain,
-            'captain_pos'     => 'Barangay Captain',
-            'ic_name'         => $icName,
-            'ic_contact'      => $icContact,
-            'ic_relationship' => $icRel,
-            'ic_address'      => $icAddress,
-            'photo_url'       => $photoUrl,
-            'qr_img'          => $qrImgTag,
-            // signature_img is a positioned div — replaced in HTML, updated live via JS
-            'signature_img'   => '<div class="signature" id="sig-overlay" style="position:absolute;top:158px;left:40px;">' . $sigInitTag . '</div>',
-        ];
+        // Same placeholder map the designer preview uses, plus print-only media
+        // tags (qr_img / signature_img) that need live substitution here.
+        $vals = \App\Models\CitizenId::placeholderValues(
+            $c,
+            $citizenId->created_at,
+            $citizenId->valid_until,
+        );
+        unset($vals['qr_url']);   // not a template placeholder
+        $vals['qr_img'] = $qrImgTag;
+        // signature_img is just the inner <img>; the designer's compiled HTML
+        // provides the positioned #sig-overlay wrapper around it. If a template
+        // was built the old way (bare tag, no wrapper), fall back to wrapping.
+        $vals['signature_img'] = str_contains($frontHtml . $backHtml, 'id="sig-overlay"')
+            ? $sigInitTag
+            : '<div class="signature" id="sig-overlay" style="position:absolute;top:158px;left:40px;">' . $sigInitTag . '</div>';
 
         // Replace all fixed placeholders first
         foreach ($vals as $k => $v) {
@@ -87,12 +82,13 @@
             $backHtml  = str_replace('{{' . $k . '}}', $v, $backHtml);
         }
 
-        // Replace any {{qr_img_N}} dynamically — supports any pixel size
+        // Replace any {{qr_img_N}} dynamically — supports any pixel size.
+        // QR is generated locally as an SVG data URI (no network dependency).
         $qrReplace = function(string $html) use ($qrValue): string {
             return preg_replace_callback('/\{\{qr_img_(\d+)\}\}/', function($m) use ($qrValue) {
                 $px  = (int) $m[1];
-                $url = 'https://api.qrserver.com/v1/create-qr-code/?size=' . $px . 'x' . $px . '&data=' . urlencode($qrValue);
-                return '<img src="' . $url . '" width="' . $px . '" height="' . $px . '" style="display:inline-block;image-rendering:pixelated;vertical-align:middle;" alt="QR">';
+                $uri = \App\Support\Qr::svgDataUri($qrValue, $px);
+                return '<img src="' . $uri . '" width="' . $px . '" height="' . $px . '" style="display:inline-block;vertical-align:middle;" alt="QR">';
             }, $html);
         };
         $frontHtml = $qrReplace($frontHtml);
@@ -107,6 +103,24 @@
         $backW  = ($backOrient  === 'portrait') ? '215mm' : '3.375in';
         $backH  = ($backOrient  === 'portrait') ? '340mm' : '2.125in';
     }
+
+    // ── Citizen tags + flags → CSS classes on the cards container ──────────
+    // Lets custom CSS style a card by membership, e.g. .tag-toda { … } or .flag-pwd { … }.
+    $slug = fn ($s) => 'tag-' . \Illuminate\Support\Str::slug($s);
+    $citizenClasses = collect();
+    foreach (($c?->tags ?? collect()) as $tag) {
+        if ($tag->name) $citizenClasses->push($slug($tag->name));
+    }
+    // Boolean flags on the citizen record.
+    if ($c?->is_pwd)         $citizenClasses->push('flag-pwd');
+    if ($c?->voters)         $citizenClasses->push('flag-voter');
+    if ($c?->is_soloparents) $citizenClasses->push('flag-solo-parent');
+    if (($c?->age ?? 0) >= 60) $citizenClasses->push('flag-senior');
+    if (($c?->age ?? 999) < 18) $citizenClasses->push('flag-minor');
+    if (($c?->gender ?? 0) == 1) $citizenClasses->push('flag-male');
+    if (($c?->gender ?? 0) == 2) $citizenClasses->push('flag-female');
+
+    $citizenClasses = $citizenClasses->unique()->implode(' ');
 @endphp
 
 <style>
@@ -138,6 +152,19 @@ body {
     align-self: flex-start;
     margin-top: 8px;
 }
+.ctrl-meta {
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 12px;
+    display: flex; flex-direction: column; gap: 3px;
+}
+.back-link {
+    font-size: 11px; color: #4f46e5; text-decoration: none; margin-bottom: 4px;
+}
+.back-link:hover { text-decoration: underline; }
+.meta-name { font-size: 13px; font-weight: 700; color: #1f2937; line-height: 1.2; }
+.meta-id   { font-size: 11px; color: #6b7280; font-family: monospace; }
+.meta-valid{ font-size: 11px; color: #6b7280; margin-top: 2px; }
+.meta-valid b { color: #059669; font-size: 11px; text-transform: none; letter-spacing: 0; }
 .controller b {
     font-size: 10px;
     text-transform: uppercase;
@@ -282,6 +309,16 @@ body {
 {{-- ── Controller (screen-only) ── --}}
 <div class="controller no-print" id="ctrl-panel">
 
+    {{-- Who + validity --}}
+    <div class="ctrl-meta">
+        <a href="{{ route('citizens.ids.index') }}" class="back-link">← Back to ID list</a>
+        <div class="meta-name">{{ $c?->full_name ?? 'Citizen' }}</div>
+        <div class="meta-id">{{ $idNo }}</div>
+        <div class="meta-valid">
+            Valid until <b>{{ $validUntil }}</b>
+        </div>
+    </div>
+
     <div class="sig-actions">
         <button class="btn-print-main" onclick="window.print()">🖨 Print</button>
         <input type="file" id="sig-file" accept="image/*" style="display:none" onchange="handleSigUpload(this)">
@@ -315,7 +352,9 @@ body {
 </div>
 
 {{-- ── Cards ── --}}
-<div class="cards-area">
+{{-- cards-area also carries the citizen's tags (tag-*) and flags (flag-*) as
+     classes, so custom template CSS can style a card by membership. --}}
+<div class="cards-area {{ $citizenClasses }}">
 
 @if(!$useTemplate)
 {{-- ══════════════════════════════════════════════════════ --}}
@@ -467,8 +506,10 @@ body {
     <div class="tpl-card tpl-front" id="card-front"
          style="width:{{ $frontW }};height:{{ $frontH }};position:relative;">
         {!! $frontHtml !!}
-        {{-- Fallback sig overlay if {{signature_img}} was not in designer HTML --}}
-        @if(!str_contains($tpl->html_front ?? '', '{{signature_img}}'))
+        {{-- Fallback sig overlay only if the compiled HTML has no signature box.
+             (Checks the rendered output, not the raw template, so it's reliable
+             whether the tag was on the front or back.) --}}
+        @if(!str_contains($frontHtml . $backHtml, 'id="sig-overlay"'))
         <div class="signature" id="sig-overlay">
             <img id="sig-img-inner" src="{{ $sigUrl ?? '' }}"
                  style="{{ $sigUrl ? 'display:block;' : 'display:none;' }}height:22px;">

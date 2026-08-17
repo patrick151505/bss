@@ -88,9 +88,23 @@ class BudgetLineItem extends Model
             ->sum('amount');
     }
 
-    /** Remaining balance (cash advance deduction added when CA module is built) */
+    /**
+     * Total un-liquidated (open) cash advances charged to this line item.
+     * Cash advances are currently linked to allocations, not line items, so this
+     * returns 0 unless the eb_cash_advances table gains a line_item_id column.
+     */
+    public function cashAdvanceTotal(): float
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('eb_cash_advances', 'line_item_id')) {
+            return 0.0;
+        }
+
+        return (float) $this->cashAdvances()->where('status', 'open')->sum('amount');
+    }
+
+    /** Remaining balance = appropriation − disbursed − open cash advances */
     public function balance(): float
     {
-        return (float) $this->appropriation - $this->disbursed();
+        return (float) $this->appropriation - $this->disbursed() - $this->cashAdvanceTotal();
     }
 }

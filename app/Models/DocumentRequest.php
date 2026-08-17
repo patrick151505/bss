@@ -10,17 +10,23 @@ class DocumentRequest extends Model
 
     protected $fillable = [
         'document_type_id',
+        'doc_number',
         'citizen_id',
+        'created_by',
+        'purpose',
         'status',
         'custom_fields',
+        'body_override',
         'is_paid',
         'fee',
         'fee_paid',
+        'amount_paid',
         'or_number',
         'remarks',
         'approved_by',
         'approved_at',
         'released_at',
+        'print_count',
         'template_version_id',
     ];
 
@@ -29,6 +35,7 @@ class DocumentRequest extends Model
         'is_paid'       => 'boolean',
         'fee_paid'      => 'boolean',
         'fee'           => 'decimal:2',
+        'amount_paid'   => 'decimal:2',
         'approved_at'   => 'datetime',
         'released_at'   => 'datetime',
     ];
@@ -51,6 +58,31 @@ class DocumentRequest extends Model
     public function approvedBy()
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * The formatted control number, e.g. "BRG-00001".
+     * Uses the stored per-type sequence + the document type's prefix.
+     */
+    public function getControlNumberAttribute(): string
+    {
+        if ($this->doc_number === null) {
+            return '';
+        }
+
+        $type = $this->relationLoaded('documentType')
+            ? $this->documentType
+            : $this->documentType()->first();
+
+        // Fall back to a padded number if the type is somehow missing.
+        return $type
+            ? $type->formatDocNumber($this->doc_number)
+            : str_pad((string) $this->doc_number, 5, '0', STR_PAD_LEFT);
     }
 
     public function getStatusColorAttribute(): string
@@ -168,14 +200,23 @@ class DocumentRequest extends Model
             'date_year'    => $now->format('Y'),
             'date_full'    => $now->format('F j, Y'),
 
+            // ── Expiry (validity from issue date) ─────────────────────
+            'expiry_3months' => $now->copy()->addMonths(3)->format('F j, Y'),
+            'expiry_6months' => $now->copy()->addMonths(6)->format('F j, Y'),
+            'expiry_1year'   => $now->copy()->addYear()->format('F j, Y'),
+
             // ── Barangay & request ────────────────────────────────────
             'brgy_name'    => $settings->barangay_name ?? '',
             'city'         => $settings->municipality ?? '',
             'province'     => $settings->province ?? '',
             'captain'      => $settings->captain_name ?? '',
+            'captain_signature' => $settings->captain_signature
+                                ? '<img src="' . asset('storage/' . str_replace('public/', '', $settings->captain_signature)) . '" style="max-height:60px;" alt="Signature">'
+                                : '',
             'issued_by'    => auth()->user()?->name ?? '',
             'or_number'    => $request?->or_number ?? '',
-            'doc_number'   => $request ? str_pad((string)$request->id, 6, '0', STR_PAD_LEFT) : '',
+            'doc_number'   => $request?->control_number ?? '',
+            'purpose'      => $request?->purpose ?? '',
         ];
     }
 
@@ -202,7 +243,11 @@ class DocumentRequest extends Model
         $custom  = $this->custom_fields ?? [];
         $map     = array_merge(self::basePlaceholderMap($citizen, $this), $custom);
 
-        $body = $this->documentType->template_body ?? '';
+        // Use the per-request edited body when one was saved (types that allow
+        // editing), otherwise fall back to the document type's template.
+        $body = ($this->body_override !== null && $this->body_override !== '')
+            ? $this->body_override
+            : ($this->documentType->template_body ?? '');
 
         foreach ($map as $key => $value) {
             $body = preg_replace_callback(
@@ -228,6 +273,48 @@ class DocumentRequest extends Model
         } else {
             // Remove unresolved profile_photo size tags when no photo exists
             $body = preg_replace('/\{\{\s*profile_photo\s*\[\d+(?:,\d+)?\]\s*\}\}/', '', $body);
+        }
+
+        // Handle {{ qr_image }} or {{ qr_image [size] }} — renders a real, scannable
+        // QR code from the citizen's qrcode value (default 100px).
+        $qrValue = $citizen?->qrcode;
+        if ($qrValue) {
+            $body = preg_replace_callback(
+                '/\{\{\s*qr_image\s*(?:\[(\d+)\])?\s*\}\}/',
+                function ($m) use ($qrValue) {
+                    $px  = (int) ($m[1] ?? 100);
+                    // Local QR (no internet) as an inline SVG data URI.
+                    $uri = \App\Support\Qr::svgDataUri($qrValue, $px);
+                    return "<img src=\"{$uri}\" width=\"{$px}\" height=\"{$px}\" style=\"display:inline-block;\" alt=\"QR\">";
+                },
+                $body
+            );
+        } else {
+            $body = preg_replace('/\{\{\s*qr_image\s*(?:\[\d+\])?\s*\}\}/', '', $body);
+        }
+
+        // Handle {{ captain_signature [width,height] }} with custom dimensions.
+        // e.g. {{ captain_signature [150,60] }} or {{ captain_signature [150] }}
+        // (width only — height auto to keep the aspect ratio). The plain
+        // {{ captain_signature }} tag (fixed size) is handled by the base map above.
+        $settings = Setting::instance();
+        $sigPath  = $settings->captain_signature;
+        if ($sigPath) {
+            $sigSrc = asset('storage/' . str_replace('public/', '', $sigPath));
+            $body = preg_replace_callback(
+                '/\{\{\s*captain_signature\s*\[(\d+)(?:,(\d+))?\]\s*\}\}/',
+                function ($m) use ($sigSrc) {
+                    $w = $m[1];
+                    // If a height is given, use it; otherwise keep aspect ratio.
+                    $sizeAttrs = isset($m[2])
+                        ? "width=\"{$w}\" height=\"{$m[2]}\""
+                        : "width=\"{$w}\" height=\"auto\"";
+                    return "<img src=\"{$sigSrc}\" {$sizeAttrs} style=\"object-fit:contain;display:inline-block;\" alt=\"Signature\">";
+                },
+                $body
+            );
+        } else {
+            $body = preg_replace('/\{\{\s*captain_signature\s*\[\d+(?:,\d+)?\]\s*\}\}/', '', $body);
         }
 
         return $body;

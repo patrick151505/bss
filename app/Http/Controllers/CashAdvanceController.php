@@ -27,7 +27,10 @@ class CashAdvanceController extends Controller
         $fiscalYear = FiscalYear::active();
         $officers   = AccountableOfficer::where('is_active', true)->orderBy('name')->get();
         $allocations= $fiscalYear
-            ? BudgetAllocation::where('fiscal_year_id', $fiscalYear->id)->orderBy('object_class')->orderBy('line_name')->get()
+            ? BudgetAllocation::with('program')
+                ->where('fiscal_year_id', $fiscalYear->id)
+                ->orderBy('object_class')
+                ->get()
             : collect();
 
         return view('budget.cash-advances.create', compact('fiscalYear', 'officers', 'allocations'));
@@ -87,8 +90,9 @@ class CashAdvanceController extends Controller
             return back()->with('error', 'Only open cash advances can be edited.');
         }
         $officers    = AccountableOfficer::where('is_active', true)->orderBy('name')->get();
-        $allocations = BudgetAllocation::where('fiscal_year_id', $cashAdvance->fiscal_year_id)
-            ->orderBy('object_class')->orderBy('line_name')->get();
+        $allocations = BudgetAllocation::with('program')
+            ->where('fiscal_year_id', $cashAdvance->fiscal_year_id)
+            ->orderBy('object_class')->get();
         return view('budget.cash-advances.edit', compact('cashAdvance', 'officers', 'allocations'));
     }
 

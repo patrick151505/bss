@@ -26,8 +26,10 @@ class SettingController extends Controller
             'municipal_logo'     => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'captain_name'       => 'nullable|max:255',
             'captain_position'   => 'nullable|max:100',
+            'captain_signature'  => 'nullable|image|mimes:png,jpeg,jpg|max:2048',
             'citizen_id_prefix'  => 'nullable|string|max:20|alpha_num',
             'citizen_id_digits'  => 'nullable|integer|min:1|max:10',
+            'id_validity'        => 'nullable|in:6m,1y,2y',
         ]);
 
         $setting = Setting::instance();
@@ -35,7 +37,7 @@ class SettingController extends Controller
         $data = $request->only([
             'barangay_name', 'address', 'municipality', 'province',
             'contact', 'email', 'captain_name', 'captain_position',
-            'citizen_id_prefix', 'citizen_id_digits',
+            'citizen_id_prefix', 'citizen_id_digits', 'id_validity',
         ]);
 
         if ($request->hasFile('logo')) {
@@ -48,6 +50,12 @@ class SettingController extends Controller
             $file = $request->file('municipal_logo');
             $path = $file->storeAs('public/settings', 'municipal_logo.' . $file->getClientOriginalExtension());
             $data['municipal_logo'] = $path;
+        }
+
+        if ($request->hasFile('captain_signature')) {
+            $file = $request->file('captain_signature');
+            $path = $file->storeAs('public/settings', 'captain_signature.' . $file->getClientOriginalExtension());
+            $data['captain_signature'] = $path;
         }
 
         $changed = [];

@@ -282,73 +282,70 @@
                 <div class="card-header">
                     <h5 class="card-title"><i class="mgc_flag_line me-2 text-primary"></i>Status & Flags</h5>
                 </div>
-                <div class="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-4 p-6">
+                <div class="p-6 space-y-5">
 
-                    <div>
-                        <label class="form-label">Approval Status</label>
-                        <select name="approval_status" class="form-select">
-                            @foreach($approvalStatuses as $as)
-                                <option value="{{ $as->id }}" {{ old('approval_status', 2) == $as->id ? 'selected' : '' }}>
-                                    {{ $as->description }}
-                                </option>
-                            @endforeach
-                        </select>
+                    {{-- Approval + Active (kept as selects — they have >2 states / clear labels) --}}
+                    <div class="grid md:grid-cols-2 grid-cols-1 gap-4">
+                        <div>
+                            <label class="form-label">Approval Status</label>
+                            <select name="approval_status" class="form-select">
+                                @foreach($approvalStatuses as $as)
+                                    <option value="{{ $as->id }}" {{ old('approval_status', 2) == $as->id ? 'selected' : '' }}>
+                                        {{ $as->description }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="form-label">Active Status</label>
+                            <select name="is_active" class="form-select">
+                                <option value="1" {{ old('is_active', 1) == 1 ? 'selected' : '' }}>Active</option>
+                                <option value="0" {{ old('is_active', 1) == 0 ? 'selected' : '' }}>Inactive</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div>
-                        <label class="form-label">Active Status</label>
-                        <select name="is_active" class="form-select">
-                            <option value="1" {{ old('is_active', 1) == 1 ? 'selected' : '' }}>Active</option>
-                            <option value="0" {{ old('is_active', 1) == 0 ? 'selected' : '' }}>Inactive</option>
-                        </select>
+                    {{-- Flags as toggle switches --}}
+                    <div class="grid md:grid-cols-2 grid-cols-1 gap-x-8 gap-y-3 pt-1">
+                        @php
+                            $flagRows = [
+                                ['name' => 'is_pwd',         'label' => 'PWD',                'hint' => 'Person with disability'],
+                                ['name' => 'is_soloparents', 'label' => 'Solo Parent',        'hint' => 'Registered solo parent'],
+                                ['name' => 'is_verify',      'label' => 'Verified',           'hint' => 'Record has been verified'],
+                            ];
+                        @endphp
+                        @foreach($flagRows as $f)
+                        <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
+                            <span>
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ $f['label'] }}</span>
+                                <span class="block text-xs text-gray-400">{{ $f['hint'] }}</span>
+                            </span>
+                            <input type="hidden" name="{{ $f['name'] }}" value="0">
+                            <input type="checkbox" role="switch" name="{{ $f['name'] }}" value="1"
+                                   class="form-switch text-primary shrink-0" {{ old($f['name'], 0) == 1 ? 'checked' : '' }}>
+                        </label>
+                        @endforeach
+
+                        {{-- Voter toggle reveals the precinct field --}}
+                        <label class="flex items-center justify-between gap-3 py-1 cursor-pointer">
+                            <span>
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Voter</span>
+                                <span class="block text-xs text-gray-400">Registered voter</span>
+                            </span>
+                            <input type="hidden" name="voters" value="0">
+                            <input type="checkbox" role="switch" id="voters-select" name="voters" value="1"
+                                   class="form-switch text-primary shrink-0" {{ old('voters', 0) == 1 ? 'checked' : '' }}>
+                        </label>
                     </div>
 
-                    <div>
-                        <label class="form-label">PWD</label>
-                        <select name="is_pwd" class="form-select">
-                            <option value="0" {{ old('is_pwd', 0) == 0 ? 'selected' : '' }}>No</option>
-                            <option value="1" {{ old('is_pwd', 0) == 1 ? 'selected' : '' }}>Yes — PWD</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="form-label">Solo Parent</label>
-                        <select name="is_soloparents" class="form-select">
-                            <option value="0" {{ old('is_soloparents', 0) == 0 ? 'selected' : '' }}>No</option>
-                            <option value="1" {{ old('is_soloparents', 0) == 1 ? 'selected' : '' }}>Yes — Solo Parent</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="form-label">Voter</label>
-                        <select name="voters" id="voters-select" class="form-select">
-                            <option value="0" {{ old('voters', 0) == 0 ? 'selected' : '' }}>No</option>
-                            <option value="1" {{ old('voters', 0) == 1 ? 'selected' : '' }}>Yes — Registered Voter</option>
-                        </select>
-                    </div>
-
-                    <div id="field-precinct" class="{{ old('voters', 0) == 1 ? '' : 'hidden' }}">
+                    {{-- Precinct No. — shown only when Voter is on --}}
+                    <div id="field-precinct" class="md:w-1/2 {{ old('voters', 0) == 1 ? '' : 'hidden' }}">
                         <label class="form-label">Precinct No. <span class="text-danger">*</span></label>
                         <input type="text" name="pricinct_no" value="{{ old('pricinct_no') }}"
                             class="form-input @error('pricinct_no') border-danger @enderror"
                             placeholder="0055F" maxlength="6">
                         @error('pricinct_no') <p class="text-danger text-xs mt-1">{{ $message }}</p> @enderror
-                    </div>
-
-                    <div>
-                        <label class="form-label">ID Released</label>
-                        <select name="is_id_release" class="form-select">
-                            <option value="0" {{ old('is_id_release', 0) == 0 ? 'selected' : '' }}>Not Yet</option>
-                            <option value="1" {{ old('is_id_release', 0) == 1 ? 'selected' : '' }}>Released</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="form-label">Verified</label>
-                        <select name="is_verify" class="form-select">
-                            <option value="0" {{ old('is_verify', 0) == 0 ? 'selected' : '' }}>Unverified</option>
-                            <option value="1" {{ old('is_verify', 0) == 1 ? 'selected' : '' }}>Verified</option>
-                        </select>
                     </div>
 
                 </div>
@@ -696,13 +693,9 @@ window.addEventListener('DOMContentLoaded', () => {
             toggleAddressFields(this);
         });
 
-        // Voter → show/hide precinct
+        // Voter toggle → show/hide precinct
         $('#voters-select').on('change', function () {
-            if ($(this).val() === '1') {
-                $('#field-precinct').removeClass('hidden');
-            } else {
-                $('#field-precinct').addClass('hidden');
-            }
+            $('#field-precinct').toggleClass('hidden', !$(this).is(':checked'));
         });
 
         // Profile photo preview

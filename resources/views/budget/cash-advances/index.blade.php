@@ -51,7 +51,7 @@
                         <td class="max-w-xs">
                             <p class="truncate text-sm">{{ $ca->purpose }}</p>
                             @if($ca->allocation)
-                                <p class="text-xs text-gray-400">{{ $ca->allocation->line_name }}</p>
+                                <p class="text-xs text-gray-400">{{ $ca->allocation->program?->name ?? '—' }}</p>
                             @endif
                         </td>
                         <td class="text-end font-mono font-semibold">₱{{ number_format($ca->amount, 2) }}</td>

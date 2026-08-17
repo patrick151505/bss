@@ -7,21 +7,36 @@
 
 @section('content')
 
+@if(session('success'))
+<div class="mb-4 p-4 rounded-lg bg-success/10 border border-success/30 flex gap-3">
+    <i class="mgc_check_circle_line text-success text-xl mt-0.5 shrink-0"></i>
+    <p class="text-sm text-success font-medium">{{ session('success') }}</p>
+</div>
+@endif
+@if(session('error'))
+<div class="mb-4 p-4 rounded-lg bg-danger/10 border border-danger/30 flex gap-3">
+    <i class="mgc_alert_line text-danger text-xl mt-0.5 shrink-0"></i>
+    <p class="text-sm text-danger font-medium">{{ session('error') }}</p>
+</div>
+@endif
+
 <div class="flex items-center justify-between mb-6">
     <p class="text-sm text-gray-500">Officers eligible to receive cash advances.</p>
+    @can('budget.create')
     <button onclick="document.getElementById('add-officer-form').classList.toggle('hidden')"
-        class="btn btn-sm btn-primary">
-        <i class="mgc_add_line me-1"></i> Add Officer
+        class="btn bg-primary text-white flex items-center gap-2">
+        <i class="mgc_add_line"></i> Add Officer
     </button>
+    @endcan
 </div>
 
 {{-- Add Form --}}
 <div id="add-officer-form" class="hidden card mb-6">
     <div class="card-header"><h5 class="card-title">Add Accountable Officer</h5></div>
-    <div class="card-body">
+    <div class="p-6">
         <form method="POST" action="{{ route('budget.officers.store') }}">
             @csrf
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 <div>
                     <label class="form-label">Full Name <span class="text-danger">*</span></label>
                     <input type="text" name="name" class="form-input" required value="{{ old('name') }}">
@@ -36,67 +51,80 @@
                 </div>
             </div>
             <div class="flex gap-2">
-                <button type="submit" class="btn btn-primary">Save Officer</button>
+                <button type="submit" class="btn bg-primary text-white">Save Officer</button>
                 <button type="button" onclick="document.getElementById('add-officer-form').classList.add('hidden')"
-                    class="btn btn-light">Cancel</button>
+                    class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
             </div>
         </form>
     </div>
 </div>
 
 {{-- Officers List --}}
-<div class="card">
-    <div class="card-body p-0">
-        <table class="table table-sm mb-0">
-            <thead>
+<div class="card overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th class="text-end">Fidelity Bond</th>
-                    <th>Open CA</th>
-                    <th>Status</th>
-                    <th class="text-end">Actions</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Position</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Fidelity Bond</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Open CA</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Status</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Actions</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                 @forelse($officers as $officer)
                 @php $openCa = $officer->openCashAdvance(); @endphp
-                <tr>
-                    <td class="font-medium">{{ $officer->name }}</td>
-                    <td class="text-sm text-gray-500">{{ $officer->position ?: '—' }}</td>
-                    <td class="text-end font-mono">₱{{ number_format($officer->fidelity_bond_amount, 2) }}</td>
-                    <td>
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                    <td class="px-6 py-3 font-medium text-gray-800 dark:text-gray-100">{{ $officer->name }}</td>
+                    <td class="px-6 py-3 text-gray-500 dark:text-gray-400">{{ $officer->position ?: '—' }}</td>
+                    <td class="px-6 py-3 text-right font-mono text-gray-700 dark:text-gray-300">₱{{ number_format($officer->fidelity_bond_amount, 2) }}</td>
+                    <td class="px-6 py-3">
                         @if($openCa)
                             <a href="{{ route('budget.cash-advances.show', $openCa) }}"
-                                class="badge bg-warning/15 text-warning hover:underline text-xs">
+                                class="inline-flex items-center gap-1 py-1 px-2.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 hover:bg-yellow-200 transition">
                                 {{ $openCa->ca_no }}
-                                @if($openCa->isOverdue()) <span class="ms-1 text-danger">(Overdue)</span> @endif
+                                @if($openCa->isOverdue()) <span class="text-red-700 font-semibold">· Overdue</span> @endif
                             </a>
                         @else
                             <span class="text-xs text-gray-400">None</span>
                         @endif
                     </td>
-                    <td>
+                    <td class="px-6 py-3">
                         @if($officer->is_active)
-                            <span class="badge bg-success/15 text-success">Active</span>
+                            <span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span>Active
+                            </span>
                         @else
-                            <span class="badge bg-gray-100 text-gray-500">Inactive</span>
+                            <span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+                                <span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span>Inactive
+                            </span>
                         @endif
                     </td>
-                    <td class="text-end">
-                        <button onclick="openEditModal({{ $officer->id }}, @json($officer->name), @json($officer->position), {{ $officer->fidelity_bond_amount }}, {{ $officer->is_active ? 1 : 0 }})"
-                            class="btn btn-xs btn-light">Edit</button>
-
-                        <form method="POST" action="{{ route('budget.officers.destroy', $officer) }}" class="inline"
-                            onsubmit="return confirm('Remove {{ addslashes($officer->name) }}?')">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="btn btn-xs btn-danger-light">Remove</button>
-                        </form>
+                    <td class="px-6 py-3 text-right whitespace-nowrap">
+                        <div class="inline-flex items-center gap-1.5">
+                            @can('budget.edit')
+                            <button onclick="openEditModal({{ $officer->id }}, @json($officer->name), @json($officer->position), {{ $officer->fidelity_bond_amount }}, {{ $officer->is_active ? 1 : 0 }})"
+                                class="btn btn-sm bg-primary/10 text-primary hover:bg-primary hover:text-white"><i class="mgc_edit_line"></i></button>
+                            @endcan
+                            @can('budget.delete')
+                            <form method="POST" action="{{ route('budget.officers.destroy', $officer) }}"
+                                onsubmit="return confirm('Remove {{ addslashes($officer->name) }}?')">
+                                @csrf @method('DELETE')
+                                <button type="submit" class="btn btn-sm bg-danger/25 text-danger hover:bg-danger hover:text-white"><i class="mgc_delete_2_line"></i></button>
+                            </form>
+                            @endcan
+                            @canany(['budget.edit', 'budget.delete'])@else
+                            <span class="text-xs text-gray-400">—</span>
+                            @endcanany
+                        </div>
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6" class="text-center text-gray-400 py-10">
+                    <td colspan="6" class="text-center text-gray-400 py-12">
+                        <i class="mgc_user_3_line text-4xl mb-2 block opacity-30"></i>
                         No accountable officers added yet.
                     </td>
                 </tr>
@@ -130,8 +158,8 @@
             </div>
             <div class="flex gap-2 justify-end">
                 <button type="button" onclick="document.getElementById('edit-officer-modal').classList.add('hidden')"
-                    class="btn btn-light">Cancel</button>
-                <button type="submit" class="btn btn-primary">Update</button>
+                    class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
+                <button type="submit" class="btn bg-primary text-white">Update</button>
             </div>
         </form>
     </div>
@@ -139,7 +167,7 @@
 
 @endsection
 
-@push('scripts')
+@push('inline-scripts')
 <script>
 function openEditModal(id, name, position, bond, isActive) {
     const base = "{{ url('budget/officers') }}";

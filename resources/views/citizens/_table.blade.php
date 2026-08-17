@@ -1,8 +1,4 @@
 @php $idSetting = \App\Models\Setting::instance(); @endphp
-{{-- Record count --}}
-<p id="record-count-text" class="text-xs text-gray-500 mt-0.5">
-    Showing {{ $citizens->firstItem() ?? 0 }}–{{ $citizens->lastItem() ?? 0 }} of {{ $citizens->total() }} records
-</p>
 
 {{-- Table --}}
 <div class="overflow-x-auto">

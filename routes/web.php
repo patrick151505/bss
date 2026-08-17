@@ -47,6 +47,13 @@ use App\Http\Controllers\ProfileController;
 
 require __DIR__ . '/auth.php';
 
+// Root: send logged-in users to their home, guests to the login page.
+Route::get('/', function () {
+    return auth()->check()
+        ? redirect(\App\Providers\RouteServiceProvider::HOME)
+        : redirect()->route('login');
+})->name('root');
+
 
 
 
@@ -72,12 +79,13 @@ Route::middleware('auth')->group(function () {
     Route::post('citizens/register-minor', [CitizenController::class, 'storeMinor'])->name('citizens.store-minor');
     Route::get('citizens/parent-search', [CitizenController::class, 'parentSearch'])->name('citizens.parent-search');
     Route::get('citizens/search', [CitizenController::class, 'search'])->name('citizens.search');
+    Route::get('citizens/recent', [CitizenController::class, 'recent'])->name('citizens.recent');
     Route::get('citizens/{citizen}/quick-history', [CitizenController::class, 'quickHistory'])->name('citizens.quick-history');
     Route::get('citizens/{citizen}/detail', [CitizenController::class, 'detail'])->name('citizens.detail');
     Route::post('citizens/{citizen}/tags', [TagController::class, 'assignToCitizen'])->name('citizens.tags.sync');
 
     // Tags management
-    Route::get('tags', [TagController::class, 'index'])->name('tags.index');
+    Route::get('tags', [TagController::class, 'index'])->middleware('can:tags.view')->name('tags.index');
     Route::get('tags/all', [TagController::class, 'all'])->name('tags.all');
     Route::post('tags', [TagController::class, 'store'])->name('tags.store');
     Route::put('tags/{tag}', [TagController::class, 'update'])->name('tags.update');
@@ -90,14 +98,18 @@ Route::middleware('auth')->group(function () {
     Route::post('citizens/ids/{citizenId}/upload-signature', [CitizenIdController::class, 'uploadSignature'])->name('citizens.ids.upload-signature');
     Route::post('citizens/ids/{citizenId}/remove-signature', [CitizenIdController::class, 'removeSignature'])->name('citizens.ids.remove-signature');
 
-    // ID Template Designer
-    Route::get('citizens/ids/template/designer', [CitizenIdTemplateController::class, 'designer'])->name('citizens.ids.template.designer');
-    Route::post('citizens/ids/template/save', [CitizenIdTemplateController::class, 'save'])->name('citizens.ids.template.save');
-    Route::post('citizens/ids/template/upload-bg', [CitizenIdTemplateController::class, 'uploadBg'])->name('citizens.ids.template.upload-bg');
-    Route::post('citizens/ids/template/remove-bg', [CitizenIdTemplateController::class, 'removeBg'])->name('citizens.ids.template.remove-bg');
+    // ID Template Designer — edits the official ID layout for every citizen,
+    // so it is gated behind citizens.edit rather than plain auth.
+    Route::middleware('can:citizens.edit')->group(function () {
+        Route::get('citizens/ids/template/designer', [CitizenIdTemplateController::class, 'designer'])->name('citizens.ids.template.designer');
+        Route::post('citizens/ids/template/save', [CitizenIdTemplateController::class, 'save'])->name('citizens.ids.template.save');
+        Route::post('citizens/ids/template/upload-bg', [CitizenIdTemplateController::class, 'uploadBg'])->name('citizens.ids.template.upload-bg');
+        Route::post('citizens/ids/template/remove-bg', [CitizenIdTemplateController::class, 'removeBg'])->name('citizens.ids.template.remove-bg');
+        Route::get('citizens/ids/template/preview-data/{citizen}', [CitizenIdTemplateController::class, 'previewData'])->name('citizens.ids.template.preview-data');
+    });
 
     // Household module — must be BEFORE citizens resource to avoid {citizen} catching 'household'
-    Route::prefix('citizens/household')->name('households.')->group(function () {
+    Route::prefix('citizens/household')->name('households.')->middleware('can:households.view')->group(function () {
         Route::get('/',                         [HouseholdController::class, 'index'])->name('index');
         Route::get('retrieve',                  [HouseholdController::class, 'retrieve'])->name('retrieve');
         Route::get('details',                   [HouseholdController::class, 'getDetails'])->name('details');
@@ -115,17 +127,21 @@ Route::middleware('auth')->group(function () {
         Route::get('search',                    [HouseholdController::class, 'search'])->name('search');
     });
 
-    Route::resource('citizens', CitizenController::class);
+    Route::middleware('can:citizens.view')->group(function () {
+        Route::resource('citizens', CitizenController::class);
+    });
 
     // Blotter module
-    Route::patch('blotters/{blotter}/status', [BlotterController::class, 'updateStatus'])->name('blotters.status');
-    Route::post('blotters/{blotter}/actions', [BlotterController::class, 'storeAction'])->name('blotters.actions.store');
-    Route::patch('blotters/{blotter}/actions/{action}/outcome', [BlotterController::class, 'updateActionOutcome'])->name('blotters.actions.outcome');
-    Route::delete('blotters/{blotter}/actions/{action}', [BlotterController::class, 'destroyAction'])->name('blotters.actions.destroy');
-    Route::resource('blotters', BlotterController::class);
+    Route::middleware('can:blotter.view')->group(function () {
+        Route::patch('blotters/{blotter}/status', [BlotterController::class, 'updateStatus'])->name('blotters.status');
+        Route::post('blotters/{blotter}/actions', [BlotterController::class, 'storeAction'])->name('blotters.actions.store');
+        Route::patch('blotters/{blotter}/actions/{action}/outcome', [BlotterController::class, 'updateActionOutcome'])->name('blotters.actions.outcome');
+        Route::delete('blotters/{blotter}/actions/{action}', [BlotterController::class, 'destroyAction'])->name('blotters.actions.destroy');
+        Route::resource('blotters', BlotterController::class);
+    });
 
     // Events & Attendance module
-    Route::prefix('events')->name('events.')->group(function () {
+    Route::prefix('events')->name('events.')->middleware('can:events.view')->group(function () {
         Route::get('/',                                     [EventController::class, 'index'])->name('index');
         Route::get('kpi',                                   [EventController::class, 'kpi'])->name('kpi');
         Route::get('retrieve',                              [EventController::class, 'retrieve'])->name('retrieve');
@@ -166,94 +182,88 @@ Route::middleware('auth')->group(function () {
     Route::put('settings/officials/{official}', [OfficialController::class, 'update'])->name('officials.update');
     Route::delete('settings/officials/{official}', [OfficialController::class, 'destroy'])->name('officials.destroy');
 
-    Route::get('settings/addresses', [AddressController::class, 'index'])->name('addresses.index');
-    Route::post('settings/addresses', [AddressController::class, 'store'])->name('addresses.store');
-    Route::put('settings/addresses/{address}', [AddressController::class, 'update'])->name('addresses.update');
-    Route::patch('settings/addresses/{address}/toggle', [AddressController::class, 'toggleActive'])->name('addresses.toggle');
+    Route::get('settings/addresses', [AddressController::class, 'index'])->middleware('can:addresses.view')->name('addresses.index');
+    Route::post('settings/addresses', [AddressController::class, 'store'])->middleware('can:addresses.create')->name('addresses.store');
+    Route::put('settings/addresses/{address}', [AddressController::class, 'update'])->middleware('can:addresses.edit')->name('addresses.update');
+    Route::patch('settings/addresses/{address}/toggle', [AddressController::class, 'toggleActive'])->middleware('can:addresses.edit')->name('addresses.toggle');
 
     // Budget module
-    Route::get('budget', [BudgetDashboardController::class, 'index'])->name('budget.index');
+    Route::get('budget', [BudgetDashboardController::class, 'index'])->middleware('can:budget.view')->name('budget.index');
 
-    Route::prefix('budget')->name('budget.')->group(function () {
-        // Fiscal years
-        Route::post('fiscal-years', [FiscalYearController::class, 'store'])->name('fiscal-years.store');
-        Route::patch('fiscal-years/{fiscalYear}/activate', [FiscalYearController::class, 'setActive'])->name('fiscal-years.activate');
-        Route::delete('fiscal-years/{fiscalYear}', [FiscalYearController::class, 'destroy'])->name('fiscal-years.destroy');
+    Route::prefix('budget')->name('budget.')->middleware('can:budget.view')->group(function () {
 
-        // Income Estimates
+        // ── Read-only (budget.view) ─────────────────────────────────────────
         Route::get('income-estimates', [IncomeEstimateController::class, 'index'])->name('income-estimates.index');
-        Route::post('income-estimates', [IncomeEstimateController::class, 'store'])->name('income-estimates.store');
-        Route::put('income-estimates/{incomeEstimate}', [IncomeEstimateController::class, 'update'])->name('income-estimates.update');
-        Route::delete('income-estimates/{incomeEstimate}', [IncomeEstimateController::class, 'destroy'])->name('income-estimates.destroy');
-
-        // Budget Programs (PPA list)
         Route::get('programs', [BudgetProgramController::class, 'index'])->name('programs.index');
-        Route::post('programs', [BudgetProgramController::class, 'store'])->name('programs.store');
-        Route::put('programs/{program}', [BudgetProgramController::class, 'update'])->name('programs.update');
-        Route::delete('programs/{program}', [BudgetProgramController::class, 'destroy'])->name('programs.destroy');
-
-        // Budget Line Items
         Route::get('line-items', [BudgetLineItemController::class, 'index'])->name('line-items.index');
         Route::get('line-items/program-items', [BudgetLineItemController::class, 'programItems'])->name('line-items.program-items');
-        Route::post('line-items', [BudgetLineItemController::class, 'store'])->name('line-items.store');
-        Route::put('line-items/{lineItem}', [BudgetLineItemController::class, 'update'])->name('line-items.update');
-        Route::delete('line-items/{lineItem}', [BudgetLineItemController::class, 'destroy'])->name('line-items.destroy');
-        Route::post('line-items/seed-defaults', [BudgetLineItemController::class, 'seedDefaults'])->name('line-items.seed-defaults');
-
-        // Budget Matrix — read-only view, amounts come from line items
         Route::get('allocations', [BudgetAllocationController::class, 'index'])->name('allocations.index');
-
-        // Suppliers
         Route::get('suppliers', [BudgetSupplierController::class, 'index'])->name('suppliers.index');
         Route::get('suppliers/search', [BudgetSupplierController::class, 'search'])->name('suppliers.search');
-        Route::post('suppliers', [BudgetSupplierController::class, 'store'])->name('suppliers.store');
-        Route::put('suppliers/{supplier}', [BudgetSupplierController::class, 'update'])->name('suppliers.update');
-        Route::delete('suppliers/{supplier}', [BudgetSupplierController::class, 'destroy'])->name('suppliers.destroy');
-
-        // Vouchers (DV / PCV / Payroll)
         Route::get('transactions', [BudgetTransactionController::class, 'index'])->name('transactions.index');
-        Route::get('transactions/create', [BudgetTransactionController::class, 'create'])->name('transactions.create');
-        Route::post('transactions', [BudgetTransactionController::class, 'store'])->name('transactions.store');
         Route::get('transactions/{transaction}', [BudgetTransactionController::class, 'show'])->name('transactions.show');
         Route::get('transactions/{transaction}/print', [BudgetTransactionController::class, 'print'])->name('transactions.print');
-        Route::patch('transactions/{transaction}/status', [BudgetTransactionController::class, 'updateStatus'])->name('transactions.status');
-        Route::delete('transactions/{transaction}', [BudgetTransactionController::class, 'destroy'])->name('transactions.destroy');
-        Route::post('transactions/{transaction}/attachments', [BudgetTransactionAttachmentController::class, 'store'])->name('transactions.attachments.store');
         Route::get('attachments/{attachment}/download', [BudgetTransactionAttachmentController::class, 'download'])->name('attachments.download');
-        Route::delete('attachments/{attachment}', [BudgetTransactionAttachmentController::class, 'destroy'])->name('attachments.destroy');
-
-        // Accountable Officers
         Route::get('officers', [AccountableOfficerController::class, 'index'])->name('officers.index');
-        Route::post('officers', [AccountableOfficerController::class, 'store'])->name('officers.store');
-        Route::put('officers/{officer}', [AccountableOfficerController::class, 'update'])->name('officers.update');
-        Route::delete('officers/{officer}', [AccountableOfficerController::class, 'destroy'])->name('officers.destroy');
-
-        // Cash Advances
         Route::get('cash-advances', [CashAdvanceController::class, 'index'])->name('cash-advances.index');
-        Route::get('cash-advances/create', [CashAdvanceController::class, 'create'])->name('cash-advances.create');
-        Route::post('cash-advances', [CashAdvanceController::class, 'store'])->name('cash-advances.store');
         Route::get('cash-advances/{cashAdvance}', [CashAdvanceController::class, 'show'])->name('cash-advances.show');
-        Route::get('cash-advances/{cashAdvance}/edit', [CashAdvanceController::class, 'edit'])->name('cash-advances.edit');
-        Route::put('cash-advances/{cashAdvance}', [CashAdvanceController::class, 'update'])->name('cash-advances.update');
-
-        // Liquidation Reports
-        Route::get('cash-advances/{cashAdvance}/liquidate', [LiquidationReportController::class, 'create'])->name('liquidations.create');
-        Route::post('cash-advances/{cashAdvance}/liquidate', [LiquidationReportController::class, 'store'])->name('liquidations.store');
         Route::get('liquidations/{liquidation}', [LiquidationReportController::class, 'show'])->name('liquidations.show');
-        Route::get('liquidations/{liquidation}/edit', [LiquidationReportController::class, 'edit'])->name('liquidations.edit');
-        Route::put('liquidations/{liquidation}', [LiquidationReportController::class, 'update'])->name('liquidations.update');
-        Route::patch('liquidations/{liquidation}/close', [LiquidationReportController::class, 'close'])->name('liquidations.close');
-
-        // Budget settings (statutory thresholds — configurable per barangay)
         Route::get('settings', [BudgetSettingController::class, 'index'])->name('settings.index');
-        Route::post('settings', [BudgetSettingController::class, 'update'])->name('settings.update');
-
-        // Audit log
         Route::get('logs', [BudgetLogController::class, 'index'])->name('logs.index');
+
+        // ── Create (budget.create) — record new records ─────────────────────
+        Route::middleware('can:budget.create')->group(function () {
+            Route::post('fiscal-years', [FiscalYearController::class, 'store'])->name('fiscal-years.store');
+            Route::post('income-estimates', [IncomeEstimateController::class, 'store'])->name('income-estimates.store');
+            Route::post('programs', [BudgetProgramController::class, 'store'])->name('programs.store');
+            Route::post('line-items', [BudgetLineItemController::class, 'store'])->name('line-items.store');
+            Route::post('line-items/seed-defaults', [BudgetLineItemController::class, 'seedDefaults'])->name('line-items.seed-defaults');
+            Route::post('suppliers', [BudgetSupplierController::class, 'store'])->name('suppliers.store');
+            Route::get('transactions/create', [BudgetTransactionController::class, 'create'])->name('transactions.create');
+            Route::post('transactions', [BudgetTransactionController::class, 'store'])->name('transactions.store');
+            Route::post('transactions/{transaction}/attachments', [BudgetTransactionAttachmentController::class, 'store'])->name('transactions.attachments.store');
+            Route::post('officers', [AccountableOfficerController::class, 'store'])->name('officers.store');
+            Route::get('cash-advances/create', [CashAdvanceController::class, 'create'])->name('cash-advances.create');
+            Route::post('cash-advances', [CashAdvanceController::class, 'store'])->name('cash-advances.store');
+            Route::get('cash-advances/{cashAdvance}/liquidate', [LiquidationReportController::class, 'create'])->name('liquidations.create');
+            Route::post('cash-advances/{cashAdvance}/liquidate', [LiquidationReportController::class, 'store'])->name('liquidations.store');
+        });
+
+        // ── Edit / approve (budget.edit) — modify existing + status changes ─
+        Route::middleware('can:budget.edit')->group(function () {
+            Route::patch('fiscal-years/{fiscalYear}/activate', [FiscalYearController::class, 'setActive'])->name('fiscal-years.activate');
+            Route::put('income-estimates/{incomeEstimate}', [IncomeEstimateController::class, 'update'])->name('income-estimates.update');
+            Route::put('programs/{program}', [BudgetProgramController::class, 'update'])->name('programs.update');
+            Route::put('line-items/{lineItem}', [BudgetLineItemController::class, 'update'])->name('line-items.update');
+            Route::put('suppliers/{supplier}', [BudgetSupplierController::class, 'update'])->name('suppliers.update');
+            Route::patch('transactions/{transaction}/status', [BudgetTransactionController::class, 'updateStatus'])->name('transactions.status');
+            Route::put('officers/{officer}', [AccountableOfficerController::class, 'update'])->name('officers.update');
+            Route::get('cash-advances/{cashAdvance}/edit', [CashAdvanceController::class, 'edit'])->name('cash-advances.edit');
+            Route::put('cash-advances/{cashAdvance}', [CashAdvanceController::class, 'update'])->name('cash-advances.update');
+            Route::get('liquidations/{liquidation}/edit', [LiquidationReportController::class, 'edit'])->name('liquidations.edit');
+            Route::put('liquidations/{liquidation}', [LiquidationReportController::class, 'update'])->name('liquidations.update');
+            Route::patch('liquidations/{liquidation}/close', [LiquidationReportController::class, 'close'])->name('liquidations.close');
+            Route::post('settings', [BudgetSettingController::class, 'update'])->name('settings.update');
+        });
+
+        // ── Delete (budget.delete) ──────────────────────────────────────────
+        Route::middleware('can:budget.delete')->group(function () {
+            Route::delete('fiscal-years/{fiscalYear}', [FiscalYearController::class, 'destroy'])->name('fiscal-years.destroy');
+            Route::delete('income-estimates/{incomeEstimate}', [IncomeEstimateController::class, 'destroy'])->name('income-estimates.destroy');
+            Route::delete('programs/{program}', [BudgetProgramController::class, 'destroy'])->name('programs.destroy');
+            Route::delete('line-items/{lineItem}', [BudgetLineItemController::class, 'destroy'])->name('line-items.destroy');
+            Route::delete('suppliers/{supplier}', [BudgetSupplierController::class, 'destroy'])->name('suppliers.destroy');
+            Route::delete('transactions/{transaction}', [BudgetTransactionController::class, 'destroy'])->name('transactions.destroy');
+            Route::delete('attachments/{attachment}', [BudgetTransactionAttachmentController::class, 'destroy'])->name('attachments.destroy');
+            Route::delete('officers/{officer}', [AccountableOfficerController::class, 'destroy'])->name('officers.destroy');
+        });
     });
 
     // Documents module
-    Route::prefix('documents')->name('documents.')->group(function () {
+    Route::prefix('documents')->name('documents.')->middleware('can:documents.view')->group(function () {
+        // Documents dashboard (KPIs + rankings)
+        Route::get('dashboard', [\App\Http\Controllers\DocumentDashboardController::class, 'index'])->name('dashboard');
+
         // Document Templates (paper library)
         Route::get('templates',                             [DocumentTemplateController::class, 'index'])->name('templates.index');
         Route::get('templates/create',                      [DocumentTemplateController::class, 'create'])->name('templates.create');
@@ -267,6 +277,7 @@ Route::middleware('auth')->group(function () {
 
         // Document Types (CMS setup)
         Route::get('types',                         [DocumentTypeController::class, 'index'])->name('types.index');
+        Route::get('types/samples',                 [DocumentTypeController::class, 'samples'])->name('types.samples');
         Route::get('types/create',                  [DocumentTypeController::class, 'create'])->name('types.create');
         Route::post('types',                        [DocumentTypeController::class, 'store'])->name('types.store');
         Route::get('types/{documentType}/edit',          [DocumentTypeController::class, 'edit'])->name('types.edit');
@@ -284,6 +295,7 @@ Route::middleware('auth')->group(function () {
         Route::patch('requests/{documentRequest}/approve',  [DocumentRequestController::class, 'approve'])->name('requests.approve');
         Route::patch('requests/{documentRequest}/release',  [DocumentRequestController::class, 'release'])->name('requests.release');
         Route::patch('requests/{documentRequest}/reject',   [DocumentRequestController::class, 'reject'])->name('requests.reject');
+        Route::patch('requests/{documentRequest}/print',    [DocumentRequestController::class, 'countPrint'])->name('requests.print');
         Route::delete('requests/{documentRequest}',         [DocumentRequestController::class, 'destroy'])->name('requests.destroy');
     });
 
@@ -293,11 +305,11 @@ Route::middleware('auth')->group(function () {
     Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
     Route::patch('users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
 
-    Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
-    Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
-    Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
-    Route::delete('roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
-    Route::get('roles/{role}/permissions', [RoleController::class, 'permissions'])->name('roles.permissions');
+    Route::get('roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('roles.index');
+    Route::post('roles', [RoleController::class, 'store'])->middleware('can:roles.create')->name('roles.store');
+    Route::put('roles/{role}', [RoleController::class, 'update'])->middleware('can:roles.edit')->name('roles.update');
+    Route::delete('roles/{role}', [RoleController::class, 'destroy'])->middleware('can:roles.delete')->name('roles.destroy');
+    Route::get('roles/{role}/permissions', [RoleController::class, 'permissions'])->middleware('can:roles.view')->name('roles.permissions');
 
     // My Profile (self-service, for the currently logged-in user)
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -305,7 +317,7 @@ Route::middleware('auth')->group(function () {
     Route::put('profile/password', [ProfileController::class, 'updatePassword'])->name('profile.update-password');
 
     // Inventory module
-    Route::prefix('inventory')->name('inventory.')->group(function () {
+    Route::prefix('inventory')->name('inventory.')->middleware('can:inventory.view')->group(function () {
         // Categories
         Route::get('categories',                                [InventoryController::class, 'categoriesIndex'])->name('categories.index');
         Route::get('categories/create',                         [InventoryController::class, 'categoriesCreate'])->name('categories.create');

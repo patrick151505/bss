@@ -38,13 +38,13 @@ html[data-mode="dark"] #editor-wrapper { background: #262f3d; border-top-color: 
 .note-editing-area { background: #e5e7eb !important; padding: 24px !important; }
 html[data-mode="dark"] .note-editing-area { background: #262f3d !important; }
 
-/* Toolbar — flush against the card edges, pinned below the app topbar (70px) while scrolling */
+/* Toolbar — flush against the card edges, pinned to the top while scrolling */
 .note-toolbar {
     background: #f9fafb !important;
     border-bottom: 1px solid #e5e7eb !important;
     border-radius: 0 !important;
     position: sticky !important;
-    top: 70px !important;
+    top: 0 !important;
     z-index: 20 !important;
 }
 html[data-mode="dark"] .note-toolbar { background: #1e2530 !important; border-bottom: 1px solid #374151 !important; }
@@ -52,17 +52,67 @@ html[data-mode="dark"] .note-toolbar { background: #1e2530 !important; border-bo
 .note-statusbar { display: none !important; }
 .note-editor.note-frame { border: none !important; border-radius: 0 !important; }
 
+/* ── Fullscreen mode ── */
+/* Toolbar pins to the very top of the fullscreen overlay. */
+.note-editor.note-fullscreen .note-toolbar { top: 0 !important; }
+
+/* Fullscreen editing area must be a fixed-height scroll container.
+   The base .note-editing-area rule forces height:auto/overflow:visible, which
+   kills scrolling — override both here so the grey area scrolls with the paper.
+   Height = full viewport minus the toolbar (~42px). */
+.note-editor.note-fullscreen .note-editing-area {
+    background: #e5e7eb !important;
+    height: calc(100vh - 42px) !important;
+    max-height: calc(100vh - 42px) !important;
+    overflow-y: auto !important;
+    overflow-x: auto !important;
+    padding: 24px !important;
+}
+html[data-mode="dark"] .note-editor.note-fullscreen .note-editing-area { background: #262f3d !important; }
+
 .note-editor.note-fullscreen .note-editable {
-    width: 8.5in !important;
-    min-height: 11in !important;
     margin: 0 auto !important;
     overflow: visible !important;
 }
 
+/* ── Document typography reset ──────────────────────────────────────────
+   The app loads Tailwind Preflight + a reboot which zero out margins on
+   p/headings and strip list bullets GLOBALLY. That makes a "plain" <p>
+   typed in the editor look unstyled and not match the printed document.
+   Re-establish normal document defaults INSIDE the paper only, so what you
+   author in the CMS renders like a real certificate (and matches print). */
+.note-editable p { margin: 0 0 5px 0; line-height: 1.4; }
+.note-editable h1 { font-size: 2em;    font-weight: bold; margin: 0.4em 0; line-height: 1.2; }
+.note-editable h2 { font-size: 1.5em;  font-weight: bold; margin: 0.4em 0; line-height: 1.2; }
+.note-editable h3 { font-size: 1.17em; font-weight: bold; margin: 0.4em 0; line-height: 1.2; }
+.note-editable h4 { font-size: 1em;    font-weight: bold; margin: 0.4em 0; line-height: 1.2; }
+.note-editable h5 { font-size: 0.83em; font-weight: bold; margin: 0.4em 0; }
+.note-editable h6 { font-size: 0.75em; font-weight: bold; margin: 0.4em 0; }
+.note-editable ul { list-style: disc;    margin: 0 0 10px 0; padding-left: 40px; }
+.note-editable ol { list-style: decimal; margin: 0 0 10px 0; padding-left: 40px; }
+.note-editable li { margin: 0; }
+.note-editable blockquote { margin: 0 0 10px 40px; }
+.note-editable strong, .note-editable b { font-weight: bold; }
+.note-editable em, .note-editable i { font-style: italic; }
+.note-editable u { text-decoration: underline; }
+.note-editable a { color: inherit; text-decoration: underline; }
+.note-editable hr { border: 0; border-top: 1px solid #999; margin: 12px 0; }
+
 /* Table styles inside editor */
 .note-editable table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-.note-editable td, .note-editable th { border: 1px solid #d1d5db; padding: 6px 10px; vertical-align: top; }
+.note-editable td, .note-editable th { border: 1px solid #d1d5db; padding: 3px 0px; vertical-align: top; }
 .note-editable th { background: #f3f4f6; font-weight: 600; }
+/* Borderless table for layout (e.g. photo + signature side by side):
+   add class="no-border" to the <table>. Removes the default grid, but a cell
+   can opt back in — class="border" gives an underline, and inline border
+   styles on a cell are respected (no !important, so they win). */
+.note-editable table.no-border,
+.note-editable table.no-border td,
+.note-editable table.no-border th { border: none; background: transparent; }
+.note-editable table.no-border td.border,
+.note-editable table.no-border th.border,
+.note-editable td.border,
+.note-editable th.border { border-bottom: 1px solid #000; }
 
 /* Toolbar buttons/dropdowns in dark mode */
 html[data-mode="dark"] .note-toolbar .note-btn {
@@ -157,6 +207,22 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                            placeholder="e.g. Clearance" maxlength="100">
                 </div>
                 <div>
+                    <label class="form-label text-sm">
+                        Control No. Prefix <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" name="prefix" id="prefix" class="form-input uppercase"
+                           value="{{ old('prefix', $type->prefix) }}"
+                           placeholder="e.g. BRG" maxlength="20" required
+                           pattern="[A-Za-z0-9\-]+"
+                           oninput="updatePrefixPreview()"
+                           style="text-transform: uppercase;">
+                    <p class="text-xs text-gray-400 mt-1">
+                        Required and unique. Each issued document gets an auto-incrementing control number.
+                        Preview: <code id="prefix-preview" class="bg-gray-100 dark:bg-gray-800 px-1 rounded text-primary">{{ ($type->prefix ? $type->prefix . '-' : 'BRG-') }}00001</code>
+                        — use <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">&#123;&#123; doc_number &#125;&#125;</code> in the template.
+                    </p>
+                </div>
+                <div>
                     <label class="form-label text-sm">Description</label>
                     <textarea name="description" rows="2" class="form-input"
                               placeholder="Optional description…">{{ old('description', $type->description) }}</textarea>
@@ -170,6 +236,14 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                     <input type="checkbox" name="requires_approval" id="requires_approval" value="1"
                            class="form-checkbox" {{ old('requires_approval', $type->requires_approval ?? true) ? 'checked' : '' }}>
                     <label for="requires_approval" class="text-sm text-gray-600 dark:text-gray-300">Requires approval before release</label>
+                </div>
+                <div class="flex items-start gap-3">
+                    <input type="checkbox" name="allow_body_edit" id="allow_body_edit" value="1"
+                           class="form-checkbox mt-0.5" {{ old('allow_body_edit', $type->allow_body_edit ?? false) ? 'checked' : '' }}>
+                    <label for="allow_body_edit" class="text-sm text-gray-600 dark:text-gray-300">
+                        Allow editing the certificate body when issuing
+                        <span class="block text-xs text-gray-400">Staff can tweak the wording per request. Leave off to keep the template fixed.</span>
+                    </label>
                 </div>
             </div>
 
@@ -204,7 +278,7 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                 <h6 class="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2 mb-3">
                     <i class="mgc_code_line text-info"></i> Available Placeholders
                 </h6>
-                <p class="text-xs text-gray-400 mb-3">Click to insert — into the certificate body, or into a focused "Default Value" field below.</p>
+                <p class="text-xs text-gray-400 mb-3">Click a tag to copy it — then paste into the certificate body. (If a "Default Value" field is focused, it inserts there instead.)</p>
                 <div class="space-y-3">
 
                     {{-- Citizen --}}
@@ -257,6 +331,23 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                         </div>
                     </div>
 
+                    {{-- Valid Until / Expiry --}}
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">Valid Until (from issue date)</p>
+                        <div class="flex flex-wrap gap-1.5">
+                            @foreach([
+                                'expiry_3months' => 'Expires 3 months from issue',
+                                'expiry_6months' => 'Expires 6 months from issue',
+                                'expiry_1year'   => 'Expires 1 year from issue',
+                            ] as $tag => $label)
+                            <button type="button" onclick="copyTag('{{ $tag }}')" title="{{ $label }}"
+                                    class="px-2 py-0.5 rounded text-[11px] font-mono bg-warning/10 text-warning hover:bg-warning/20 transition">
+                                &#123;&#123; {{ $tag }} &#125;&#125;
+                            </button>
+                            @endforeach
+                        </div>
+                    </div>
+
                     {{-- Barangay / Request --}}
                     <div>
                         <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">Barangay & Request</p>
@@ -269,6 +360,8 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                                 'issued_by'   => 'Issued By (current user)',
                                 'or_number'   => 'O.R. Number',
                                 'doc_number'  => 'Document Control No.',
+                                'purpose'     => 'Purpose of Request',
+                                'captain_signature' => "Captain's Signature (image)",
                             ] as $tag => $label)
                             <button type="button" onclick="copyTag('{{ $tag }}')" title="{{ $label }}"
                                     class="px-2 py-0.5 rounded text-[11px] font-mono bg-info/10 text-info hover:bg-info/20 transition">
@@ -294,8 +387,32 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                                     class="px-2 py-0.5 rounded text-[11px] font-mono bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 hover:bg-purple-200 transition">
                                 &#123;&#123; profile_photo_link &#125;&#125;
                             </button>
+                            <button type="button" onclick="copyTag('qr_image [90]')" title="Scannable QR code, 90px"
+                                    class="px-2 py-0.5 rounded text-[11px] font-mono bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 hover:bg-purple-200 transition">
+                                &#123;&#123; qr_image [90] &#125;&#125;
+                            </button>
                         </div>
-                        <p class="text-[10px] text-gray-400 mt-1">Syntax: <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">&#123;&#123; profile_photo [width,height] &#125;&#125;</code></p>
+                        <p class="text-[10px] text-gray-400 mt-1">Syntax: <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">&#123;&#123; profile_photo [width,height] &#125;&#125;</code> · <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">&#123;&#123; qr_image [size] &#125;&#125;</code></p>
+                    </div>
+
+                    {{-- Captain signature --}}
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-1.5">Captain's Signature</p>
+                        <div class="flex flex-wrap gap-1.5">
+                            <button type="button" onclick="copyTag('captain_signature')" title="Default size"
+                                    class="px-2 py-0.5 rounded text-[11px] font-mono bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 hover:bg-purple-200 transition">
+                                &#123;&#123; captain_signature &#125;&#125;
+                            </button>
+                            <button type="button" onclick="copyTag('captain_signature [150]')" title="150px wide, auto height"
+                                    class="px-2 py-0.5 rounded text-[11px] font-mono bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 hover:bg-purple-200 transition">
+                                &#123;&#123; captain_signature [150] &#125;&#125;
+                            </button>
+                            <button type="button" onclick="copyTag('captain_signature [200,60]')" title="200×60"
+                                    class="px-2 py-0.5 rounded text-[11px] font-mono bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 hover:bg-purple-200 transition">
+                                &#123;&#123; captain_signature [200,60] &#125;&#125;
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mt-1">Syntax: <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">&#123;&#123; captain_signature [width,height] &#125;&#125;</code> — width only keeps the aspect ratio. Set the image in <a href="{{ route('settings.index') }}" class="text-primary underline">Settings</a>.</p>
                     </div>
 
                     {{-- Custom fields --}}
@@ -355,7 +472,7 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                            onchange="showVersions({{ $tpl->id }})"
                            {{ $isSelected ? 'checked' : '' }}>
                     <div class="flex items-center gap-3 p-2.5 rounded-lg border-2 border-gray-200 dark:border-gray-700 peer-checked:border-primary peer-checked:bg-primary/5 transition">
-                        <div class="w-10 h-14 rounded border border-gray-200 dark:border-gray-600 overflow-hidden shrink-0 bg-gray-100 dark:bg-gray-800">
+                        <div class="{{ ($tpl->currentVersion?->orientation ?? 'portrait') === 'landscape' ? 'w-14 h-10' : 'w-10 h-14' }} rounded border border-gray-200 dark:border-gray-600 overflow-hidden shrink-0 bg-gray-100 dark:bg-gray-800">
                             @if($tpl->currentVersion?->paper_bg)
                             <img src="{{ asset('storage/' . $tpl->currentVersion->paper_bg) }}"
                                  alt="{{ $tpl->name }}" class="w-full h-full object-cover object-top">
@@ -368,7 +485,9 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{{ $tpl->name }}</p>
                             <p class="text-[11px] text-gray-400">
-                                {{ strtoupper($tpl->currentVersion?->paper_size ?? 'A4') }} ·
+                                {{ [
+                                    'a4' => 'A4', 'letter' => 'Short (Letter)', 'half_letter' => 'Half Letter', 'long' => 'Long (Legal)',
+                                ][$tpl->currentVersion?->paper_size] ?? strtoupper($tpl->currentVersion?->paper_size ?? 'A4') }} ·
                                 {{ ucfirst($tpl->currentVersion?->orientation ?? 'portrait') }} ·
                                 {{ $tpl->versions->count() }} version(s)
                             </p>
@@ -391,7 +510,7 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                                {{ $verSelected ? 'checked' : '' }}>
                         <div class="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 peer-checked:border-primary peer-checked:bg-primary/5 transition">
                             {{-- Thumbnail --}}
-                            <div class="w-8 h-10 rounded border border-gray-200 dark:border-gray-600 overflow-hidden shrink-0 bg-white">
+                            <div class="{{ ($ver->orientation ?? 'portrait') === 'landscape' ? 'w-10 h-8' : 'w-8 h-10' }} rounded border border-gray-200 dark:border-gray-600 overflow-hidden shrink-0 bg-white">
                                 @if($ver->paper_bg)
                                 <img src="{{ asset('storage/' . $ver->paper_bg) }}"
                                      class="w-full h-full object-cover object-top" alt="">
@@ -408,6 +527,12 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                                     <span class="text-[9px] font-bold px-1 rounded bg-primary text-white">CURRENT</span>
                                     @endif
                                 </div>
+                                <p class="text-[10px] text-gray-400">
+                                    {{ [
+                                        'a4' => 'A4', 'letter' => 'Short (Letter)', 'half_letter' => 'Half Letter', 'long' => 'Long (Legal)',
+                                    ][$ver->paper_size] ?? strtoupper($ver->paper_size ?? 'A4') }}
+                                    · {{ ucfirst($ver->orientation ?? 'portrait') }}
+                                </p>
                                 @if($ver->change_note)
                                 <p class="text-[10px] text-gray-400 truncate">{{ $ver->change_note }}</p>
                                 @endif
@@ -534,7 +659,7 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                         <i class="mgc_quill_pen_line text-primary"></i> Certificate Template
                     </h6>
                     <p class="text-xs text-gray-400">
-                        Write the certificate body. Use <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">&#123;&#123; placeholder &#125;&#125;</code> tags from the left panel — click a tag to insert it at the cursor.
+                        Write the certificate body. Use <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">&#123;&#123; placeholder &#125;&#125;</code> tags from the left panel — click a tag to copy it, then paste it here.
                     </p>
                 </div>
 
@@ -690,6 +815,8 @@ const versionMap = {
         @foreach($tpl->versions as $ver)
         {{ $ver->id }}: {
             bg:      '{{ $ver->paper_bg ? asset('storage/' . $ver->paper_bg) : '' }}',
+            size:    '{{ $ver->paper_size  ?? 'letter' }}',
+            orient:  '{{ $ver->orientation ?? 'portrait' }}',
             padTop:  {{ $ver->padding_top    ?? 50 }},
             padBot:  {{ $ver->padding_bottom ?? 20 }},
             padLeft: {{ $ver->padding_left   ?? 50 }},
@@ -701,16 +828,36 @@ const versionMap = {
 
 let fieldIndex = {{ $type->fields->count() ?? 0 }};
 
+// in → CSS dimensions per paper size
+const PAPER_SIZES = {
+    a4:          ['8.27in', '11.69in'],
+    letter:      ['8.5in',  '11in'],
+    half_letter: ['5.5in',  '8.5in'],
+    long:        ['8.5in',  '13in'],
+};
+
 function getPaperSettings() {
     const checked = document.querySelector('.tpl-ver-radio:checked');
     if (checked && versionMap[checked.value]) return versionMap[checked.value];
-    return { bg: '', padTop: 50, padBot: 20, padLeft: 50, padRight: 50 };
+    return { bg: '', size: 'letter', orient: 'portrait', padTop: 50, padBot: 20, padLeft: 50, padRight: 50 };
+}
+
+// Resolve a version's paper size + orientation to [width, height] CSS values.
+function paperDims(v) {
+    let [w, h] = PAPER_SIZES[v.size] || PAPER_SIZES.letter;
+    if (v.orient === 'landscape') { [w, h] = [h, w]; }
+    return [w, h];
 }
 
 function applyPaperBg() {
     const v      = getPaperSettings();
     const editor = document.querySelector('.note-editable');
     if (!editor) return;
+
+    // Size the paper sheet to the selected version's paper size + orientation
+    const [pw, ph] = paperDims(v);
+    editor.style.setProperty('width',      pw, 'important');
+    editor.style.setProperty('min-height', ph, 'important');
 
     editor.style.setProperty('background-image',    v.bg ? `url('${v.bg}')` : 'none',   'important');
     editor.style.setProperty('background-size',     '100% auto',                         'important');
@@ -721,11 +868,18 @@ function applyPaperBg() {
     editor.style.setProperty('padding-left',        v.padLeft  + 'px',                   'important');
     editor.style.setProperty('padding-right',       v.padRight + 'px',                   'important');
 
-    // Keep the placeholder text aligned with the paper sheet (same box as .note-editable)
+    // Keep the placeholder text aligned with the paper sheet.
+    // The placeholder is absolutely positioned inside .note-editing-area; align
+    // it to the editable's actual box. Using getBoundingClientRect relative to
+    // the editing area keeps it correct in both normal and fullscreen layouts
+    // (offsetLeft/offsetTop are unreliable right after a fullscreen toggle).
     const placeholder = document.querySelector('.note-placeholder');
-    if (placeholder) {
-        placeholder.style.setProperty('left',           editor.offsetLeft + 'px', 'important');
-        placeholder.style.setProperty('top',             editor.offsetTop  + 'px', 'important');
+    const area        = document.querySelector('.note-editing-area');
+    if (placeholder && area) {
+        const eRect = editor.getBoundingClientRect();
+        const aRect = area.getBoundingClientRect();
+        placeholder.style.setProperty('left',           (eRect.left - aRect.left + area.scrollLeft) + 'px', 'important');
+        placeholder.style.setProperty('top',            (eRect.top  - aRect.top  + area.scrollTop)  + 'px', 'important');
         placeholder.style.setProperty('width',           editor.offsetWidth + 'px', 'important');
         placeholder.style.setProperty('padding-top',    v.padTop   + 'px', 'important');
         placeholder.style.setProperty('padding-bottom', v.padBot   + 'px', 'important');
@@ -768,11 +922,27 @@ document.addEventListener('focusin', function (e) {
     }
 });
 
+// Small toast helper (uses SweetAlert2, loaded globally in the layout).
+function showCopyToast(tag) {
+    if (typeof Swal === 'undefined') return;
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: tag + ' copied!',
+        showConfirmButton: false,
+        timer: 1500,
+        timerProgressBar: true,
+        customClass: { title: 'text-sm' },
+    });
+}
+
 function copyTag(key) {
     const open  = '\x7B\x7B';
     const close = '\x7D\x7D';
     const tag   = open + ' ' + key + ' ' + close;
 
+    // If a custom-field "Default Value" input is focused, insert into it directly.
     if (lastFocusedDefaultInput) {
         const input = lastFocusedDefaultInput;
         const start = input.selectionStart ?? input.value.length;
@@ -783,7 +953,28 @@ function copyTag(key) {
         return;
     }
 
-    if ($sn) $sn('#template_body').summernote('insertText', tag);
+    // Otherwise copy the tag to the clipboard, ready to paste into the editor.
+    copyTextToClipboard(tag).then(() => showCopyToast(tag));
+}
+
+// Clipboard copy with a fallback for non-secure contexts (e.g. plain http on LAN
+// where navigator.clipboard is unavailable).
+function copyTextToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    }
+    return new Promise((resolve) => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity  = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+        document.body.removeChild(ta);
+        resolve();
+    });
 }
 
 function addField() {
@@ -873,30 +1064,48 @@ function toggleFee(cb) {
     if (!cb.checked) document.getElementById('fee').value = '';
 }
 
+function updatePrefixPreview() {
+    const raw = document.getElementById('prefix').value.trim().toUpperCase();
+    document.getElementById('prefix-preview').textContent = (raw ? raw + '-' : 'BRG-') + '00001';
+}
+
 function openPrintPreview() {
     const html = $sn ? $sn('#template_body').summernote('code') : document.getElementById('template_body').value;
 
-    // Resolve the selected version's paper background
-    const checked = document.querySelector('.tpl-ver-radio:checked');
-    const v       = (checked && versionMap[checked.value]) ? versionMap[checked.value] : { bg:'', padTop:50, padBot:20, padLeft:50, padRight:50 };
+    // Resolve the selected version's paper background + size
+    const v       = getPaperSettings();
+    const [pw, ph] = paperDims(v);
     const bgStyle = v.bg ? `background-image:url('${v.bg}');background-size:cover;background-position:top center;background-repeat:no-repeat;` : 'background:#fff;';
 
     const frame = document.getElementById('print-preview-frame');
+    frame.style.width = pw;
     const doc   = frame.contentDocument || frame.contentWindow.document;
     doc.open();
     doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
         <style>
+            @page { size: ${pw} ${ph}; margin: 0; }
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body {
-                width: 8.5in; min-height: 11in;
+                width: ${pw}; min-height: ${ph};
                 padding: ${v.padTop}px ${v.padRight}px ${v.padBot}px ${v.padLeft}px;
                 font-family: "Times New Roman", Times, serif;
                 font-size: 14px; line-height: 1.8; color: #111827;
                 ${bgStyle}
             }
+            /* Match the editor's document typography so print looks the same. */
+            p { margin: 0 0 5px 0; line-height: 1.4; }
+            h1 { font-size: 2em;    font-weight: bold; margin: 0.4em 0; }
+            h2 { font-size: 1.5em;  font-weight: bold; margin: 0.4em 0; }
+            h3 { font-size: 1.17em; font-weight: bold; margin: 0.4em 0; }
+            h4 { font-size: 1em;    font-weight: bold; margin: 0.4em 0; }
+            ul { list-style: disc;    margin: 0 0 10px 0; padding-left: 40px; }
+            ol { list-style: decimal; margin: 0 0 10px 0; padding-left: 40px; }
+            hr { border: 0; border-top: 1px solid #999; margin: 12px 0; }
             table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-            td, th { border: 1px solid #d1d5db; padding: 6px 10px; vertical-align: top; }
+            td, th { border: 1px solid #d1d5db; padding: 3px 0px; vertical-align: top; }
             th { background: #f3f4f6; font-weight: 600; }
+            table.no-border, table.no-border td, table.no-border th { border: none; background: transparent; }
+            table.no-border td.border, table.no-border th.border, td.border, th.border { border-bottom: 1px solid #000; }
             img { max-width: 100%; }
             @media print {
                 body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -1042,6 +1251,50 @@ function initSummernote(jq) {
         if (panel && panel.classList.contains('hidden')) r.disabled = true;
         r.addEventListener('change', applyPaperBg);
     });
+
+    // Set the fullscreen scroll-area height to the exact viewport minus the
+    // measured toolbar height, so the paper scrolls and never gets clipped even
+    // if the toolbar wraps to two rows on a narrow screen.
+    function syncFullscreenHeight(editorEl) {
+        const area    = editorEl.querySelector('.note-editing-area');
+        const toolbar = editorEl.querySelector('.note-toolbar');
+        if (!area) return;
+        if (editorEl.classList.contains('note-fullscreen')) {
+            const tb = toolbar ? toolbar.offsetHeight : 42;
+            area.style.setProperty('height',     `calc(100vh - ${tb}px)`, 'important');
+            area.style.setProperty('max-height', `calc(100vh - ${tb}px)`, 'important');
+        } else {
+            area.style.removeProperty('height');
+            area.style.removeProperty('max-height');
+        }
+    }
+
+    // Re-align the paper sheet + placeholder whenever fullscreen toggles.
+    // Summernote toggles the .note-fullscreen class on its own button click;
+    // the placeholder is absolutely positioned off the editor's offsets, so it
+    // must be recomputed once the layout has switched. Watch the editor class.
+    const editorEl = jq('#template_body').next('.note-editor')[0];
+    if (editorEl && window.MutationObserver) {
+        let wasFull = editorEl.classList.contains('note-fullscreen');
+        new MutationObserver(() => {
+            const isFull = editorEl.classList.contains('note-fullscreen');
+            if (isFull !== wasFull) {
+                wasFull = isFull;
+                // Wait for Summernote's own layout pass, then realign twice
+                // (rAF + a short timeout) to catch late reflows.
+                requestAnimationFrame(() => { syncFullscreenHeight(editorEl); applyPaperBg(); });
+                setTimeout(() => { syncFullscreenHeight(editorEl); applyPaperBg(); }, 60);
+            }
+        }).observe(editorEl, { attributes: true, attributeFilter: ['class'] });
+
+        // Keep the fullscreen height correct on window resize.
+        window.addEventListener('resize', () => {
+            if (editorEl.classList.contains('note-fullscreen')) {
+                syncFullscreenHeight(editorEl);
+                applyPaperBg();
+            }
+        });
+    }
 
     // On submit, make sure the textarea has latest content
     document.getElementById('type-form').addEventListener('submit', function () {

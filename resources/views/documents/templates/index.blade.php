@@ -84,7 +84,9 @@
 
             <div class="flex flex-wrap gap-2 text-xs text-gray-500">
                 <span class="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
-                    <i class="mgc_paper_line"></i> {{ strtoupper($tpl->currentVersion?->paper_size ?? 'A4') }}
+                    <i class="mgc_paper_line"></i> {{ [
+                        'a4' => 'A4', 'letter' => 'Short (Letter)', 'half_letter' => 'Half Letter', 'long' => 'Long (Legal)',
+                    ][$tpl->currentVersion?->paper_size] ?? strtoupper($tpl->currentVersion?->paper_size ?? 'A4') }}
                 </span>
                 <span class="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
                     <i class="mgc_refresh_1_line"></i> {{ ucfirst($tpl->currentVersion?->orientation ?? 'portrait') }}

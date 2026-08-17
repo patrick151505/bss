@@ -28,6 +28,9 @@
             <option value="fee">Fee (Low–High)</option>
             <option value="requests">Most Requests</option>
         </select>
+        <a href="{{ route('documents.types.samples') }}" class="btn border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 flex items-center gap-2 whitespace-nowrap">
+            <i class="mgc_copy_line"></i> Template Samples
+        </a>
         <a href="{{ route('documents.types.create') }}" class="btn bg-primary text-white flex items-center gap-2 whitespace-nowrap">
             <i class="mgc_add_line"></i> Add Document Type
         </a>

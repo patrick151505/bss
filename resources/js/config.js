@@ -11,7 +11,7 @@
 
     var defaultConfig = {
         direction: "ltr",
-        theme: "light",
+        theme: "dark",
         layout: {
             width: "default",  // Boxed width Only available at large resolutions > 1600px (xl)
             position: "fixed",

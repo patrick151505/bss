@@ -22,8 +22,10 @@ class PermissionSeeder extends Seeder
             'events'        => ['view', 'create', 'edit', 'delete'],
             'budget'        => ['view', 'create', 'edit', 'delete'],
             'tags'          => ['view', 'create', 'edit', 'delete'],
+            'addresses'     => ['view', 'create', 'edit'],
             'settings'      => ['view', 'edit'],
             'users'         => ['view', 'create', 'edit', 'delete'],
+            'roles'         => ['view', 'create', 'edit', 'delete'],
             'activity_logs' => ['view'],
         ];
 

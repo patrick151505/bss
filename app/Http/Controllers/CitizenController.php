@@ -310,7 +310,6 @@ class CitizenController extends Controller
             'is_pwd'          => 'required|in:0,1',
             'is_soloparents'  => 'required|in:0,1',
             'voters'          => 'required|in:0,1',
-            'is_id_release'   => 'required|in:0,1',
             'is_verify'       => 'required|in:0,1',
             'ic_fullname'     => 'nullable|max:250',
             'ic_relationship' => 'nullable|max:250',
@@ -417,7 +416,6 @@ class CitizenController extends Controller
             'is_soloparents'    => $request->is_soloparents,
             'voters'            => $request->voters,
             'pricinct_no'       => $request->voters == 1 ? $request->pricinct_no : null,
-            'is_id_release'     => $request->is_id_release,
             'is_verify'         => $request->is_verify,
             'ic_fullname'       => $request->ic_fullname,
             'ic_relationship'   => $request->ic_relationship,
@@ -586,7 +584,6 @@ class CitizenController extends Controller
             'is_pwd'          => 'required|in:0,1',
             'is_soloparents'  => 'required|in:0,1',
             'voters'          => 'required|in:0,1',
-            'is_id_release'   => 'required|in:0,1',
             'is_verify'       => 'required|in:0,1',
             'ic_fullname'     => 'nullable|max:250',
             'ic_relationship' => 'nullable|max:250',
@@ -652,7 +649,7 @@ class CitizenController extends Controller
             'bday', 'bplace', 'citizenship', 'occupation',
             'address', 'contact', 'email',
             'approval_status', 'is_active', 'is_pwd', 'is_soloparents',
-            'voters', 'pricinct_no', 'is_id_release', 'is_verify',
+            'voters', 'pricinct_no', 'is_verify',
         ];
         $changed = [];
         foreach ($trackFields as $field) {
@@ -702,7 +699,6 @@ class CitizenController extends Controller
             'is_soloparents'  => $request->is_soloparents,
             'voters'          => $request->voters,
             'pricinct_no'     => $request->voters == 1 ? $request->pricinct_no : null,
-            'is_id_release'   => $request->is_id_release,
             'is_verify'       => $request->is_verify,
             'ic_fullname'     => $request->ic_fullname,
             'ic_relationship' => $request->ic_relationship,
@@ -1202,24 +1198,57 @@ class CitizenController extends Controller
         }
 
         return response()->json(
-            Citizen::where('is_active', 1)
-                ->where(function ($query) use ($q) {
-                    $query->where('fname', 'like', "%{$q}%")
-                          ->orWhere('lname', 'like', "%{$q}%")
-                          ->orWhere('mname', 'like', "%{$q}%")
-                          ->orWhere('qrcode', $q);
-                })
-                ->orderBy('lname')->orderBy('fname')
-                ->limit(10)
-                ->get(['id', 'fname', 'mname', 'lname', 'suffix', 'contact', 'complete_address', 'qrcode', 'profile'])
-                ->map(fn($c) => [
-                    'id'      => $c->id,
-                    'name'    => $c->full_name,
-                    'contact' => $c->contact ?? '',
-                    'address' => $c->complete_address ?? '',
-                    'qrcode'  => $c->qrcode ?? '',
-                    'profile' => $c->profile ? asset(str_replace('public/', 'storage/', $c->profile)) : null,
-                ])
+            $this->mapCitizens(
+                Citizen::where('is_active', 1)
+                    ->where(function ($query) use ($q) {
+                        $query->where('fname', 'like', "%{$q}%")
+                              ->orWhere('lname', 'like', "%{$q}%")
+                              ->orWhere('mname', 'like', "%{$q}%")
+                              ->orWhere('qrcode', $q);
+                    })
+                    ->orderBy('lname')->orderBy('fname')
+                    ->limit(10)
+                    ->get($this->citizenPickerColumns())
+            )
         );
+    }
+
+    /**
+     * Most-recently-updated citizens, for pre-populating a picker before search.
+     */
+    public function recent(Request $request)
+    {
+        $limit = min((int) $request->get('limit', 5), 20);
+
+        return response()->json(
+            $this->mapCitizens(
+                Citizen::where('is_active', 1)
+                    ->orderByDesc('date_last_updated')
+                    ->orderByDesc('id')   // stable tie-break when timestamps are equal
+                    ->limit($limit)
+                    ->get($this->citizenPickerColumns())
+            )
+        );
+    }
+
+    protected function citizenPickerColumns(): array
+    {
+        return ['id', 'fname', 'mname', 'lname', 'suffix', 'contact', 'complete_address', 'qrcode', 'profile', 'voters', 'is_pwd', 'is_soloparents', 'bday', 'date_last_updated'];
+    }
+
+    protected function mapCitizens($citizens)
+    {
+        return $citizens->map(fn($c) => [
+            'id'      => $c->id,
+            'name'    => $c->full_name,
+            'contact' => $c->contact ?? '',
+            'address' => $c->complete_address ?? '',
+            'qrcode'  => $c->qrcode ?? '',
+            'profile' => $c->profile ? asset(str_replace('public/', 'storage/', $c->profile)) : null,
+            'voter'   => (bool) $c->voters,
+            'pwd'     => (bool) $c->is_pwd,
+            'solo'    => (bool) $c->is_soloparents,
+            'senior'  => $c->age !== null && $c->age >= 60,
+        ]);
     }
 }

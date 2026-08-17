@@ -15,6 +15,36 @@
         grid-column: span var(--field-col-span) / span var(--field-col-span);
     }
 }
+
+/* Document typography reset for the review preview — restore normal defaults
+   inside the paper only, since the app's Tailwind Preflight zeroes p/heading
+   margins and list bullets globally. Matches the editor + printed document. */
+#review-paper p { margin: 0 0 5px 0; line-height: 1.4; }
+#review-paper h1 { font-size: 2em;    font-weight: bold; margin: 0.4em 0; line-height: 1.2; }
+#review-paper h2 { font-size: 1.5em;  font-weight: bold; margin: 0.4em 0; line-height: 1.2; }
+#review-paper h3 { font-size: 1.17em; font-weight: bold; margin: 0.4em 0; line-height: 1.2; }
+#review-paper h4 { font-size: 1em;    font-weight: bold; margin: 0.4em 0; line-height: 1.2; }
+#review-paper h5 { font-size: 0.83em; font-weight: bold; margin: 0.4em 0; }
+#review-paper h6 { font-size: 0.75em; font-weight: bold; margin: 0.4em 0; }
+#review-paper ul { list-style: disc;    margin: 0 0 10px 0; padding-left: 40px; }
+#review-paper ol { list-style: decimal; margin: 0 0 10px 0; padding-left: 40px; }
+#review-paper li { margin: 0; }
+#review-paper blockquote { margin: 0 0 10px 40px; }
+#review-paper strong, #review-paper b { font-weight: bold; }
+#review-paper em, #review-paper i { font-style: italic; }
+#review-paper u { text-decoration: underline; }
+#review-paper a { color: inherit; text-decoration: underline; }
+#review-paper hr { border: 0; border-top: 1px solid #999; margin: 12px 0; }
+#review-paper table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+#review-paper td, #review-paper th { border: 1px solid #d1d5db; padding: 3px 0px; vertical-align: top; }
+#review-paper th { background: #f3f4f6; font-weight: 600; }
+#review-paper table.no-border,
+#review-paper table.no-border td,
+#review-paper table.no-border th { border: none; background: transparent; }
+#review-paper table.no-border td.border,
+#review-paper table.no-border th.border,
+#review-paper td.border,
+#review-paper th.border { border-bottom: 1px solid #000; }
 </style>
 @endsection
 
@@ -32,6 +62,7 @@
 <form action="{{ route('documents.requests.store') }}" method="POST" id="request-form">
     @csrf
     <input type="hidden" name="citizen_id" id="citizen_id" value="{{ old('citizen_id') }}">
+    <input type="hidden" name="body_override" id="body_override_input" value="">
 
     <div class="grid grid-cols-12 gap-6">
 
@@ -79,6 +110,7 @@
                         <p class="text-sm font-semibold text-gray-800 dark:text-gray-100" id="card-name"></p>
                         <p class="text-xs text-gray-500 dark:text-gray-400" id="card-address"></p>
                         <p class="text-xs text-gray-500 dark:text-gray-400" id="card-contact"></p>
+                        <div id="card-tags" class="flex flex-wrap gap-1.5 mt-1.5"></div>
                     </div>
                     <button type="button" onclick="clearCitizen()"
                             class="text-gray-400 hover:text-danger transition shrink-0" title="Clear">
@@ -99,9 +131,15 @@
                                 ? asset(str_replace('public/', 'storage/', $rc->profile))
                                 : null;
                             $rcInitial = strtoupper(substr($rc->fname ?? '?', 0, 1));
+                            $rcFlags = [
+                                'voter'  => (bool) $rc->voters,
+                                'senior' => $rc->age !== null && $rc->age >= 60,
+                                'pwd'    => (bool) $rc->is_pwd,
+                                'solo'   => (bool) $rc->is_soloparents,
+                            ];
                         @endphp
                         <button type="button"
-                                onclick="selectCitizen({{ $rc->id }}, '{{ addslashes($rc->full_name) }}', '{{ addslashes($rc->complete_address ?? '') }}', '{{ addslashes($rc->contact ?? '') }}', '{{ addslashes($rc->qrcode ?? '') }}', '{{ $rcProfile }}')"
+                                onclick='selectCitizen({{ $rc->id }}, @json($rc->full_name), @json($rc->complete_address ?? ""), @json($rc->contact ?? ""), @json($rc->qrcode ?? ""), @json($rcProfile ?? ""), @json($rcFlags))'
                                 class="recent-citizen-btn flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary/50 hover:bg-primary/5 transition text-left w-full group">
                             {{-- Avatar --}}
                             <div class="w-9 h-9 rounded-full shrink-0 overflow-hidden bg-primary/10 flex items-center justify-center">
@@ -213,12 +251,67 @@
                 </div>
             </div>
 
-            {{-- Step 3: Remarks + Submit --}}
+            {{-- Step 3: Purpose + Remarks + Submit --}}
             <div class="card p-5">
                 <h6 class="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2 mb-4">
                     <span class="w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shrink-0">3</span>
-                    Remarks
+                    Purpose &amp; Remarks
                 </h6>
+
+                {{-- Purpose (required, searchable dropdown; type a new one to add it) --}}
+                <div class="mb-4">
+                    <label for="purpose-search" class="form-label text-sm">
+                        Purpose <span class="text-danger">*</span>
+                    </label>
+
+                    {{-- The value actually submitted --}}
+                    <input type="hidden" name="purpose" id="purpose-input" value="{{ old('purpose') }}">
+
+                    <div id="purpose-dd" class="relative">
+                        {{-- Search / display box --}}
+                        <div class="relative">
+                            <input type="text" id="purpose-search" autocomplete="off"
+                                   class="form-input pr-9"
+                                   value="{{ old('purpose') }}"
+                                   placeholder="Search or type a purpose…" maxlength="255"
+                                   onfocus="openPurposeDropdown()"
+                                   oninput="onPurposeSearch()"
+                                   onkeydown="onPurposeKeydown(event)">
+                            <button type="button" tabindex="-1"
+                                    class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                                    onclick="togglePurposeDropdown()">
+                                <i id="purpose-chevron" class="mgc_down_line"></i>
+                            </button>
+                        </div>
+
+                        {{-- Options panel --}}
+                        <div id="purpose-list"
+                             class="hidden absolute z-30 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+                            @foreach($purposes as $p)
+                            <button type="button"
+                                    class="purpose-option w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-primary/10"
+                                    data-name="{{ $p->name }}"
+                                    onclick="selectPurpose(this.dataset.name)">{{ $p->name }}</button>
+                            @endforeach
+                            {{-- "Add new" row, shown by JS when the typed text has no exact match --}}
+                            <button type="button" id="purpose-add-new"
+                                    class="hidden w-full text-left px-3 py-2 text-sm text-primary hover:bg-primary/10 border-t border-gray-100 dark:border-gray-700"
+                                    onclick="selectTypedPurpose()">
+                                <i class="mgc_add_line"></i> Use "<span id="purpose-add-label"></span>"
+                            </button>
+                            {{-- Empty state --}}
+                            <div id="purpose-empty" class="hidden px-3 py-3 text-xs text-gray-400 text-center">No matches.</div>
+                        </div>
+                    </div>
+
+                    <p id="purpose-error" class="hidden text-xs text-danger mt-1">Purpose is required.</p>
+                    <p class="text-xs text-gray-400 mt-1">
+                        Click to pick, or type to search. A new purpose is saved for next time; if it already exists it reuses that one.
+                        Use <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">&#123;&#123; purpose &#125;&#125;</code> in the template.
+                    </p>
+                </div>
+
+                <label class="form-label text-sm">Remarks</label>
                 <textarea name="remarks" rows="2" class="form-input"
                           placeholder="Any notes about this request… (optional)">{{ old('remarks') }}</textarea>
 
@@ -297,8 +390,8 @@
 </form>
 
 {{-- Review & Confirm Modal --}}
-<div id="request-review-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60" onclick="if(event.target===this)closeRequestReview()">
-    <div class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl flex flex-col w-full max-w-3xl mx-4" style="max-height:90vh;">
+<div id="request-review-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onclick="if(event.target===this)closeRequestReview()">
+    <div class="bg-white dark:bg-gray-900 rounded-xl shadow-2xl flex flex-col w-full max-w-5xl" style="height:95vh; max-height:95vh;">
         <div class="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
             <h6 class="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                 <i class="mgc_eye_2_line text-primary"></i> Review Request
@@ -309,7 +402,7 @@
             </button>
         </div>
 
-        <div class="overflow-y-auto flex-1">
+        <div class="overflow-y-auto flex-1 min-h-0">
 
             {{-- Loading state --}}
             <div id="review-loading" class="p-10 flex flex-col items-center justify-center gap-2 text-gray-400">
@@ -328,10 +421,15 @@
                 </div>
             </div>
 
+            {{-- Editable-body hint (shown only when the type allows editing) --}}
+            <div id="body-edit-hint" class="hidden mx-6 mt-4 -mb-2 p-2.5 rounded-lg bg-info/10 border border-info/30 text-xs text-info flex items-center gap-2">
+                <i class="mgc_edit_line"></i> You can edit the certificate wording below for this request.
+            </div>
+
             {{-- Certificate preview --}}
-            <div id="review-body-wrap" class="hidden bg-gray-100 dark:bg-gray-800/50 p-6">
+            <div id="review-body-wrap" class="hidden bg-gray-100 dark:bg-gray-800/50 p-6 overflow-x-auto">
                 <div id="review-paper"
-                     style="width:8.5in; min-width:8.5in; margin:0 auto; background:#fff; border:1px solid #ccc;
+                     style="width:8.5in; min-width:8.5in; min-height:11in; margin:0 auto; background:#fff; border:1px solid #ccc;
                             box-sizing:border-box; box-shadow:0 0 10px rgba(0,0,0,0.1); font-family:'Times New Roman', Times, serif;
                             font-size:14px; line-height:1.8; color:#111827;">
                 </div>
@@ -348,6 +446,10 @@
                     <div>
                         <p class="text-xs text-gray-400">Document Type</p>
                         <p class="font-medium text-gray-800 dark:text-gray-100" id="review-document-type"></p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-400">Purpose</p>
+                        <p class="font-medium text-gray-800 dark:text-gray-100" id="review-purpose"></p>
                     </div>
                     <div>
                         <p class="text-xs text-gray-400">Fee</p>
@@ -411,20 +513,29 @@ let scannerBuffer = '';
 let scannerTimer  = null;
 let scannerActive = false; // true while a scanner sequence is in progress
 
+let searchAbort = null; // cancels a previous in-flight search so stale results
+                        // never overwrite the newest ones (fast typing / scanners).
+
 function doSearch(q, autoSelect) {
     if (q.length < 2) { dropdown.classList.add('hidden'); return; }
+
+    // Cancel any search still in flight.
+    if (searchAbort) searchAbort.abort();
+    searchAbort = new AbortController();
+    const signal = searchAbort.signal;
 
     if (autoSelect) {
         // QR/scanner path: exact qrcode match preferred, fallback to first result.
         // No dropdown shown — citizen is selected instantly.
-        fetch(SEARCH_URL + '?q=' + encodeURIComponent(q))
+        fetch(SEARCH_URL + '?q=' + encodeURIComponent(q), { signal })
             .then(r => r.json())
             .then(results => {
                 if (!results.length) return; // no match, do nothing
                 const hit = results.find(c => c.qrcode === q) ?? results[0];
                 dropdown.classList.add('hidden');
-                selectCitizen(hit.id, hit.name, hit.address, hit.contact, hit.qrcode, hit.profile ?? '');
-            });
+                selectCitizen(hit.id, hit.name, hit.address, hit.contact, hit.qrcode, hit.profile ?? '', { voter: hit.voter, senior: hit.senior, pwd: hit.pwd, solo: hit.solo });
+            })
+            .catch(err => { if (err.name !== 'AbortError') console.error(err); });
         return;
     }
 
@@ -441,7 +552,7 @@ function doSearch(q, autoSelect) {
         </div>`;
     grid.innerHTML = skeletonCard.repeat(4);
     dropdown.classList.remove('hidden');
-    fetch(SEARCH_URL + '?q=' + encodeURIComponent(q))
+    fetch(SEARCH_URL + '?q=' + encodeURIComponent(q), { signal })
         .then(r => r.json())
         .then(results => {
             if (!results.length) {
@@ -457,7 +568,7 @@ function doSearch(q, autoSelect) {
                     : `<span class="text-sm font-bold text-primary">${initial}</span>`;
                 return `
                 <button type="button"
-                        onclick="selectCitizen(${c.id}, '${escHtml(c.name)}', '${escHtml(c.address)}', '${escHtml(c.contact)}', '${escHtml(c.qrcode)}', '${escHtml(c.profile ?? '')}')"
+                        onclick='selectCitizen(${c.id}, ${JSON.stringify(c.name)}, ${JSON.stringify(c.address)}, ${JSON.stringify(c.contact)}, ${JSON.stringify(c.qrcode)}, ${JSON.stringify(c.profile ?? "")}, ${JSON.stringify({voter: !!c.voter, senior: !!c.senior, pwd: !!c.pwd, solo: !!c.solo})})'
                         class="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary/50 hover:bg-primary/5 transition text-left w-full group">
                     <div class="w-9 h-9 rounded-full shrink-0 overflow-hidden bg-primary/10 flex items-center justify-center">
                         ${avatar}
@@ -470,7 +581,8 @@ function doSearch(q, autoSelect) {
                 </button>`;
             }).join('');
             dropdown.classList.remove('hidden');
-        });
+        })
+        .catch(err => { if (err.name !== 'AbortError') console.error(err); });
 }
 
 searchInput.addEventListener('keydown', function (e) {
@@ -530,7 +642,27 @@ document.addEventListener('click', function (e) {
     }
 });
 
-function selectCitizen(id, name, address, contact, qrcode, profileUrl) {
+// Render status badges on the citizen card, computed from the citizen's own
+// columns: Voter/Non-Voter, Senior (age >= 60), PWD, Solo Parent.
+function renderCitizenTags(flags) {
+    const wrap = document.getElementById('card-tags');
+    if (!wrap) return;
+
+    const pill = (text, cls) =>
+        `<span class="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-medium ${cls}">${text}</span>`;
+
+    let html = flags.voter
+        ? pill('✓ Voter', 'bg-green-100 text-green-800')
+        : pill('Non-Voter', 'bg-gray-100 text-gray-600');
+
+    if (flags.senior) html += pill('Senior', 'bg-amber-100 text-amber-800');
+    if (flags.pwd)    html += pill('PWD', 'bg-blue-100 text-blue-800');
+    if (flags.solo)   html += pill('Solo Parent', 'bg-purple-100 text-purple-800');
+
+    wrap.innerHTML = html;
+}
+
+function selectCitizen(id, name, address, contact, qrcode, profileUrl, flags) {
     selectedId = id;
     document.getElementById('citizen_id').value = id;
     searchInput.value = '';
@@ -540,6 +672,7 @@ function selectCitizen(id, name, address, contact, qrcode, profileUrl) {
     document.getElementById('card-name').textContent    = name;
     document.getElementById('card-address').textContent = address || '—';
     document.getElementById('card-contact').textContent = contact ? ('📞 ' + contact) : '';
+    renderCitizenTags(flags || {});
 
     // Show profile photo if available
     const avatar = document.getElementById('card-avatar');
@@ -831,8 +964,126 @@ function escHtml(str) {
 const PREVIEW_URL = '{{ route('documents.requests.preview') }}';
 const CSRF_TOKEN   = document.querySelector('meta[name="csrf-token"]').content;
 
+// ── Purpose searchable dropdown ─────────────────────────────────────────
+function clearPurposeError() {
+    document.getElementById('purpose-error')?.classList.add('hidden');
+    document.getElementById('purpose-search')?.classList.remove('border-danger');
+}
+
+function purposeEls() {
+    return {
+        wrap:    document.getElementById('purpose-dd'),
+        search:  document.getElementById('purpose-search'),
+        hidden:  document.getElementById('purpose-input'),
+        list:    document.getElementById('purpose-list'),
+        chevron: document.getElementById('purpose-chevron'),
+        addRow:  document.getElementById('purpose-add-new'),
+        addLbl:  document.getElementById('purpose-add-label'),
+        empty:   document.getElementById('purpose-empty'),
+    };
+}
+
+function openPurposeDropdown() {
+    const el = purposeEls();
+    el.list.classList.remove('hidden');
+    el.chevron.classList.replace('mgc_down_line', 'mgc_up_line');
+    filterPurposeOptions();
+}
+
+function closePurposeDropdown() {
+    const el = purposeEls();
+    el.list.classList.add('hidden');
+    el.chevron.classList.replace('mgc_up_line', 'mgc_down_line');
+}
+
+function togglePurposeDropdown() {
+    const el = purposeEls();
+    if (el.list.classList.contains('hidden')) { el.search.focus(); openPurposeDropdown(); }
+    else closePurposeDropdown();
+}
+
+// Filter the options against the current search text; manage the "add new" row.
+function filterPurposeOptions() {
+    const el = purposeEls();
+    const q  = el.search.value.trim().toLowerCase();
+    let visible = 0, exact = false;
+
+    document.querySelectorAll('.purpose-option').forEach(opt => {
+        const name = opt.dataset.name;
+        const match = !q || name.toLowerCase().includes(q);
+        opt.classList.toggle('hidden', !match);
+        if (match) visible++;
+        if (name.toLowerCase() === q) exact = true;
+    });
+
+    // Offer "Use <typed>" only when there's text and no exact existing match.
+    if (q && !exact) {
+        el.addLbl.textContent = el.search.value.trim();
+        el.addRow.classList.remove('hidden');
+    } else {
+        el.addRow.classList.add('hidden');
+    }
+
+    el.empty.classList.toggle('hidden', visible > 0 || (q && !exact));
+}
+
+function onPurposeSearch() {
+    clearPurposeError();
+    openPurposeDropdown();
+    // While typing, the hidden value tracks the text (so a brand-new purpose is
+    // captured even without clicking the "Use ..." row).
+    purposeEls().hidden.value = purposeEls().search.value.trim();
+}
+
+// Pick an existing option: set both the display and the submitted value.
+function selectPurpose(name) {
+    const el = purposeEls();
+    el.search.value = name;
+    el.hidden.value = name;
+    clearPurposeError();
+    closePurposeDropdown();
+}
+
+// Commit the typed text as the purpose (new or existing — server dedupes).
+function selectTypedPurpose() {
+    selectPurpose(purposeEls().search.value.trim());
+}
+
+function onPurposeKeydown(e) {
+    const el = purposeEls();
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        // First visible option, else the typed value.
+        const first = document.querySelector('.purpose-option:not(.hidden)');
+        if (first && first.dataset.name.toLowerCase() === el.search.value.trim().toLowerCase()) {
+            selectPurpose(first.dataset.name);
+        } else if (el.search.value.trim()) {
+            selectTypedPurpose();
+        }
+    } else if (e.key === 'Escape') {
+        closePurposeDropdown();
+    }
+}
+
+// Close when clicking outside the dropdown.
+document.addEventListener('click', function (e) {
+    const wrap = document.getElementById('purpose-dd');
+    if (wrap && !wrap.contains(e.target)) closePurposeDropdown();
+});
+
 function openRequestReview() {
     const form = document.getElementById('request-form');
+
+    // Purpose is required.
+    const purposeInput  = document.getElementById('purpose-input');
+    const purposeSearch = document.getElementById('purpose-search');
+    if (purposeInput && purposeInput.value.trim() === '') {
+        document.getElementById('purpose-error')?.classList.remove('hidden');
+        purposeSearch?.classList.add('border-danger');
+        purposeSearch?.focus();
+        return;
+    }
+
     if (!form.reportValidity()) return; // let native required-field validation run first
 
     if (!selectedId) {
@@ -880,6 +1131,10 @@ function openRequestReview() {
             renderReviewSummary(data.summary);
             document.getElementById('review-body-wrap').classList.remove('hidden');
             document.getElementById('review-summary').classList.remove('hidden');
+
+            // Start the scroll at the top of the paper (header first).
+            const scrollBody = document.querySelector('#request-review-modal .overflow-y-auto');
+            if (scrollBody) scrollBody.scrollTop = 0;
         })
         .catch(() => {
             document.getElementById('review-loading').classList.add('hidden');
@@ -893,6 +1148,20 @@ function renderReviewCertificate(data) {
     const paper = document.getElementById('review-paper');
     const p = data.padding;
 
+    const sizes = {
+        a4:          ['8.27in', '11.69in'],
+        letter:      ['8.5in',  '11in'],
+        half_letter: ['5.5in',  '8.5in'],
+        long:        ['8.5in',  '13in'],
+    };
+    let [pw, ph] = sizes[data.paper_size] || sizes.letter;
+    if (data.orientation === 'landscape') { [pw, ph] = [ph, pw]; }
+    paper.style.width     = pw;
+    paper.style.minWidth  = pw;
+    // Render at the full sheet height; grow taller if content overflows.
+    paper.style.height    = 'auto';
+    paper.style.minHeight = ph;
+
     paper.style.padding = `${p.top}px ${p.right}px ${p.bottom}px ${p.left}px`;
     if (data.bg_url) {
         paper.style.backgroundImage    = `url('${data.bg_url}')`;
@@ -903,12 +1172,26 @@ function renderReviewCertificate(data) {
         paper.style.backgroundImage = 'none';
     }
 
-    paper.innerHTML = (data.header || '') + (data.body || '');
+    // Only show the auto-generated barangay header when there is NO letterhead
+    // background image (a letterhead already prints its own header).
+    const header = data.bg_url ? '' : (data.header || '');
+
+    if (data.allow_body_edit) {
+        // Header stays fixed; the body is editable and captured on submit.
+        paper.innerHTML = header +
+            '<div id="editable-body" contenteditable="true" style="outline:none; min-height:60px;">' +
+            (data.body || '') + '</div>';
+        document.getElementById('body-edit-hint')?.classList.remove('hidden');
+    } else {
+        paper.innerHTML = header + (data.body || '');
+        document.getElementById('body-edit-hint')?.classList.add('hidden');
+    }
 }
 
 function renderReviewSummary(summary) {
     document.getElementById('review-citizen-name').textContent  = summary.citizen_name;
     document.getElementById('review-document-type').textContent = summary.document_type;
+    document.getElementById('review-purpose').textContent       = summary.purpose || '—';
     document.getElementById('review-fee').innerHTML = summary.is_paid
         ? `<span class="text-warning">₱ ${summary.fee.toLocaleString('en-PH', { minimumFractionDigits: 2 })}</span>`
         : `<span class="text-success">FREE</span>`;
@@ -943,13 +1226,118 @@ function closeRequestReview() {
 
 function confirmRequestSubmit() {
     if (!document.getElementById('review-confirm-checkbox').checked) return;
-    const btn = document.getElementById('review-confirm-btn');
-    btn.disabled = true;
+
+    // If the type allowed editing, capture the edited body into the form.
+    const editable = document.getElementById('editable-body');
+    if (editable) {
+        document.getElementById('body_override_input').value = editable.innerHTML;
+    }
+
+    const form = document.getElementById('request-form');
+    const btn  = document.getElementById('review-confirm-btn');
+    btn.disabled  = true;
     btn.innerHTML = `<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
     </svg> Submitting…`;
-    document.getElementById('request-form').submit();
+
+    // Submit via AJAX so we can catch errors in THIS tab and only open the new
+    // tab on success.
+    fetch(form.action, {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': CSRF_TOKEN, 'Accept': 'application/json' },
+        body: new FormData(form),
+    })
+        .then(async r => ({ ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) }))
+        .then(({ ok, data }) => {
+            if (ok && data.show_url) {
+                // Open the created request in a NEW TAB; current tab asks what next.
+                window.open(data.show_url, '_blank');
+                closeRequestReview();
+                resetConfirmBtn();
+                askAfterSubmit();
+            } else {
+                // Validation / permission error — show it in THIS tab.
+                const msgs = Object.values(data.errors || { _: ['Something went wrong. Please review and try again.'] }).flat();
+                closeRequestReview();
+                resetConfirmBtn();
+                Swal.fire({
+                    title: 'Could not submit',
+                    html: msgs.map(m => escHtml(m)).join('<br>'),
+                    icon: 'error',
+                    confirmButtonText: 'OK',
+                    didOpen: () => document.querySelector('.swal2-confirm')?.style.setProperty('background-color', '#727cf5', 'important'),
+                });
+            }
+        })
+        .catch(() => {
+            resetConfirmBtn();
+            Swal.fire({
+                title: 'Network error',
+                text: 'Could not reach the server. Please try again.',
+                icon: 'error',
+                didOpen: () => document.querySelector('.swal2-confirm')?.style.setProperty('background-color', '#727cf5', 'important'),
+            });
+        });
+}
+
+function resetConfirmBtn() {
+    const btn = document.getElementById('review-confirm-btn');
+    btn.disabled  = false;
+    btn.innerHTML = '<i class="mgc_check_circle_line"></i> Confirm &amp; Submit';
+}
+
+// After submitting: prompt to create another request or go back to the list.
+function askAfterSubmit() {
+    if (typeof Swal === 'undefined') { resetRequestForm(); return; }
+    Swal.fire({
+        title: 'Request submitted',
+        html: 'The document opened in a new tab.<br>What would you like to do next?',
+        icon: 'success',
+        showCancelButton: true,
+        confirmButtonText: 'Create another',
+        cancelButtonText: 'Back to requests',
+        allowOutsideClick: false,
+        reverseButtons: true,
+        didOpen: () => {
+            document.querySelector('.swal2-confirm')?.style.setProperty('background-color', '#727cf5', 'important');
+            document.querySelector('.swal2-cancel')?.style.setProperty('background-color', '#6c757d', 'important');
+        },
+    }).then(r => {
+        if (r.isConfirmed) {
+            resetRequestForm();
+        } else {
+            window.location.href = '{{ route('documents.requests.index') }}';
+        }
+    });
+}
+
+// Clear the form so the current tab is ready for a fresh request.
+function resetRequestForm() {
+    const form = document.getElementById('request-form');
+    form.target = '';           // back to same-tab for safety
+    form.reset();
+
+    // Reset app-specific state.
+    clearCitizen();
+    selectedId = '';
+    document.getElementById('citizen_id').value = '';
+    document.getElementById('body_override_input').value = '';
+
+    // Reset document type selection + custom fields.
+    const typeSelect = document.getElementById('document_type_id');
+    if (typeSelect) { typeSelect.value = ''; }
+    document.getElementById('selected-type-card')?.classList.add('hidden');
+    document.getElementById('type-cards-picker')?.classList.remove('hidden');
+    document.getElementById('custom-fields-section')?.classList.add('hidden');
+
+    // Reset purpose dropdown.
+    const ps = document.getElementById('purpose-search');
+    if (ps) ps.value = '';
+    const pi = document.getElementById('purpose-input');
+    if (pi) pi.value = '';
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ── Init ──────────────────────────────────────────────────────────────
@@ -961,7 +1349,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(r => r.json())
             .then(results => {
                 const c = results.find(r => String(r.id) === String(oldCitizenId));
-                if (c) selectCitizen(c.id, c.name, c.address, c.contact, c.qrcode, c.profile ?? '');
+                if (c) selectCitizen(c.id, c.name, c.address, c.contact, c.qrcode, c.profile ?? '', { voter: c.voter, senior: c.senior, pwd: c.pwd, solo: c.solo });
             });
     }
 

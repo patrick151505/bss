@@ -13,11 +13,13 @@ class RouteServiceProvider extends ServiceProvider
     /**
      * The path to your application's "home" route.
      *
-     * Typically, users are redirected here after authentication.
+     * Users are redirected here after authentication when they have no
+     * configured landing page. Points at the Activity Dashboard, which every
+     * logged-in user can access (no permission gate).
      *
      * @var string
      */
-    public const HOME = '/home';
+    public const HOME = '/dashboard/activity';
 
     /**
      * Define your route model bindings, pattern filters, and other route configuration.

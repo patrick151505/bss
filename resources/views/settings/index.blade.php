@@ -173,6 +173,38 @@
                         @error('captain_position') <p class="text-danger text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
 
+                    {{-- Signature image (full width) --}}
+                    <div class="md:col-span-2">
+                        <label class="form-label">Signature Image</label>
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                            {{-- Preview box (wide, checkerboard so transparent PNGs are visible) --}}
+                            <div class="shrink-0 w-56 h-24 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden bg-white"
+                                 style="background-image:linear-gradient(45deg,#f3f4f6 25%,transparent 25%),linear-gradient(-45deg,#f3f4f6 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#f3f4f6 75%),linear-gradient(-45deg,transparent 75%,#f3f4f6 75%);background-size:14px 14px;background-position:0 0,0 7px,7px -7px,-7px 0;">
+                                @if($setting->captain_signature)
+                                    <img id="signature-preview"
+                                        src="{{ asset('storage/' . str_replace('public/', '', $setting->captain_signature)) }}"
+                                        class="max-w-full max-h-full object-contain" alt="Captain Signature">
+                                @else
+                                    <div id="signature-placeholder" class="text-gray-300 dark:text-gray-600 text-center">
+                                        <i class="mgc_signature_line text-3xl"></i>
+                                        <p class="text-[10px] mt-0.5">No signature</p>
+                                    </div>
+                                    <img id="signature-preview" src="" class="max-w-full max-h-full object-contain hidden" alt="Signature Preview">
+                                @endif
+                            </div>
+                            <div class="flex-1">
+                                <label for="signature-input"
+                                    class="btn border-gray-300 dark:border-gray-600 text-sm cursor-pointer inline-flex items-center">
+                                    <i class="mgc_upload_2_line me-1"></i> Upload Signature
+                                </label>
+                                <input type="file" id="signature-input" name="captain_signature"
+                                    class="hidden" accept="image/png,image/jpeg,image/jpg">
+                                <p class="text-xs text-gray-400 mt-2">Transparent PNG recommended (so it sits cleanly on the certificate). Max 2MB.</p>
+                                @error('captain_signature') <p class="text-danger text-xs mt-1">{{ $message }}</p> @enderror
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -204,6 +236,19 @@
                             oninput="updateIdPreview()">
                         <p class="text-xs text-gray-400 mt-1">How many digits to pad (1–10).</p>
                         @error('citizen_id_digits') <p class="text-danger text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="form-label">Default ID Validity</label>
+                        <select name="id_validity" class="form-select @error('id_validity') border-danger @enderror">
+                            @foreach(['6m' => '6 Months', '1y' => '1 Year', '2y' => '2 Years'] as $val => $label)
+                            <option value="{{ $val }}" {{ old('id_validity', $setting->id_validity ?? '2y') === $val ? 'selected' : '' }}>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-400 mt-1">
+                            How long a generated barangay ID stays valid. Applied to every new ID.
+                        </p>
+                        @error('id_validity') <p class="text-danger text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
 
                     <div class="md:col-span-2">
@@ -368,6 +413,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     wireLogoPreview('logo-input',          'logo-preview',          'logo-placeholder');
     wireLogoPreview('municipal-logo-input', 'municipal-logo-preview', 'municipal-logo-placeholder');
+    wireLogoPreview('signature-input',      'signature-preview',      'signature-placeholder');
 
     // Live preview updates
     const fields = {

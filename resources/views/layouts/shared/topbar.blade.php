@@ -130,11 +130,15 @@
     <!-- Profile Dropdown Button -->
     <div class="relative">
         <button data-fc-type="dropdown" data-fc-placement="bottom-end" type="button" class="nav-link">
-            @if(auth()->user()?->photo)
-                <img src="{{ asset('storage/' . str_replace('public/', '', auth()->user()->photo)) }}"
-                     alt="{{ auth()->user()->name }}" class="rounded-full h-10 w-10 object-cover">
+            @php $authUser = auth()->user(); @endphp
+            @if($authUser?->photo)
+                <img src="{{ asset('storage/' . str_replace('public/', '', $authUser->photo)) }}"
+                     alt="{{ $authUser->name }}" class="rounded-full h-10 w-10 object-cover">
             @else
-                <img src="/images/users/user-6.jpg" alt="user-image" class="rounded-full h-10">
+                {{-- Initials avatar — matches the profile page identity (no stock face) --}}
+                <span class="rounded-full h-10 w-10 flex items-center justify-center bg-primary/20 text-primary font-semibold text-sm uppercase">
+                    {{ \Illuminate\Support\Str::of($authUser?->name ?? '')->trim()->explode(' ')->take(2)->map(fn($w) => mb_substr($w, 0, 1))->implode('') ?: 'U' }}
+                </span>
             @endif
         </button>
         <div class="fc-dropdown fc-dropdown-open:opacity-100 hidden opacity-0 w-44 z-50 transition-[margin,opacity] duration-300 mt-2 bg-white shadow-lg border rounded-lg p-2 border-gray-200 dark:border-gray-700 dark:bg-gray-800">

@@ -46,7 +46,7 @@
 <div class="grid grid-cols-12 gap-6">
 
     {{-- ── Left: Roles Table ── --}}
-    <div class="col-span-12 lg:col-span-5">
+    <div class="col-span-12 lg:col-span-8 flex flex-col gap-6">
         <div class="card">
             <div class="card-header flex items-center justify-between">
                 <h5 class="card-title"><i class="mgc_user_security_line me-2 text-primary"></i>Roles</h5>
@@ -80,10 +80,13 @@
                             </td>
                             <td class="px-5 py-3 text-right">
                                 <div class="flex justify-end gap-1">
+                                    @can('roles.edit')
                                     <button onclick="editRole({{ $role->id }}, {{ json_encode($role->name) }}, {{ json_encode($role->permissions->pluck('name')) }})"
                                             class="p-1.5 rounded text-gray-400 hover:text-primary hover:bg-primary/10 transition" title="Edit Role">
                                         <i class="mgc_edit_line text-base"></i>
                                     </button>
+                                    @endcan
+                                    @can('roles.delete')
                                     @if($role->users_count === 0)
                                     <form action="{{ route('roles.destroy', $role) }}" method="POST"
                                           onsubmit="return confirm('Delete role \'{{ $role->name }}\'?')">
@@ -98,6 +101,12 @@
                                         <i class="mgc_delete_line text-base"></i>
                                     </span>
                                     @endif
+                                    @endcan
+                                    @cannot('roles.edit')
+                                    @cannot('roles.delete')
+                                    <span class="text-xs text-gray-300 dark:text-gray-600">View only</span>
+                                    @endcannot
+                                    @endcannot
                                 </div>
                             </td>
                         </tr>
@@ -115,8 +124,9 @@
         </div>
     </div>
 
-    {{-- ── Right: Create / Edit Form ── --}}
-    <div class="col-span-12 lg:col-span-7">
+    {{-- ── Right: Create / Edit Form (only for users who can create or edit) ── --}}
+    @if(auth()->user()?->canAny(['roles.create', 'roles.edit']))
+    <div class="col-span-12 lg:col-span-4 flex flex-col gap-6">
         <div class="card" id="role-form-card">
             <div class="card-header flex items-center justify-between">
                 <h5 class="card-title" id="role-form-title">
@@ -165,15 +175,19 @@
                                 </div>
                                 <div class="px-4 py-3 flex flex-wrap gap-3">
                                     @foreach($permissions as $perm)
-                                    @php $action = explode('.', $perm->name)[1]; @endphp
-                                    <label class="perm-module-{{ Str::slug($moduleName) }} flex items-center gap-2 cursor-pointer select-none">
+                                    @php
+                                        // Document-type "issue" perms show the type name; others show the action.
+                                        $label = $docTypeLabels[$perm->name] ?? explode('.', $perm->name)[1];
+                                        $isDocType = isset($docTypeLabels[$perm->name]);
+                                    @endphp
+                                    <label class="perm-module-{{ Str::slug($moduleName) }} flex items-center gap-2 cursor-pointer select-none {{ $isDocType ? 'w-full' : '' }}">
                                         <input type="checkbox"
                                                name="permissions[]"
                                                value="{{ $perm->name }}"
                                                class="perm-checkbox rounded border-gray-300 text-primary focus:ring-primary"
                                                id="perm-{{ $perm->id }}">
-                                        <span class="text-sm text-gray-700 dark:text-gray-200 capitalize">
-                                            {{ $action }}
+                                        <span class="text-sm text-gray-700 dark:text-gray-200 {{ $isDocType ? '' : 'capitalize' }}">
+                                            {{ $label }}
                                         </span>
                                     </label>
                                     @endforeach
@@ -190,6 +204,7 @@
             </div>
         </div>
     </div>
+    @endif
 
 </div>
 

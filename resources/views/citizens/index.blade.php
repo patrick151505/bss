@@ -299,9 +299,6 @@
                 <div class="flex flex-wrap justify-between items-center gap-3">
                     <div>
                         <h5 class="card-title">Citizen List</h5>
-                        <p id="record-count-text" class="text-xs text-gray-500 mt-0.5">
-                            Showing {{ $citizens->firstItem() ?? 0 }}–{{ $citizens->lastItem() ?? 0 }} of {{ $citizens->total() }} records
-                        </p>
                     </div>
                     <div class="flex items-center gap-2">
                         <select id="per-page-select" class="form-select text-sm py-1.5">
@@ -590,13 +587,6 @@ window.addEventListener('DOMContentLoaded', () => {
             wrap.innerHTML = res.html;
             overlay.classList.add('hidden');
             updateActiveCount();
-            // Sync header record count
-            const innerCount = wrap.querySelector('#record-count-text');
-            const headerCount = document.getElementById('record-count-text');
-            if (innerCount && headerCount && innerCount !== headerCount) {
-                headerCount.textContent = innerCount.textContent;
-                innerCount.remove();
-            }
             // Intercept pagination links in swapped HTML
             attachPaginationLinks();
         })

@@ -159,7 +159,7 @@
     "src": "resources/js/citizens/show.js"
   },
   "resources/js/config.js": {
-    "file": "assets/config-ad3aa8f7.js",
+    "file": "assets/config-b5923e3a.js",
     "isEntry": true,
     "src": "resources/js/config.js"
   },
@@ -383,7 +383,7 @@
     "src": "resources/js/summernote-init.js"
   },
   "resources/scss/app.scss": {
-    "file": "assets/app-516f8fe5.css",
+    "file": "assets/app-2f886e43.css",
     "isEntry": true,
     "src": "resources/scss/app.scss"
   },

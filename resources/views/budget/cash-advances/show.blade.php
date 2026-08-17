@@ -56,7 +56,7 @@
                 @if($cashAdvance->allocation)
                 <div>
                     <dt class="text-gray-500 mb-0.5">Allocation Line</dt>
-                    <dd class="font-medium">[{{ $cashAdvance->allocation->object_class }}] {{ $cashAdvance->allocation->line_name }}</dd>
+                    <dd class="font-medium">[{{ $cashAdvance->allocation->object_class }}] {{ $cashAdvance->allocation->program?->name ?? '—' }}</dd>
                 </div>
                 @endif
                 <div>

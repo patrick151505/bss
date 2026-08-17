@@ -46,7 +46,7 @@
 <div class="grid grid-cols-12 gap-6">
 
     {{-- ── Left: Users Table ── --}}
-    <div class="col-span-12 lg:col-span-7">
+    <div class="col-span-12 lg:col-span-8 flex flex-col gap-6">
         <div class="card">
             <div class="card-header flex items-center justify-between">
                 <h5 class="card-title"><i class="mgc_user_3_line me-2 text-primary"></i>Users</h5>
@@ -65,11 +65,11 @@
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                         @forelse($users as $user)
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40 {{ !$user->is_active ? 'opacity-50' : '' }}">
-                            <td class="px-5 py-3">
+                            <td class="px-5 py-3 whitespace-nowrap">
                                 <p class="font-medium text-gray-800 dark:text-gray-100">{{ $user->name }}</p>
                                 <p class="text-xs text-gray-400">{{ $user->email }}</p>
                             </td>
-                            <td class="px-5 py-3">
+                            <td class="px-5 py-3 whitespace-nowrap">
                                 @php $role = $user->roles->first(); @endphp
                                 @if($role)
                                     <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">
@@ -79,7 +79,7 @@
                                     <span class="text-xs text-gray-400">No role</span>
                                 @endif
                             </td>
-                            <td class="px-5 py-3 text-center">
+                            <td class="px-5 py-3 text-center whitespace-nowrap">
                                 @if($user->is_active)
                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-success/10 text-success">
                                         <span class="w-1.5 h-1.5 rounded-full bg-success inline-block"></span> Active
@@ -90,9 +90,9 @@
                                     </span>
                                 @endif
                             </td>
-                            <td class="px-5 py-3 text-right">
+                            <td class="px-5 py-3 text-right whitespace-nowrap">
                                 <div class="flex justify-end gap-1">
-                                    <button onclick="editUser({{ $user->id }}, {{ json_encode($user->name) }}, {{ json_encode($user->email) }}, {{ json_encode($role?->name ?? '') }})"
+                                    <button onclick="editUser({{ $user->id }}, {{ json_encode($user->name) }}, {{ json_encode($user->email) }}, {{ json_encode($role?->name ?? '') }}, {{ json_encode($user->landing_route ?? '') }})"
                                             class="p-1.5 rounded text-gray-400 hover:text-primary hover:bg-primary/10 transition" title="Edit">
                                         <i class="mgc_edit_line text-base"></i>
                                     </button>
@@ -124,7 +124,7 @@
     </div>
 
     {{-- ── Right: Create / Edit Form ── --}}
-    <div class="col-span-12 lg:col-span-5">
+    <div class="col-span-12 lg:col-span-4 flex flex-col gap-6">
         <div class="card" id="user-form-card">
             <div class="card-header flex items-center justify-between">
                 <h5 class="card-title" id="user-form-title">
@@ -182,6 +182,17 @@
                         </select>
                     </div>
 
+                    <div>
+                        <label class="form-label">Landing Page After Login</label>
+                        <select name="landing_route" id="inp-user-landing" class="form-select">
+                            <option value="">— Default (Home) —</option>
+                            @foreach($landingRoutes as $routeName => $opt)
+                            <option value="{{ $routeName }}" data-permission="{{ $opt['permission'] ?? '' }}">{{ $opt['label'] }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-400 mt-1" id="landing-hint">Where this user lands right after they log in. Only pages the selected role can access are listed.</p>
+                    </div>
+
                     <button type="submit" id="user-submit-btn" class="btn bg-primary text-white w-full">
                         <i class="mgc_add_circle_line me-1"></i> Add User
                     </button>
@@ -211,7 +222,42 @@
 <script>
 let editingUserId = null;
 
-function editUser(id, name, email, role) {
+// role name => permission names it grants
+const ROLE_PERMISSIONS = @json($rolePermissions);
+
+/**
+ * Hide landing-page options the selected role has no permission for.
+ * If the currently selected page becomes unavailable, fall back to Default.
+ */
+function filterLandingOptions() {
+    const role    = document.getElementById('inp-user-role').value;
+    const landing = document.getElementById('inp-user-landing');
+    const granted = ROLE_PERMISSIONS[role] ?? [];
+
+    let selectedHidden = false;
+
+    Array.from(landing.options).forEach(opt => {
+        if (!opt.value) return;                  // always keep "Default (Home)"
+        const needed  = opt.dataset.permission;
+        const allowed = !needed || granted.includes(needed);
+
+        opt.hidden   = !allowed;
+        opt.disabled = !allowed;
+        if (!allowed && opt.selected) selectedHidden = true;
+    });
+
+    if (selectedHidden) landing.value = '';
+
+    const hint = document.getElementById('landing-hint');
+    hint.textContent = role
+        ? 'Where this user lands right after they log in. Only pages the selected role can access are listed.'
+        : 'Select a role first — pages requiring permissions will appear once a role is chosen.';
+}
+
+document.getElementById('inp-user-role').addEventListener('change', filterLandingOptions);
+document.addEventListener('DOMContentLoaded', filterLandingOptions);
+
+function editUser(id, name, email, role, landingRoute) {
     editingUserId = id;
 
     const form = document.getElementById('user-form');
@@ -223,6 +269,9 @@ function editUser(id, name, email, role) {
     document.getElementById('inp-user-password').value = '';
     document.getElementById('inp-user-password-confirm').value = '';
     document.getElementById('inp-user-role').value = role ?? '';
+    document.getElementById('inp-user-landing').value = landingRoute ?? '';
+    // Re-filter for this user's role; clears the landing page if the role lost access to it.
+    filterLandingOptions();
 
     // Password optional on edit
     document.getElementById('inp-user-password').removeAttribute('required');
@@ -244,6 +293,7 @@ function cancelUserEdit() {
     form.action = '{{ route('users.store') }}';
     document.getElementById('user-form-method').value = 'POST';
     form.reset();
+    filterLandingOptions();
 
     document.getElementById('inp-user-password').setAttribute('required', true);
     document.getElementById('pw-label').innerHTML = 'Password <span class="text-danger">*</span>';

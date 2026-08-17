@@ -93,8 +93,10 @@
                     <div>
                         <label class="form-label text-sm">Paper Size</label>
                         <select name="paper_size" id="paper_size" class="form-select" onchange="updatePreviewPaperSize()">
-                            <option value="a4"     {{ old('paper_size', $template->currentVersion?->paper_size ?? 'a4') === 'a4'     ? 'selected' : '' }}>A4</option>
-                            <option value="letter" {{ old('paper_size', $template->currentVersion?->paper_size ?? 'a4') === 'letter' ? 'selected' : '' }}>Letter</option>
+                            <option value="a4"          {{ old('paper_size', $template->currentVersion?->paper_size ?? 'a4') === 'a4'          ? 'selected' : '' }}>A4</option>
+                            <option value="letter"      {{ old('paper_size', $template->currentVersion?->paper_size ?? 'a4') === 'letter'      ? 'selected' : '' }}>Short / Letter (8.5" × 11")</option>
+                            <option value="half_letter" {{ old('paper_size', $template->currentVersion?->paper_size ?? 'a4') === 'half_letter' ? 'selected' : '' }}>Half Letter (5.5" × 8.5")</option>
+                            <option value="long"        {{ old('paper_size', $template->currentVersion?->paper_size ?? 'a4') === 'long'        ? 'selected' : '' }}>Long / Legal (8.5" × 13")</option>
                         </select>
                     </div>
                     <div>
@@ -129,7 +131,7 @@
                                        value="{{ old('padding_left', $template->currentVersion?->padding_left ?? 72) }}"
                                        min="0" max="500" oninput="updatePreviewPadding()">
                             </div>
-                            <div class="shrink-0 w-16 h-20 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center bg-gray-50 dark:bg-gray-800">
+                            <div id="padding-paper-icon" class="shrink-0 {{ old('orientation', $template->currentVersion?->orientation ?? 'portrait') === 'landscape' ? 'w-20 h-16' : 'w-16 h-20' }} border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center bg-gray-50 dark:bg-gray-800">
                                 <i class="mgc_paper_line text-2xl text-gray-300 dark:text-gray-600"></i>
                             </div>
                             <div class="flex flex-col items-center gap-0.5 flex-1">
@@ -228,7 +230,12 @@
                 @php
                     $previewPaperSize   = old('paper_size', $template->currentVersion?->paper_size ?? 'a4');
                     $previewOrientation = old('orientation', $template->currentVersion?->orientation ?? 'portrait');
-                    [$previewW, $previewH] = $previewPaperSize === 'a4' ? ['8.27in', '11.69in'] : ['8.5in', '11in'];
+                    [$previewW, $previewH] = match ($previewPaperSize) {
+                        'a4'          => ['8.27in', '11.69in'],
+                        'half_letter' => ['5.5in',  '8.5in'],
+                        'long'        => ['8.5in',  '13in'],
+                        default       => ['8.5in',  '11in'],
+                    };
                     if ($previewOrientation === 'landscape') { [$previewW, $previewH] = [$previewH, $previewW]; }
                 @endphp
                 <div style="background:#e5e7eb; padding:24px; border-radius:0.5rem; overflow-x:auto;">
@@ -540,9 +547,24 @@ function updatePreviewPaperSize() {
     const paperSize   = document.getElementById('paper_size').value;
     const orientation = document.getElementById('orientation').value;
 
-    let w = paperSize === 'a4' ? '8.27in' : '8.5in';
-    let h = paperSize === 'a4' ? '11.69in' : '11in';
+    const sizes = {
+        a4:          ['8.27in', '11.69in'],
+        letter:      ['8.5in',  '11in'],
+        half_letter: ['5.5in',  '8.5in'],
+        long:        ['8.5in',  '13in'],
+    };
+    let [w, h] = sizes[paperSize] || sizes.letter;
     if (orientation === 'landscape') { [w, h] = [h, w]; }
+
+    // Flip the padding-control paper icon to match orientation
+    const paperIcon = document.getElementById('padding-paper-icon');
+    if (paperIcon) {
+        const landscape = orientation === 'landscape';
+        paperIcon.classList.toggle('w-20', landscape);
+        paperIcon.classList.toggle('h-16', landscape);
+        paperIcon.classList.toggle('w-16', !landscape);
+        paperIcon.classList.toggle('h-20', !landscape);
+    }
 
     const preview = document.getElementById('paper-preview');
     if (!preview) return;
@@ -553,6 +575,9 @@ function updatePreviewPaperSize() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Sync the live preview + padding icon to the current paper size / orientation
+    updatePreviewPaperSize();
+
     const drop  = document.getElementById('upload-drop-area');
     const input = document.getElementById('bg-file-input');
     if (!drop || !input) return;

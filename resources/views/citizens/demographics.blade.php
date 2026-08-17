@@ -78,7 +78,7 @@
         </p>
         <div class="stat-grid">
 
-            <div class="card">
+            <div class="card anim-card">
                 <div class="p-4 flex items-center gap-3 h-full">
                     <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                         <i class="mgc_group_line text-lg text-primary"></i>
@@ -90,13 +90,13 @@
                                 <i class="mgc_information_line text-xs text-gray-300"></i>
                             </span>
                         </p>
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ number_format($stats['total']) }}</h3>
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $stats['total'] }}">{{ number_format($stats['total']) }}</h3>
                         <p class="text-xs text-gray-400">active citizens</p>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card anim-card">
                 <div class="p-4 flex items-center gap-3 h-full">
                     <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
                         <i class="mgc_check_circle_line text-lg text-success"></i>
@@ -108,13 +108,13 @@
                                 <i class="mgc_information_line text-xs text-gray-300"></i>
                             </span>
                         </p>
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ number_format($stats['voters']) }}</h3>
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $stats['voters'] }}">{{ number_format($stats['voters']) }}</h3>
                         <p class="text-xs text-gray-400">{{ $stats['total'] ? round($stats['voters'] / $stats['total'] * 100, 1) : 0 }}% of total</p>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card anim-card">
                 <div class="p-4 flex items-center gap-3 h-full">
                     <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                         <i class="mgc_male_line text-lg text-blue-500"></i>
@@ -126,13 +126,13 @@
                                 <i class="mgc_information_line text-xs text-gray-300"></i>
                             </span>
                         </p>
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ number_format($stats['male']) }}</h3>
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $stats['male'] }}">{{ number_format($stats['male']) }}</h3>
                         <p class="text-xs text-gray-400">{{ $stats['total'] ? round($stats['male'] / $stats['total'] * 100, 1) : 0 }}% of total</p>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card anim-card">
                 <div class="p-4 flex items-center gap-3 h-full">
                     <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">
                         <i class="mgc_female_line text-lg text-pink-500"></i>
@@ -144,7 +144,7 @@
                                 <i class="mgc_information_line text-xs text-gray-300"></i>
                             </span>
                         </p>
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ number_format($stats['female']) }}</h3>
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $stats['female'] }}">{{ number_format($stats['female']) }}</h3>
                         <p class="text-xs text-gray-400">{{ $stats['total'] ? round($stats['female'] / $stats['total'] * 100, 1) : 0 }}% of total</p>
                     </div>
                 </div>
@@ -163,7 +163,7 @@
         </p>
         <div class="stat-grid">
 
-            <div class="card">
+            <div class="card anim-card">
                 <div class="p-4 flex items-center gap-3 h-full">
                     <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                         <i class="mgc_home_3_line text-lg text-primary"></i>
@@ -175,13 +175,13 @@
                                 <i class="mgc_information_line text-xs text-gray-300"></i>
                             </span>
                         </p>
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ number_format($hh['total_households']) }}</h3>
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $hh['total_households'] }}">{{ number_format($hh['total_households']) }}</h3>
                         <p class="text-xs text-gray-400">registered units</p>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card anim-card">
                 <div class="p-4 flex items-center gap-3 h-full">
                     <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
                         <i class="mgc_home_6_line text-lg text-indigo-500"></i>
@@ -193,13 +193,13 @@
                                 <i class="mgc_information_line text-xs text-gray-300"></i>
                             </span>
                         </p>
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ number_format($hh['total_families']) }}</h3>
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $hh['total_families'] }}">{{ number_format($hh['total_families']) }}</h3>
                         <p class="text-xs text-gray-400">family groups</p>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card anim-card">
                 <div class="p-4 flex items-center gap-3 h-full">
                     <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                         <i class="mgc_user_3_line text-lg text-amber-500"></i>
@@ -211,13 +211,13 @@
                                 <i class="mgc_information_line text-xs text-gray-300"></i>
                             </span>
                         </p>
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ $hh['avg_household_size'] }}</h3>
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $hh['avg_household_size'] }}" data-decimals="1">{{ $hh['avg_household_size'] }}</h3>
                         <p class="text-xs text-gray-400">members / household</p>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card anim-card">
                 <div class="p-4 flex items-center gap-3 h-full">
                     <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-danger/10 flex items-center justify-center">
                         <i class="mgc_user_remove_line text-lg text-danger"></i>
@@ -229,7 +229,7 @@
                                 <i class="mgc_information_line text-xs text-gray-300"></i>
                             </span>
                         </p>
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ number_format($hh['unassigned']) }}</h3>
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $hh['unassigned'] }}">{{ number_format($hh['unassigned']) }}</h3>
                         <p class="text-xs text-gray-400">no household</p>
                     </div>
                 </div>
@@ -248,7 +248,7 @@
         </p>
         <div class="stat-grid">
 
-            <div class="card">
+            <div class="card anim-card">
                 <div class="p-4 flex items-center gap-3 h-full">
                     <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                         <i class="mgc_crutch_line text-lg text-purple-500"></i>
@@ -260,13 +260,13 @@
                                 <i class="mgc_information_line text-xs text-gray-300"></i>
                             </span>
                         </p>
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ number_format($sectors['pwd']) }}</h3>
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $sectors['pwd'] }}">{{ number_format($sectors['pwd']) }}</h3>
                         <p class="text-xs text-gray-400">{{ $stats['total'] ? round($sectors['pwd'] / $stats['total'] * 100, 1) : 0 }}% of population</p>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card anim-card">
                 <div class="p-4 flex items-center gap-3 h-full">
                     <div class="flex-shrink-0 w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
                         <i class="mgc_baby_carriage_line text-lg text-orange-500"></i>
@@ -278,7 +278,7 @@
                                 <i class="mgc_information_line text-xs text-gray-300"></i>
                             </span>
                         </p>
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ number_format($sectors['solo_parents']) }}</h3>
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $sectors['solo_parents'] }}">{{ number_format($sectors['solo_parents']) }}</h3>
                         <p class="text-xs text-gray-400">{{ $stats['total'] ? round($sectors['solo_parents'] / $stats['total'] * 100, 1) : 0 }}% of population</p>
                     </div>
                 </div>
@@ -296,7 +296,7 @@
                                 <i class="mgc_information_line text-xs text-gray-300"></i>
                             </span>
                         </p>
-                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ number_format($sectors['senior']) }}</h3>
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $sectors['senior'] }}">{{ number_format($sectors['senior']) }}</h3>
                         <p class="text-xs text-gray-400">{{ $stats['total'] ? round($sectors['senior'] / $stats['total'] * 100, 1) : 0 }}% of population</p>
                     </div>
                 </div>
@@ -313,7 +313,7 @@
 
 {{-- Row 1: Gender | Age | Voters vs Non-Voters --}}
 <div class="chart-row lg:grid-cols-3">
-    <div class="card">
+    <div class="card anim-card">
         <div class="card-header">
             <h4 class="card-title flex items-center gap-1">
                 Gender
@@ -324,7 +324,7 @@
         </div>
         <div class="p-5"><div id="chart-gender" class="apex-charts" dir="ltr"></div></div>
     </div>
-    <div class="card">
+    <div class="card anim-card">
         <div class="card-header">
             <h4 class="card-title flex items-center gap-1">
                 Age Distribution
@@ -335,7 +335,7 @@
         </div>
         <div class="p-5"><div id="chart-age" class="apex-charts" dir="ltr"></div></div>
     </div>
-    <div class="card">
+    <div class="card anim-card">
         <div class="card-header">
             <h4 class="card-title flex items-center gap-1">
                 Voters vs Non-Voters
@@ -350,7 +350,7 @@
 
 {{-- Row 2: Civil Status | Voters by Age | Voters by Zone --}}
 <div class="chart-row lg:grid-cols-3">
-    <div class="card">
+    <div class="card anim-card">
         <div class="card-header">
             <h4 class="card-title flex items-center gap-1">
                 Civil Status
@@ -361,7 +361,7 @@
         </div>
         <div class="p-5"><div id="chart-civil" class="apex-charts" dir="ltr"></div></div>
     </div>
-    <div class="card">
+    <div class="card anim-card">
         <div class="card-header">
             <h4 class="card-title flex items-center gap-1">
                 Voters by Age Group
@@ -372,7 +372,7 @@
         </div>
         <div class="p-5"><div id="chart-voters-age" class="apex-charts" dir="ltr"></div></div>
     </div>
-    <div class="card">
+    <div class="card anim-card">
         <div class="card-header">
             <h4 class="card-title flex items-center gap-1">
                 Voters by Zone / Purok
@@ -387,7 +387,7 @@
 
 {{-- Row 3: Members by Zone | Special Sectors by Zone (spans 2) --}}
 <div class="chart-row lg:grid-cols-3">
-    <div class="card">
+    <div class="card anim-card">
         <div class="card-header">
             <h4 class="card-title flex items-center gap-1">
                 Members per Zone
@@ -410,6 +410,8 @@
         <div class="p-5"><div id="chart-sectors-zone" class="apex-charts" dir="ltr"></div></div>
     </div>
 </div>
+
+@include('partials.stat-animations')
 
 @endsection
 

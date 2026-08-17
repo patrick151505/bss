@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-sidenav-view="{{ $sidenav ?? 'hover' }}">
+<html lang="en" data-mode="dark" data-sidenav-view="{{ $sidenav ?? 'default' }}">
 
 <head>
     @include('layouts.shared/title-meta', ['title' => $title])

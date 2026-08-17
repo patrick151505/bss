@@ -46,7 +46,7 @@
 <div class="grid grid-cols-12 gap-6">
 
     {{-- ── Left: Zone List ── --}}
-    <div class="col-span-12 lg:col-span-8">
+    <div class="col-span-12 lg:col-span-8 flex flex-col gap-6">
         <div class="card">
             <div class="card-header flex items-center justify-between">
                 <h5 class="card-title"><i class="mgc_map_line me-2 text-primary"></i>Zones / Areas</h5>
