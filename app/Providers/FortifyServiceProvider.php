@@ -21,7 +21,11 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Auth routes are defined by Breeze in routes/auth.php. Prevent Fortify
+        // from registering its own duplicate routes (e.g. password.confirm),
+        // which otherwise breaks `route:cache` with a duplicate-name error.
+        // Fortify's Actions (CreateNewUser, etc.) remain fully active.
+        Fortify::ignoreRoutes();
     }
 
     /**
