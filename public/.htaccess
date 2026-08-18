@@ -3,6 +3,11 @@
         Options -MultiViews -Indexes
     </IfModule>
 
+    # Allow the web server to follow the storage symlink (public/storage ->
+    # storage/app/public). Without this, LiteSpeed/Apache 404s on uploaded
+    # files even though the symlink and target exist.
+    Options +FollowSymLinks
+
     RewriteEngine On
 
     # Handle Authorization Header

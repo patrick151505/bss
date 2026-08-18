@@ -54,6 +54,18 @@ Route::get('/', function () {
         : redirect()->route('login');
 })->name('root');
 
+// Serve public storage files through PHP. The hosting server (LiteSpeed)
+// refuses to follow the public/storage symlink, so /storage/* 404s at the
+// web-server level. This route streams the file straight from disk instead.
+// Public (no auth) — assets like logos/photos must load for guests too.
+Route::get('/storage/{path}', function (string $path) {
+    $disk = \Illuminate\Support\Facades\Storage::disk('public');
+
+    abort_unless($disk->exists($path), 404);
+
+    return response()->file($disk->path($path));
+})->where('path', '.*')->name('storage.serve');
+
 
 
 
