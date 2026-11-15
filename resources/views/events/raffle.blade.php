@@ -89,7 +89,7 @@
                     <p class="text-xs text-gray-400">No active PIN yet.</p>
                 </div>
 
-                <button onclick="generatePin()"
+                <button onclick="generatePin(this)"
                     class="btn bg-primary text-white w-full gap-2 justify-center">
                     <i class="mgc_refresh_1_line"></i>
                     <span id="gen-btn-label">{{ $event->hasValidPin() ? 'Regenerate PIN' : 'Generate PIN' }}</span>
@@ -247,23 +247,68 @@ function initials(name) {
     return name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 }
 
+function escapeText(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 // ─── PIN ──────────────────────────────────────────────────────────────────────
 
-async function generatePin() {
-    const btn = event.currentTarget;
+async function generatePin(btn) {
+    // A new PIN invalidates the old link — every open Display/Controller shows "Session Ended".
+    const hasPin = !document.getElementById('pin-area').classList.contains('hidden');
+    if (hasPin) {
+        const ok = await Swal.fire({
+            icon: 'warning',
+            title: 'Regenerate PIN?',
+            html: 'Every screen using the current PIN (Display, Controller) will show <b>Session Ended</b> and must be reopened with the new link.',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, regenerate',
+            reverseButtons: true,
+            didOpen: () => {
+                document.querySelector('.swal2-confirm').style.setProperty('background-color', '#727cf5', 'important');
+            },
+        });
+        if (!ok.isConfirmed) return;
+    }
+
     btn.disabled = true;
     btn.innerHTML = '<i class="mgc_loading_3_line animate-spin"></i> Generating…';
 
+    // Send a real JSON body ('{}'): some hosts' ModSecurity rejects an empty body
+    // declared as application/json. Accept: json makes Laravel answer errors as JSON.
     const res = await fetch(ROUTES.generatePin, {
         method: 'POST',
-        headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json' },
-    }).then(r => r.json()).catch(() => ({ success: false, message: 'Network error' }));
+        headers: {
+            'X-CSRF-TOKEN': CSRF,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: '{}',
+    }).then(async r => {
+        const data = await r.json().catch(() => null);
+        if (r.ok && data) return data;
+        const why = {
+            401: 'You have been logged out. Reload the page and log in again.',
+            403: 'Your account is not allowed to manage this raffle.',
+            419: 'Your page session expired. Reload the page, then try again.',
+        }[r.status] || (data?.message || `Server error (HTTP ${r.status}).`);
+        return { success: false, message: why, maybeChanged: r.status >= 500 };
+    }).catch(() => ({ success: false, message: 'Could not reach the server. Check the internet connection.', maybeChanged: true }));
 
     btn.disabled = false;
     btn.innerHTML = '<i class="mgc_refresh_1_line"></i> <span id="gen-btn-label">Regenerate PIN</span>';
 
     if (!res.success) {
-        Swal.fire({ icon: 'error', title: 'Error', text: res.message, confirmButtonColor: '#fa5c7c' });
+        Swal.fire({
+            icon: 'error',
+            title: 'PIN not generated',
+            html: escapeText(res.message) + (res.maybeChanged
+                ? '<br><small class="text-gray-400">Reload this page to see which PIN is active before sharing links.</small>' : ''),
+            didOpen: () => {
+                document.querySelector('.swal2-confirm').style.setProperty('background-color', '#fa5c7c', 'important');
+            },
+        });
         return;
     }
 

@@ -18,8 +18,10 @@ return new class extends Migration
         }
 
         Schema::table('eb_blotter_actions', function (Blueprint $table) {
-            $table->json('complainant_attendance')->default('{}')->change();
-            $table->json('respondent_attendance')->default('{}')->change();
+            // No default: MySQL doesn't allow one on JSON/TEXT columns (MariaDB does).
+            // BlotterController always sets both values when saving an action.
+            $table->json('complainant_attendance')->change();
+            $table->json('respondent_attendance')->change();
         });
     }
 
