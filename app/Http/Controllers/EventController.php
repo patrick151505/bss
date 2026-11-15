@@ -225,6 +225,24 @@ class EventController extends Controller
         ]);
     }
 
+    // Why a public raffle request is refused, or null when the PIN is good.
+    // Shown on the "Session Ended" screen so staff know whether to reopen the link.
+    private function pinFailure(Event $event, $pin): ?string
+    {
+        if (!$event->raffle_enabled) {
+            return 'The raffle was turned off for this event.';
+        }
+        if (!$event->hasValidPin()) {
+            return $event->raffle_pin_expires_at
+                ? 'The PIN expired on ' . $event->raffle_pin_expires_at->format('M d, Y g:i A') . '.'
+                : 'There is no active PIN for this event.';
+        }
+        if ((string) $pin !== $event->raffle_pin) {
+            return 'A new PIN was generated, so this link no longer works. Open the new link from the raffle page.';
+        }
+        return null;
+    }
+
     // ─── Public raffle audience page (no auth) ────────────────────────────────
 
     public function publicRafflePage(Request $request, Event $event)
@@ -406,8 +424,9 @@ class EventController extends Controller
         $no = ['Cache-Control' => 'no-store'];
 
         $ev = Event::find((int) $event);
-        if (!$ev || !$ev->raffle_enabled || !$ev->hasValidPin() || $request->query('pin') !== $ev->raffle_pin) {
-            return response()->json(['success' => false, 'message' => 'Session ended.', 'now' => $nowMs()], 200, $no);
+        $why = $ev ? $this->pinFailure($ev, $request->query('pin')) : 'This event no longer exists.';
+        if ($why) {
+            return response()->json(['success' => false, 'message' => $why, 'now' => $nowMs()], 200, $no);
         }
 
         $since = $request->has('since') ? (int) $request->query('since') : null;
@@ -480,22 +499,23 @@ class EventController extends Controller
 
     public function publicRafflePool(Request $request, Event $event)
     {
-        if (!$event->raffle_enabled || !$event->hasValidPin() || $request->input('pin') !== $event->raffle_pin) {
-            return response()->json(['success' => false, 'message' => 'Session ended.']);
+        if ($why = $this->pinFailure($event, $request->input('pin'))) {
+            return response()->json(['success' => false, 'message' => $why])->header('Cache-Control', 'no-store');
         }
 
-        return $this->rafflePool($event);
+        return $this->rafflePool($event)->header('Cache-Control', 'no-store');
     }
 
     // ─── Public raffle: winner history (no auth, pin-protected) ──────────────
 
     public function publicWinnerHistory(Request $request, Event $event)
     {
-        if (!$event->raffle_enabled || !$event->hasValidPin() || $request->input('pin') !== $event->raffle_pin) {
-            return response()->json(['success' => false, 'message' => 'Session ended.']);
+        // no-store: hosts like LiteSpeed must never hand a stale "ended" answer to a live screen.
+        if ($why = $this->pinFailure($event, $request->input('pin'))) {
+            return response()->json(['success' => false, 'message' => $why])->header('Cache-Control', 'no-store');
         }
 
-        return $this->winnerHistory($event);
+        return $this->winnerHistory($event)->header('Cache-Control', 'no-store');
     }
 
     // ─── Edit form ────────────────────────────────────────────────────────────

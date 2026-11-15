@@ -1547,8 +1547,8 @@ async function pollWinners() {
         // (or right after) our save; that new round is ours, not a remote draw.
         if (recordingLocal || pendingDraw) return;
         if (!res.success) {
-            // PIN expired while audience was watching — show session-ended overlay
-            showSessionEnded();
+            // PIN expired/changed while audience was watching — show session-ended overlay
+            showSessionEnded(res.message);
             return;
         }
         // Compare by (round, citizen) — after an Undo the next draw can reuse a round number.
@@ -1588,7 +1588,7 @@ function setBadge(count) {
 }
 
 let sessionEndedShown = false;
-function showSessionEnded() {
+function showSessionEnded(reason) {
     if (sessionEndedShown) return;
     sessionEndedShown = true;
 
@@ -1606,7 +1606,7 @@ function showSessionEnded() {
             <div style="font-size:3.5rem;margin-bottom:12px;">⏰</div>
             <div style="font-size:1.4rem;font-weight:900;color:#FFD60A;margin-bottom:8px;">Session Ended</div>
             <div style="font-size:0.88rem;font-weight:700;color:rgba(255,255,255,0.45);line-height:1.5;">
-                The draw session has expired.<br>Ask the organizer to share a new link.
+                ${reason ? escapeHtml(reason) : 'The draw session has expired.<br>Ask the organizer to share a new link.'}
             </div>
         </div>
     `;
@@ -1890,7 +1890,7 @@ async function liveLoop() {
         const url = ROUTES.liveWait + '&since=' + (liveVer ?? -1) + (short ? '&hold=0' : '');
         try {
             const res = await fetchTimeout(url, short ? 6000 : 28000).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
-            if (!res.success) { showSessionEnded(); return; }
+            if (!res.success) { showSessionEnded(res.message); return; }
             liveFails = 0;
             setDisplayLink(true);
             if (SIM_LAG) await sleep(SIM_LAG);                // staff rehearsal: pretend the network is slow
