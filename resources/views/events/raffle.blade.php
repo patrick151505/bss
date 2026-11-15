@@ -276,16 +276,32 @@ async function generatePin(btn) {
 
     // Send a real JSON body ('{}'): some hosts' ModSecurity rejects an empty body
     // declared as application/json. Accept: json makes Laravel answer errors as JSON.
-    const res = await fetch(ROUTES.generatePin, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': CSRF,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-        body: '{}',
-    }).then(async r => {
+    // The host's security filter sometimes answers a POST with a redirect to the same
+    // URL (to set a cookie); the browser then re-sends it as a GET and Laravel says
+    // "GET method is not supported". That happens before Laravel, so resending is safe.
+    const send = async () => {
+        let r;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            r = await fetch(ROUTES.generatePin, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': CSRF,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: '{}',
+            });
+            if (!r.redirected) break;
+            await new Promise(ok => setTimeout(ok, 300 * (attempt + 1)));
+        }
+        return r;
+    };
+
+    const res = await send().then(async r => {
+        if (r.redirected) {
+            return { success: false, message: 'The hosting server keeps redirecting this request (security filter), so no PIN was generated. Try again in a minute.' };
+        }
         const data = await r.json().catch(() => null);
         if (r.ok && data) return data;
         const why = {

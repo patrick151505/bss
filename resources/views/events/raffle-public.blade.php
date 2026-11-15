@@ -1131,6 +1131,19 @@ const ROUTES = {
     livePush:      BASE + '/live?pin=' + PIN,
 };
 
+// POST that survives the host's security filter: it sometimes answers with a
+// redirect to the same URL (to set a cookie), which turns the POST into a GET.
+// The redirect happens before Laravel, so nothing was saved — resending is safe.
+async function postJson(url, opts) {
+    let r;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        r = await fetch(url, opts);
+        if (!r.redirected) break;
+        await sleep(300 * (attempt + 1));
+    }
+    return readJson(r);
+}
+
 // Response reader for saves: a redirected save never reached its handler.
 async function readJson(r) {
     if (r.redirected) {
@@ -2056,11 +2069,11 @@ async function submitUndo() {
     const btn = document.getElementById('undo-go');
     btn.disabled = true;
 
-    const res = await fetch(ROUTES.undo, {
+    const res = await postJson(ROUTES.undo, {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ pin: PIN, round: undoRound, reason, keep_out: keepOut }),
-    }).then(readJson).catch(() => ({ success: false, message: 'Network error — nothing was changed.' }));
+    }).catch(() => ({ success: false, message: 'Network error — nothing was changed.' }));
 
     if (!res.success) {
         btn.disabled = false;
@@ -2318,7 +2331,7 @@ function batchRemove(i) {
     skipped.add(gone.citizenId);
     allPool = allPool.filter(p => p.citizenId !== gone.citizenId);
     refreshAreaFilter();
-    fetch(ROUTES.noShow, {
+    postJson(ROUTES.noShow, {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json' },
         body: JSON.stringify({ citizenId: gone.citizenId, prize_label: d.prizeLabel, pin: PIN }),
@@ -2347,11 +2360,11 @@ async function confirmBatch() {
     document.querySelectorAll('#batch-grid .bt-x').forEach(b => b.disabled = true);
 
     recordingLocal = true;
-    const res = await fetch(ROUTES.recordWinners, {
+    const res = await postJson(ROUTES.recordWinners, {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ citizenIds: d.winners.map(w => w.citizenId), prize_label: d.prizeLabel, pin: PIN }),
-    }).then(readJson).catch(() => ({ success: false, message: 'Network error — winners not saved. Please try again.' }));
+    }).catch(() => ({ success: false, message: 'Network error — winners not saved. Please try again.' }));
 
     if (!res.success) {
         recordingLocal = false;
@@ -2440,11 +2453,11 @@ async function confirmPresent() {
     document.querySelectorAll('#confirm-actions button').forEach(b => b.disabled = true);
 
     recordingLocal = true;
-    const res = await fetch(ROUTES.recordWinner, {
+    const res = await postJson(ROUTES.recordWinner, {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json' },
         body: JSON.stringify({ citizenId: winner.citizenId, prize_label: prizeLabel, pin: PIN }),
-    }).then(readJson).catch(() => ({ success: false, message: 'Network error — winner not saved. Please try again.' }));
+    }).catch(() => ({ success: false, message: 'Network error — winner not saved. Please try again.' }));
 
     if (!res.success) {
         recordingLocal = false;
@@ -2484,7 +2497,7 @@ async function markNotPresent() {
     refreshAreaFilter();
 
     // Audit trail (best effort — the re-draw shouldn't wait on it).
-    fetch(ROUTES.noShow, {
+    postJson(ROUTES.noShow, {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json' },
         body: JSON.stringify({ citizenId: winner.citizenId, prize_label: prizeLabel, pin: PIN }),
@@ -2577,11 +2590,11 @@ async function submitQr(code) {
 
     document.getElementById('qr-hint').textContent = '⏳ Checking…';
 
-    const res = await fetch(ROUTES.checkinQr, {
+    const res = await postJson(ROUTES.checkinQr, {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json' },
         body: JSON.stringify({ qrcode: code, pin: PIN }),
-    }).then(readJson).catch(() => ({ success: false, message: 'Network error.' }));
+    }).catch(() => ({ success: false, message: 'Network error.' }));
 
     closeQrModal();
     showAttendResult(res);
