@@ -21,6 +21,13 @@
     flex-direction: column;
     width: 100%;
     min-block-size: 100vh;
+
+    // A flex item's default min-width is auto, so any wide child (a table, the
+    // ID canvas, a long unbroken string) stretches this column past the
+    // viewport and the WHOLE page scrolls sideways on mobile. Pinning it to 0
+    // keeps the overflow inside the child, where its own overflow-x-auto can
+    // handle it.
+    min-width: 0;
 }
 
 // Logo Box
@@ -496,18 +503,58 @@ html[data-sidenav-view="md"] {
 }
 
 // Mobile View Sidenav (Mobile Sidebar || Open Sidenav with Backdrop)
+// On phones the menu behaves like a right-hand drawer rather than a narrow
+// left rail: 90% of the viewport, full height, sliding in from the end edge.
+// It is driven by `transform`, not margin, so the animation is composited and
+// the panel never widens the document (which would scroll the page sideways).
 html[data-sidenav-view="mobile"] {
     .app-menu {
-        margin-inline-start: calc($sidenav-width * -1);
-        @apply fixed opacity-0;
+        // Override the desktop rail width/stickiness.
+        width: 90%;
+        min-width: 0;
+        max-width: 420px;          // don't become absurd on a large phone/tablet
+
+        position: fixed;
+        inset-block: 0;            // top:0; bottom:0 — full height
+        inset-inline-end: 0;       // anchored to the right (start in RTL)
+        inset-inline-start: auto;
+        margin-inline-start: 0;    // the old off-screen margin no longer applies
+
+        height: 100%;
+        max-height: 100%;
+
+        // Hidden off the end edge; RTL flips the direction automatically.
+        transform: translateX(100%);
+        @apply opacity-0 shadow-2xl;
+        transition: transform .3s ease, opacity .2s ease;
+        overflow-y: auto;
+        overscroll-behavior: contain;   // scrolling the menu must not scroll the page
+    }
+
+    // Respect the phone's safe areas so the panel clears notches/home bars.
+    .app-menu .logo-box { padding-top: env(safe-area-inset-top, 0px); }
+    .app-menu .srcollbar {
+        height: auto;
+        max-height: calc(100% - #{$topbar-height} - env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
     }
 
     &.sidenav-enable {
         .app-menu {
-            margin-inline-start: 0;
+            transform: translateX(0);
             @apply opacity-100 z-50;
         }
+
+        // The drawer covers most of the screen, so stop the page behind it
+        // from scrolling while it is open.
+        overflow: hidden;
     }
+}
+
+// In RTL the drawer sits on the left, so it hides in the opposite direction.
+html[dir="rtl"][data-sidenav-view="mobile"] {
+    .app-menu { transform: translateX(-100%); }
+    &.sidenav-enable .app-menu { transform: translateX(0); }
 }
 
 // Hidden Sidenav View ( Fullscreen page content view)

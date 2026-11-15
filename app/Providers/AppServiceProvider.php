@@ -18,6 +18,10 @@ class AppServiceProvider extends ServiceProvider
         });
 
         View::composer('layouts.shared.topbar', function ($view) {
+            if (!auth()->user()?->can('inventory_items.view')) {
+                $view->with('lowStockItems', collect());
+                return;
+            }
             $lowStockItems = InventoryItem::active()
                 ->whereRaw('stock <= low_stock_threshold')
                 ->orderByRaw('stock - low_stock_threshold ASC')

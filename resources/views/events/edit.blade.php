@@ -70,7 +70,7 @@
                         <label class="text-gray-800 dark:text-gray-200 text-sm font-medium inline-block mb-2">
                             Event Date <span class="text-danger">*</span>
                         </label>
-                        <input type="date" name="event_date" value="{{ old('event_date', $event->event_date) }}"
+                        <input type="date" name="event_date" value="{{ old('event_date', $event->event_date?->format('Y-m-d')) }}"
                             class="form-input w-full @error('event_date') border-danger @enderror" required>
                         @error('event_date')<p class="text-danger text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
@@ -89,6 +89,8 @@
             </div>
         </div>
 
+        @include('events.partials.allowed-areas', ['selected' => $event->allowedAddressIds()])
+
     </div>
 
     {{-- ── Right sidebar ── --}}
@@ -97,7 +99,7 @@
         {{-- Cover photo --}}
         <div class="card">
             <div class="flex items-center gap-3 px-5 py-3 bg-primary/5 border-b border-primary/10">
-                <span class="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0">3</span>
+                <span class="w-6 h-6 rounded-full bg-primary text-white text-xs flex items-center justify-center shrink-0">4</span>
                 <span class="text-sm font-semibold text-primary uppercase tracking-wide">Cover Photo</span>
             </div>
             <div class="p-5">
@@ -162,7 +164,7 @@
 
         {{-- Submit --}}
         <div class="flex gap-3">
-            <a href="{{ route('events.show', $event) }}" class="btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white flex-1 justify-center">
+            <a href="{{ route('events.show', $event) }}" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white flex-1 justify-center">
                 Cancel
             </a>
             <button type="submit" class="btn bg-primary text-white flex-1 justify-center gap-2">

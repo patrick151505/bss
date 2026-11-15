@@ -42,7 +42,8 @@
                 </div>
 
                 {{-- Expense Lines --}}
-                <table class="table table-sm mb-4">
+                <div class="overflow-x-auto">
+                <table class="table table-sm mb-4 min-w-[560px]">
                     <thead>
                         <tr>
                             <th>OR No.</th>
@@ -75,6 +76,7 @@
                         @endif
                     </tfoot>
                 </table>
+                </div>
 
                 @if($liquidation->notes)
                 <p class="text-sm text-gray-500 mt-2"><span class="font-medium">Notes:</span> {{ $liquidation->notes }}</p>

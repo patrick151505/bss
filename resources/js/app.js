@@ -107,6 +107,22 @@ class ThemeCustomizer {
             }
         })
 
+        // On mobile the drawer covers the screen, so close it as soon as a real
+        // navigation starts — otherwise it stays open over the incoming page.
+        // Parent items that only expand a submenu are left alone.
+        document.querySelectorAll('ul.menu a.menu-link').forEach((element) => {
+            element.addEventListener('click', function () {
+                if (self.html.getAttribute('data-sidenav-view') !== 'mobile') return;
+                if (this.getAttribute('data-fc-type') === 'collapse') return;
+
+                var href = this.getAttribute('href');
+                if (!href || href === '#' || href.startsWith('javascript:')) return;
+
+                self.html.classList.remove('sidenav-enable');
+                self.hideBackdrop();
+            });
+        });
+
         setTimeout(function () {
             var activatedItem = document.querySelector('ul.menu .active');
             if (activatedItem != null) {
@@ -276,8 +292,16 @@ class ThemeCustomizer {
                 var view = self.html.getAttribute('data-sidenav-view', configView);
 
                 if (view === 'mobile') {
-                    self.showBackdrop();
-                    self.html.classList.toggle('sidenav-enable');
+                    // Toggle first, then match the backdrop to the new state.
+                    // Calling showBackdrop() unconditionally used to stack a
+                    // second backdrop when closing via the button, leaving a
+                    // dark overlay stuck on screen.
+                    var opened = self.html.classList.toggle('sidenav-enable');
+                    if (opened) {
+                        self.showBackdrop();
+                    } else {
+                        self.hideBackdrop();
+                    }
                 } else {
                     if (configView == 'hidden') {
                         if (view === 'hidden') {
@@ -328,6 +352,9 @@ class ThemeCustomizer {
     }
 
     showBackdrop() {
+        // Never stack backdrops — a second one would never be removed.
+        if (document.getElementById('backdrop')) return;
+
         const backdrop = document.createElement('div');
         backdrop.id = 'backdrop';
         backdrop.classList = 'transition-all fixed inset-0 z-40 bg-gray-900 bg-opacity-50 dark:bg-opacity-80';
@@ -375,8 +402,9 @@ class ThemeCustomizer {
 
     setSwitchFromConfig() {
 
-        sessionStorage.setItem('__CONFIG__', JSON.stringify(this.config));
-        // localStorage.setItem('__CONFIG__', JSON.stringify(this.config));
+        // localStorage so the theme survives a browser restart — see config.js
+        // and the pre-paint script in layouts/vertical.blade.php.
+        localStorage.setItem('__CONFIG__', JSON.stringify(this.config));
 
         document.querySelectorAll('#theme-customization input[type=radio]').forEach(function (radio) {
             radio.checked = false;

@@ -33,7 +33,7 @@
     $idNo       = $setting->formatCitizenId($c?->id);
     $bday       = $c?->bday?->format('M d, Y') ?? '—';
     $gender     = match((int)($c?->gender ?? 0)) { 1=>'Male', 2=>'Female', default=>'—' };
-    $address    = $c?->complete_address ?? ($c?->addressZone?->description ?? '—');
+    $address    = $c?->full_address ?: '—';
     $contact    = $c?->contact ?? '—';
     $since      = $c?->year_stay?->format('Y') ?? '—';
     $validUntil = $citizenId->valid_until?->format('M d, Y') ?? '—';
@@ -53,8 +53,11 @@
                     : null;
 
     $tpl        = $templates['front'] ?? null;
-    $frontHtml  = trim($tpl?->html_front ?? '');
-    $backHtml   = trim($tpl?->html_back ?? '');
+    // Rebuild from the saved designer layout when there is one, so the print
+    // always matches the current compiler (and fixes reach templates saved
+    // earlier); fall back to the stored HTML for layout-less templates.
+    $frontHtml  = trim(! empty($tpl?->layout_front) ? \App\Models\CitizenIdTemplate::compileLayout($tpl->layout_front) : ($tpl?->html_front ?? ''));
+    $backHtml   = trim(! empty($tpl?->layout_back)  ? \App\Models\CitizenIdTemplate::compileLayout($tpl->layout_back)  : ($tpl?->html_back ?? ''));
     $sharedCss  = $tpl?->css_shared ?? '';
     $sharedJs   = $tpl?->js_shared ?? '';
     $useTemplate = $frontHtml !== '' || $backHtml !== '';
@@ -88,7 +91,7 @@
             return preg_replace_callback('/\{\{qr_img_(\d+)\}\}/', function($m) use ($qrValue) {
                 $px  = (int) $m[1];
                 $uri = \App\Support\Qr::svgDataUri($qrValue, $px);
-                return '<img src="' . $uri . '" width="' . $px . '" height="' . $px . '" style="display:inline-block;vertical-align:middle;" alt="QR">';
+                return '<img src="' . $uri . '" width="' . $px . '" height="' . $px . '" style="display:block;width:' . $px . 'px;height:' . $px . 'px;" alt="QR">';
             }, $html);
         };
         $frontHtml = $qrReplace($frontHtml);
@@ -98,10 +101,11 @@
         $frontOrient = $tpl?->orientation_front ?? 'landscape';
         $backBgUrl   = $tpl?->bg_back  ? asset(str_replace('public/', 'storage/', $tpl->bg_back))  : '';
         $backOrient  = $tpl?->orientation_back ?? 'landscape';
-        $frontW = ($frontOrient === 'portrait') ? '215mm' : '3.375in';
-        $frontH = ($frontOrient === 'portrait') ? '340mm' : '2.125in';
-        $backW  = ($backOrient  === 'portrait') ? '215mm' : '3.375in';
-        $backH  = ($backOrient  === 'portrait') ? '340mm' : '2.125in';
+        // CR80 card, same as the designer canvas (324 × 204 px at 96 dpi).
+        $frontW = ($frontOrient === 'portrait') ? '2.125in' : '3.375in';
+        $frontH = ($frontOrient === 'portrait') ? '3.375in' : '2.125in';
+        $backW  = ($backOrient  === 'portrait') ? '2.125in' : '3.375in';
+        $backH  = ($backOrient  === 'portrait') ? '3.375in' : '2.125in';
     }
 
     // ── Citizen tags + flags → CSS classes on the cards container ──────────
@@ -255,6 +259,11 @@ body {
     position: relative; overflow: hidden;
     box-shadow: 0 4px 24px rgba(0,0,0,.2);
     background: #fff;
+    /* Must match the designer's .id-el, or text widths/heights differ and
+       the print drifts from what was laid out. */
+    font-family: "Arial Narrow", Arial, sans-serif;
+    line-height: 1.15;
+    white-space: normal;
 }
 .tpl-card * { box-sizing: border-box; }
 
@@ -283,9 +292,17 @@ body {
 }
 
 /* ─── Print ─────────────────────────────────────────────── */
+@php
+    // One sheet holds front + back stacked; size it to the cards' orientations.
+    $inch   = fn ($o, $dim) => ($o === 'portrait') === ($dim === 'w') ? 2.125 : 3.375;
+    $fo     = $useTemplate ? ($frontOrient ?? 'landscape') : 'landscape';
+    $bo     = $useTemplate ? ($backOrient  ?? 'landscape') : 'landscape';
+    $pageW  = max($inch($fo, 'w'), $inch($bo, 'w'));
+    $pageH  = $inch($fo, 'h') + $inch($bo, 'h') + 0.5;   // + 0.25in gap + 0.25in margins
+@endphp
 @page {
-    /* CR80 standard ID card: 3.375in × 2.125in each, two per page vertically */
-    size: 3.375in 4.75in;   /* width = 1 card, height = 2 cards + small gap */
+    /* CR80 standard ID card(s), front above back */
+    size: {{ $pageW }}in {{ $pageH }}in;
     margin: 0.125in 0;      /* top/bottom breathing room, no side margin */
 }
 @media print {
@@ -296,7 +313,7 @@ body {
         gap: 0.25in;
         flex-direction: column;
         align-items: center;
-        width: 3.375in;
+        width: {{ $pageW }}in;
     }
     .controller { display: none !important; }
     .card-label  { display: none !important; }
@@ -321,9 +338,11 @@ body {
 
     <div class="sig-actions">
         <button class="btn-print-main" onclick="window.print()">🖨 Print</button>
+        @can('citizen_ids.signature')
         <input type="file" id="sig-file" accept="image/*" style="display:none" onchange="handleSigUpload(this)">
         <button class="btn-upload" onclick="document.getElementById('sig-file').click()">📷 Upload Signature</button>
         <button class="btn-remove" id="btn-remove" onclick="removeSig()" style="{{ $sigUrl ? '' : 'display:none' }}">✕ Remove</button>
+        @endcan
     </div>
 
     <div>

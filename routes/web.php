@@ -23,13 +23,16 @@ use App\Http\Controllers\CashAdvanceController;
 use App\Http\Controllers\LiquidationReportController;
 use App\Http\Controllers\IncomeEstimateController;
 use App\Http\Controllers\BudgetProgramController;
+use App\Http\Controllers\BudgetEntryController;
 use App\Http\Controllers\BudgetLineItemController;
 use App\Http\Controllers\BlotterController;
 use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\DocumentRequestController;
 use App\Http\Controllers\DocumentTemplateController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\InventoryRentalController;
 use App\Http\Controllers\HouseholdController;
+use App\Http\Controllers\CitizenHoldController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
@@ -86,33 +89,60 @@ Route::middleware('auth')->group(function () {
     Route::get('dashboard/activity', [\App\Http\Controllers\ActivityDashboardController::class, 'index'])->name('dashboard.activity');
 
     Route::post('citizens/export', [CitizenController::class, 'export'])->middleware('can:citizens.export')->name('citizens.export');
-    Route::get('citizens/demographics', [CitizenController::class, 'demographics'])->name('citizens.demographics');
-    Route::get('citizens/register-minor', [CitizenController::class, 'createMinor'])->name('citizens.create-minor');
-    Route::post('citizens/register-minor', [CitizenController::class, 'storeMinor'])->name('citizens.store-minor');
-    Route::get('citizens/parent-search', [CitizenController::class, 'parentSearch'])->name('citizens.parent-search');
-    Route::get('citizens/search', [CitizenController::class, 'search'])->name('citizens.search');
-    Route::get('citizens/recent', [CitizenController::class, 'recent'])->name('citizens.recent');
-    Route::get('citizens/{citizen}/quick-history', [CitizenController::class, 'quickHistory'])->name('citizens.quick-history');
-    Route::get('citizens/{citizen}/detail', [CitizenController::class, 'detail'])->name('citizens.detail');
-    Route::post('citizens/{citizen}/tags', [TagController::class, 'assignToCitizen'])->name('citizens.tags.sync');
+
+    // These lookups all return resident PII, so they require citizens.view —
+    // being merely signed in is not enough.
+    Route::get('citizens/demographics', [CitizenController::class, 'demographics'])
+        ->middleware('can:citizens.demographics')->name('citizens.demographics');
+
+    Route::middleware('can:citizens.view')->group(function () {
+        Route::get('citizens/parent-search', [CitizenController::class, 'parentSearch'])->name('citizens.parent-search');
+        Route::get('citizens/search', [CitizenController::class, 'search'])->name('citizens.search');
+        Route::get('citizens/recent', [CitizenController::class, 'recent'])->name('citizens.recent');
+        Route::get('citizens/activity', [CitizenController::class, 'activity'])->name('citizens.activity');
+        Route::get('citizens/{citizen}/quick-history', [CitizenController::class, 'quickHistory'])->name('citizens.quick-history');
+        Route::get('citizens/{citizen}/detail', [CitizenController::class, 'detail'])->name('citizens.detail');
+    });
+
+    // Registering a minor creates a citizen record.
+    Route::middleware('can:citizens.create')->group(function () {
+        Route::get('citizens/register-minor', [CitizenController::class, 'createMinor'])->name('citizens.create-minor');
+        Route::post('citizens/register-minor', [CitizenController::class, 'storeMinor'])->name('citizens.store-minor');
+    });
+
+    // Holds block a citizen from being issued documents.
+    Route::middleware('can:citizens.hold')->group(function () {
+        Route::post('citizens/{citizen}/hold', [CitizenHoldController::class, 'store'])->name('citizens.hold.store');
+        Route::delete('citizens/{citizen}/hold', [CitizenHoldController::class, 'destroy'])->name('citizens.hold.destroy');
+    });
+
+    // Assigning tags to a citizen.
+    Route::post('citizens/{citizen}/tags', [TagController::class, 'assignToCitizen'])
+        ->middleware('can:citizens.tag')
+        ->name('citizens.tags.sync');
 
     // Tags management
     Route::get('tags', [TagController::class, 'index'])->middleware('can:tags.view')->name('tags.index');
-    Route::get('tags/all', [TagController::class, 'all'])->name('tags.all');
-    Route::post('tags', [TagController::class, 'store'])->name('tags.store');
-    Route::put('tags/{tag}', [TagController::class, 'update'])->name('tags.update');
-    Route::delete('tags/{tag}', [TagController::class, 'destroy'])->name('tags.destroy');
+    Route::get('tags/all', [TagController::class, 'all'])->middleware('can:tags.view')->name('tags.all');
+    Route::post('tags', [TagController::class, 'store'])->middleware('can:tags.create')->name('tags.store');
+    Route::put('tags/{tag}', [TagController::class, 'update'])->middleware('can:tags.edit')->name('tags.update');
+    Route::delete('tags/{tag}', [TagController::class, 'destroy'])->middleware('can:tags.delete')->name('tags.destroy');
 
-    // Citizen IDs
-    Route::get('citizens/ids', [CitizenIdController::class, 'index'])->name('citizens.ids.index');
-    Route::post('citizens/ids', [CitizenIdController::class, 'store'])->name('citizens.ids.store');
-    Route::get('citizens/ids/{citizenId}/print', [CitizenIdController::class, 'print'])->name('citizens.ids.print');
-    Route::post('citizens/ids/{citizenId}/upload-signature', [CitizenIdController::class, 'uploadSignature'])->name('citizens.ids.upload-signature');
-    Route::post('citizens/ids/{citizenId}/remove-signature', [CitizenIdController::class, 'removeSignature'])->name('citizens.ids.remove-signature');
+    // Barangay ID cards (citizen_ids.*) — official identity cards.
+    Route::get('citizens/ids', [CitizenIdController::class, 'index'])
+        ->middleware('can:citizen_ids.view')->name('citizens.ids.index');
+    Route::get('citizens/ids/{citizenId}/print', [CitizenIdController::class, 'print'])
+        ->middleware('can:citizen_ids.print')->name('citizens.ids.print');
+    Route::post('citizens/ids', [CitizenIdController::class, 'store'])
+        ->middleware('can:citizen_ids.generate')
+        ->name('citizens.ids.store');
+    Route::middleware('can:citizen_ids.signature')->group(function () {
+        Route::post('citizens/ids/{citizenId}/upload-signature', [CitizenIdController::class, 'uploadSignature'])->name('citizens.ids.upload-signature');
+        Route::post('citizens/ids/{citizenId}/remove-signature', [CitizenIdController::class, 'removeSignature'])->name('citizens.ids.remove-signature');
+    });
 
-    // ID Template Designer — edits the official ID layout for every citizen,
-    // so it is gated behind citizens.edit rather than plain auth.
-    Route::middleware('can:citizens.edit')->group(function () {
+    // ID Template Designer — edits the official ID layout for every citizen.
+    Route::middleware('can:citizen_ids.template')->group(function () {
         Route::get('citizens/ids/template/designer', [CitizenIdTemplateController::class, 'designer'])->name('citizens.ids.template.designer');
         Route::post('citizens/ids/template/save', [CitizenIdTemplateController::class, 'save'])->name('citizens.ids.template.save');
         Route::post('citizens/ids/template/upload-bg', [CitizenIdTemplateController::class, 'uploadBg'])->name('citizens.ids.template.upload-bg');
@@ -125,74 +155,185 @@ Route::middleware('auth')->group(function () {
         Route::get('/',                         [HouseholdController::class, 'index'])->name('index');
         Route::get('retrieve',                  [HouseholdController::class, 'retrieve'])->name('retrieve');
         Route::get('details',                   [HouseholdController::class, 'getDetails'])->name('details');
-        Route::post('store',                    [HouseholdController::class, 'store'])->name('store');
         Route::get('get',                       [HouseholdController::class, 'getHousehold'])->name('get');
-        Route::post('update',                   [HouseholdController::class, 'update'])->name('update');
-        Route::post('store-family',             [HouseholdController::class, 'storeFamily'])->name('store-family');
-        Route::post('store-member',             [HouseholdController::class, 'storeFamilyMember'])->name('store-member');
-        Route::post('remove-head',              [HouseholdController::class, 'removeFamilyHead'])->name('remove-head');
-        Route::post('remove-member',            [HouseholdController::class, 'removeFamilyMember'])->name('remove-member');
-        Route::post('set-household-head',       [HouseholdController::class, 'setHouseholdHead'])->name('set-household-head');
         Route::get('filter-citizens',           [HouseholdController::class, 'filterCitizens'])->name('filter-citizens');
         Route::get('citizen-address',           [HouseholdController::class, 'getCitizenAddress'])->name('citizen-address');
         Route::get('kpi',                       [HouseholdController::class, 'kpi'])->name('kpi');
         Route::get('search',                    [HouseholdController::class, 'search'])->name('search');
+        Route::post('export',                   [HouseholdController::class, 'export'])->name('export');
+
+        // Households are archived rather than deleted, so this sits behind
+        // households.delete — the closest-matching grant.
+        Route::middleware('can:households.delete')->group(function () {
+            Route::post('archive',              [HouseholdController::class, 'archive'])->name('archive');
+            Route::post('restore',              [HouseholdController::class, 'restore'])->name('restore');
+        });
+
+        // Creating a household or attaching a family/member to one.
+        Route::middleware('can:households.create')->group(function () {
+            Route::post('store',                [HouseholdController::class, 'store'])->name('store');
+            Route::post('store-family',         [HouseholdController::class, 'storeFamily'])->name('store-family');
+            Route::post('store-member',         [HouseholdController::class, 'storeFamilyMember'])->name('store-member');
+        });
+
+        // Editing an existing household. Removing a head/member re-shapes the
+        // household rather than deleting the record, so it is an edit.
+        Route::middleware('can:households.edit')->group(function () {
+            Route::post('update',               [HouseholdController::class, 'update'])->name('update');
+            Route::post('remove-head',          [HouseholdController::class, 'removeFamilyHead'])->name('remove-head');
+            Route::post('remove-member',        [HouseholdController::class, 'removeFamilyMember'])->name('remove-member');
+            Route::post('set-household-head',   [HouseholdController::class, 'setHouseholdHead'])->name('set-household-head');
+        });
+
+        // Optional family income (Income Classification) — its own permission.
+        Route::post('family-income',            [HouseholdController::class, 'updateFamilyIncome'])
+            ->middleware('can:households.income')->name('family-income');
     });
 
     Route::middleware('can:citizens.view')->group(function () {
-        Route::resource('citizens', CitizenController::class);
+        // Declared before the resource, otherwise "citizens/inactive" is
+        // swallowed by the "citizens/{citizen}" show route.
+        Route::get('citizens/inactive', [CitizenController::class, 'inactive'])->name('citizens.inactive');
+        Route::patch('citizens/{citizen}/restore', [CitizenController::class, 'restore'])
+            ->middleware('can:citizens.restore')
+            ->name('citizens.restore');
+
+        // Permanent deletion is intentionally not exposed: barangay records
+        // are archived (set inactive) rather than removed. The historical
+        // eb_deleted_citizens data is kept for audit.
+
+        // "destroy" archives rather than deletes, so it is gated behind
+        // citizens.archive instead of the resource group's citizens.view.
+        Route::delete('citizens/{citizen}', [CitizenController::class, 'destroy'])
+            ->middleware('can:citizens.archive')
+            ->name('citizens.destroy');
+
+        // Split by verb so that citizens.view alone cannot write. The read-only
+        // half stays on citizens.view; create/edit each need their own grant.
+        // create/store must be registered BEFORE show — otherwise the
+        // "citizens/{citizen}" wildcard matches "citizens/create" and 404s.
+        Route::resource('citizens', CitizenController::class)
+            ->only(['create', 'store'])
+            ->middleware('can:citizens.create');
+        Route::resource('citizens', CitizenController::class)
+            ->only(['index', 'show']);
+        Route::resource('citizens', CitizenController::class)
+            ->only(['edit', 'update'])
+            ->middleware('can:citizens.edit');
     });
 
     // Blotter module
     Route::middleware('can:blotter.view')->group(function () {
-        Route::patch('blotters/{blotter}/status', [BlotterController::class, 'updateStatus'])->name('blotters.status');
-        Route::post('blotters/{blotter}/actions', [BlotterController::class, 'storeAction'])->name('blotters.actions.store');
-        Route::patch('blotters/{blotter}/actions/{action}/outcome', [BlotterController::class, 'updateActionOutcome'])->name('blotters.actions.outcome');
-        Route::delete('blotters/{blotter}/actions/{action}', [BlotterController::class, 'destroyAction'])->name('blotters.actions.destroy');
-        Route::resource('blotters', BlotterController::class);
+        // Logging an action against a blotter is part of working the case, so it
+        // follows blotter.edit rather than blotter.create (which makes new cases).
+        Route::middleware('can:blotter.edit')->group(function () {
+            Route::patch('blotters/{blotter}/status', [BlotterController::class, 'updateStatus'])->name('blotters.status');
+            Route::post('blotters/{blotter}/actions', [BlotterController::class, 'storeAction'])->name('blotters.actions.store');
+            Route::patch('blotters/{blotter}/actions/{action}/outcome', [BlotterController::class, 'updateActionOutcome'])->name('blotters.actions.outcome');
+        });
+        Route::delete('blotters/{blotter}/actions/{action}', [BlotterController::class, 'destroyAction'])
+            ->middleware('can:blotter.delete')
+            ->name('blotters.actions.destroy');
+
+        // create/store must be registered BEFORE show — otherwise the
+        // "blotters/{blotter}" wildcard matches "blotters/create" and 404s.
+        Route::resource('blotters', BlotterController::class)->only(['create', 'store'])->middleware('can:blotter.create');
+        // Paper-ready report (standalone page, opens the print dialog).
+        Route::get('blotters/{blotter}/print', [BlotterController::class, 'print'])->name('blotters.print');
+        Route::resource('blotters', BlotterController::class)->only(['index', 'show']);
+        Route::resource('blotters', BlotterController::class)->only(['edit', 'update'])->middleware('can:blotter.edit');
+        Route::resource('blotters', BlotterController::class)->only(['destroy'])->middleware('can:blotter.delete');
+    });
+
+    // Health check-ups (libreng check-up, walk-in consultations)
+    Route::middleware('can:health.view')->group(function () {
+        Route::get('health/patients', [\App\Http\Controllers\HealthCheckupController::class, 'patients'])->middleware('can:health.create')->name('health.patients');
+        // "create" before "{checkup}" so the wildcard doesn't swallow it.
+        Route::resource('health', \App\Http\Controllers\HealthCheckupController::class)->parameters(['health' => 'checkup'])->only(['create', 'store'])->middleware('can:health.create');
+        Route::resource('health', \App\Http\Controllers\HealthCheckupController::class)->parameters(['health' => 'checkup'])->only(['index', 'show']);
+        Route::resource('health', \App\Http\Controllers\HealthCheckupController::class)->parameters(['health' => 'checkup'])->only(['edit', 'update'])->middleware('can:health.edit');
+        Route::resource('health', \App\Http\Controllers\HealthCheckupController::class)->parameters(['health' => 'checkup'])->only(['destroy'])->middleware('can:health.delete');
+    });
+
+    // Ordinances & Resolutions (Sangguniang Barangay legislation)
+    Route::middleware('can:legislation.view')->group(function () {
+        // "create" before "{legislation}" so the wildcard doesn't swallow it.
+        Route::resource('legislation', \App\Http\Controllers\LegislationController::class)->only(['create', 'store'])->middleware('can:legislation.create');
+        Route::resource('legislation', \App\Http\Controllers\LegislationController::class)->only(['index', 'show']);
+        Route::resource('legislation', \App\Http\Controllers\LegislationController::class)->only(['edit', 'update'])->middleware('can:legislation.edit');
+        Route::resource('legislation', \App\Http\Controllers\LegislationController::class)->only(['destroy'])->middleware('can:legislation.delete');
+        Route::get('legislation/{legislation}/file', [\App\Http\Controllers\LegislationController::class, 'file'])->name('legislation.file');
+        Route::middleware('can:legislation.approve')->group(function () {
+            Route::post('legislation/{legislation}/advance', [\App\Http\Controllers\LegislationController::class, 'advance'])->name('legislation.advance');
+            Route::post('legislation/{legislation}/events', [\App\Http\Controllers\LegislationController::class, 'addEvent'])->name('legislation.events.store');
+            Route::delete('legislation/{legislation}/events/{event}', [\App\Http\Controllers\LegislationController::class, 'destroyEvent'])->name('legislation.events.destroy');
+        });
     });
 
     // Events & Attendance module
     Route::prefix('events')->name('events.')->middleware('can:events.view')->group(function () {
+        // ── Create (events.create) ──────────────────────────────────────────
+        // Declared BEFORE "{event}" — otherwise the wildcard matches
+        // "events/create" and 404s looking for an event with id "create".
+        Route::middleware('can:events.create')->group(function () {
+            Route::get('create',                            [EventController::class, 'create'])->name('create');
+            Route::post('/',                                [EventController::class, 'store'])->name('store');
+        });
+
+        // ── Read-only (events.view) ─────────────────────────────────────────
         Route::get('/',                                     [EventController::class, 'index'])->name('index');
         Route::get('kpi',                                   [EventController::class, 'kpi'])->name('kpi');
         Route::get('retrieve',                              [EventController::class, 'retrieve'])->name('retrieve');
-        Route::get('create',                                [EventController::class, 'create'])->name('create');
-        Route::post('/',                                    [EventController::class, 'store'])->name('store');
         Route::get('{event}',                               [EventController::class, 'show'])->name('show');
-        Route::get('{event}/edit',                          [EventController::class, 'edit'])->name('edit');
-        Route::put('{event}',                               [EventController::class, 'update'])->name('update');
-        Route::delete('{event}',                            [EventController::class, 'destroy'])->name('destroy');
-        Route::patch('{event}/toggle-status',               [EventController::class, 'toggleStatus'])->name('toggle-status');
-        // Attendance
         Route::get('{event}/attendance',                    [EventController::class, 'attendanceList'])->name('attendance.list');
-        Route::post('{event}/checkin/qr',                   [EventController::class, 'checkinQr'])->name('checkin.qr');
-        Route::post('{event}/checkin/manual',               [EventController::class, 'checkinManual'])->name('checkin.manual');
-        Route::post('{event}/attendance/remove',            [EventController::class, 'removeAttendance'])->name('attendance.remove');
         Route::get('{event}/citizens/search',               [EventController::class, 'searchCitizens'])->name('citizens.search');
-        // Bulk add
-        Route::post('{event}/bulk/preview',                 [EventController::class, 'bulkPreview'])->name('bulk.preview');
-        Route::post('{event}/bulk/add',                     [EventController::class, 'bulkAdd'])->name('bulk.add');
-        // Raffle (organizer — auth required)
         Route::get('{event}/raffle',                        [EventController::class, 'rafflePage'])->name('raffle.page');
-        Route::post('{event}/raffle/generate-pin',          [EventController::class, 'generatePin'])->name('raffle.generate-pin');
         Route::get('{event}/raffle/pool',                   [EventController::class, 'rafflePool'])->name('raffle.pool');
-        Route::post('{event}/raffle/winner',                [EventController::class, 'recordWinner'])->name('raffle.winner');
         Route::get('{event}/raffle/winners',                [EventController::class, 'winnerHistory'])->name('raffle.winners');
+        // Winners after the draw: list + export (prize edits/claims are under events.edit)
+        Route::get('{event}/winners',                       [\App\Http\Controllers\EventWinnerController::class, 'index'])->name('winners.index');
+        Route::get('{event}/winners/export',                [\App\Http\Controllers\EventWinnerController::class, 'export'])->name('winners.export');
+
+        // ── Edit (events.edit) ──────────────────────────────────────────────
+        // Attendance check-in, bulk add and raffle draws all mutate an existing
+        // event's records, so they sit under events.edit.
+        Route::middleware('can:events.edit')->group(function () {
+            Route::get('{event}/edit',                      [EventController::class, 'edit'])->name('edit');
+            Route::put('{event}',                           [EventController::class, 'update'])->name('update');
+            Route::patch('{event}/toggle-status',           [EventController::class, 'toggleStatus'])->name('toggle-status');
+            Route::post('{event}/checkin/qr',               [EventController::class, 'checkinQr'])->name('checkin.qr');
+            Route::post('{event}/checkin/manual',           [EventController::class, 'checkinManual'])->name('checkin.manual');
+            Route::post('{event}/attendance/remove',        [EventController::class, 'removeAttendance'])->name('attendance.remove');
+            Route::post('{event}/bulk/preview',             [EventController::class, 'bulkPreview'])->name('bulk.preview');
+            Route::post('{event}/bulk/add',                 [EventController::class, 'bulkAdd'])->name('bulk.add');
+            Route::post('{event}/raffle/generate-pin',      [EventController::class, 'generatePin'])->name('raffle.generate-pin');
+            Route::post('{event}/raffle/winner',            [EventController::class, 'recordWinner'])->name('raffle.winner');
+            Route::patch('{event}/winners/bulk',            [\App\Http\Controllers\EventWinnerController::class, 'bulk'])->name('winners.bulk');
+            Route::patch('{event}/winners/{winner}/prize',  [\App\Http\Controllers\EventWinnerController::class, 'updatePrize'])->name('winners.prize');
+        });
+
+        // ── Delete (events.delete) ──────────────────────────────────────────
+        Route::delete('{event}', [EventController::class, 'destroy'])
+            ->middleware('can:events.delete')
+            ->name('destroy');
     });
 
-    Route::get('birthdays', [BirthdayController::class, 'index'])->name('birthdays.index');
-    Route::post('birthdays/export', [BirthdayController::class, 'export'])->name('birthdays.export');
+    // Birthdays read from the citizen register, so they follow citizen perms.
+    Route::get('birthdays', [BirthdayController::class, 'index'])->middleware('can:birthdays.view')->name('birthdays.index');
+    Route::post('birthdays/export', [BirthdayController::class, 'export'])->middleware('can:birthdays.export')->name('birthdays.export');
 
-    Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
+    Route::get('activity-logs', [ActivityLogController::class, 'index'])->middleware('can:activity_logs.view')->name('activity-logs.index');
 
-    Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
-    Route::post('settings', [SettingController::class, 'update'])->name('settings.update');
+    Route::get('settings', [SettingController::class, 'index'])->middleware('can:settings.view')->name('settings.index');
+    Route::post('settings', [SettingController::class, 'update'])->middleware('can:settings.edit')->name('settings.update');
+    Route::get('settings/updates', [SettingController::class, 'updates'])->middleware('can:settings.view')->name('settings.updates');
 
-    Route::get('settings/officials', [OfficialController::class, 'index'])->name('officials.index');
-    Route::post('settings/officials', [OfficialController::class, 'store'])->name('officials.store');
-    Route::put('settings/officials/{official}', [OfficialController::class, 'update'])->name('officials.update');
-    Route::delete('settings/officials/{official}', [OfficialController::class, 'destroy'])->name('officials.destroy');
+    // Officials live under Settings and have no permission of their own, so
+    // they reuse settings.view / settings.edit like addresses do.
+    Route::get('settings/officials', [OfficialController::class, 'index'])->middleware('can:settings.view')->name('officials.index');
+    Route::post('settings/officials', [OfficialController::class, 'store'])->middleware('can:settings.edit')->name('officials.store');
+    Route::put('settings/officials/{official}', [OfficialController::class, 'update'])->middleware('can:settings.edit')->name('officials.update');
+    Route::delete('settings/officials/{official}', [OfficialController::class, 'destroy'])->middleware('can:settings.edit')->name('officials.destroy');
 
     Route::get('settings/addresses', [AddressController::class, 'index'])->middleware('can:addresses.view')->name('addresses.index');
     Route::post('settings/addresses', [AddressController::class, 'store'])->middleware('can:addresses.create')->name('addresses.store');
@@ -208,17 +349,15 @@ Route::middleware('auth')->group(function () {
         Route::get('income-estimates', [IncomeEstimateController::class, 'index'])->name('income-estimates.index');
         Route::get('programs', [BudgetProgramController::class, 'index'])->name('programs.index');
         Route::get('line-items', [BudgetLineItemController::class, 'index'])->name('line-items.index');
+        Route::get('entry', [BudgetEntryController::class, 'index'])->name('entry.index');
         Route::get('line-items/program-items', [BudgetLineItemController::class, 'programItems'])->name('line-items.program-items');
         Route::get('allocations', [BudgetAllocationController::class, 'index'])->name('allocations.index');
         Route::get('suppliers', [BudgetSupplierController::class, 'index'])->name('suppliers.index');
         Route::get('suppliers/search', [BudgetSupplierController::class, 'search'])->name('suppliers.search');
         Route::get('transactions', [BudgetTransactionController::class, 'index'])->name('transactions.index');
-        Route::get('transactions/{transaction}', [BudgetTransactionController::class, 'show'])->name('transactions.show');
-        Route::get('transactions/{transaction}/print', [BudgetTransactionController::class, 'print'])->name('transactions.print');
         Route::get('attachments/{attachment}/download', [BudgetTransactionAttachmentController::class, 'download'])->name('attachments.download');
         Route::get('officers', [AccountableOfficerController::class, 'index'])->name('officers.index');
         Route::get('cash-advances', [CashAdvanceController::class, 'index'])->name('cash-advances.index');
-        Route::get('cash-advances/{cashAdvance}', [CashAdvanceController::class, 'show'])->name('cash-advances.show');
         Route::get('liquidations/{liquidation}', [LiquidationReportController::class, 'show'])->name('liquidations.show');
         Route::get('settings', [BudgetSettingController::class, 'index'])->name('settings.index');
         Route::get('logs', [BudgetLogController::class, 'index'])->name('logs.index');
@@ -241,12 +380,19 @@ Route::middleware('auth')->group(function () {
             Route::post('cash-advances/{cashAdvance}/liquidate', [LiquidationReportController::class, 'store'])->name('liquidations.store');
         });
 
+        // Wildcard reads are declared AFTER the create group — otherwise
+        // "{param}" matches ".../create" and 404s.
+        Route::get('transactions/{transaction}', [BudgetTransactionController::class, 'show'])->name('transactions.show');
+        Route::get('transactions/{transaction}/print', [BudgetTransactionController::class, 'print'])->name('transactions.print');
+        Route::get('cash-advances/{cashAdvance}', [CashAdvanceController::class, 'show'])->name('cash-advances.show');
+
         // ── Edit / approve (budget.edit) — modify existing + status changes ─
         Route::middleware('can:budget.edit')->group(function () {
             Route::patch('fiscal-years/{fiscalYear}/activate', [FiscalYearController::class, 'setActive'])->name('fiscal-years.activate');
             Route::put('income-estimates/{incomeEstimate}', [IncomeEstimateController::class, 'update'])->name('income-estimates.update');
             Route::put('programs/{program}', [BudgetProgramController::class, 'update'])->name('programs.update');
             Route::put('line-items/{lineItem}', [BudgetLineItemController::class, 'update'])->name('line-items.update');
+            Route::post('line-items/save-amounts', [BudgetLineItemController::class, 'saveAmounts'])->name('line-items.save-amounts');
             Route::put('suppliers/{supplier}', [BudgetSupplierController::class, 'update'])->name('suppliers.update');
             Route::patch('transactions/{transaction}/status', [BudgetTransactionController::class, 'updateStatus'])->name('transactions.status');
             Route::put('officers/{officer}', [AccountableOfficerController::class, 'update'])->name('officers.update');
@@ -278,44 +424,87 @@ Route::middleware('auth')->group(function () {
 
         // Document Templates (paper library)
         Route::get('templates',                             [DocumentTemplateController::class, 'index'])->name('templates.index');
-        Route::get('templates/create',                      [DocumentTemplateController::class, 'create'])->name('templates.create');
-        Route::post('templates',                            [DocumentTemplateController::class, 'store'])->name('templates.store');
-        Route::get('templates/{documentTemplate}/edit',                                      [DocumentTemplateController::class, 'edit'])->name('templates.edit');
-        Route::put('templates/{documentTemplate}',                                           [DocumentTemplateController::class, 'update'])->name('templates.update');
-        Route::patch('templates/{documentTemplate}/versions/{version}/set-current',          [DocumentTemplateController::class, 'setVersion'])->name('templates.versions.set');
-        Route::patch('templates/{documentTemplate}/toggle',                                  [DocumentTemplateController::class, 'toggle'])->name('templates.toggle');
-        Route::post('templates/{documentTemplate}/duplicate',                                [DocumentTemplateController::class, 'duplicate'])->name('templates.duplicate');
-        Route::delete('templates/{documentTemplate}',                                        [DocumentTemplateController::class, 'destroy'])->name('templates.destroy');
+        Route::middleware('can:documents.create')->group(function () {
+            Route::get('templates/create',                  [DocumentTemplateController::class, 'create'])->name('templates.create');
+            Route::post('templates',                        [DocumentTemplateController::class, 'store'])->name('templates.store');
+            Route::post('templates/{documentTemplate}/duplicate', [DocumentTemplateController::class, 'duplicate'])->name('templates.duplicate');
+        });
+        Route::middleware('can:documents.edit')->group(function () {
+            Route::get('templates/{documentTemplate}/edit',                             [DocumentTemplateController::class, 'edit'])->name('templates.edit');
+            Route::put('templates/{documentTemplate}',                                  [DocumentTemplateController::class, 'update'])->name('templates.update');
+            Route::patch('templates/{documentTemplate}/versions/{version}/set-current', [DocumentTemplateController::class, 'setVersion'])->name('templates.versions.set');
+            Route::patch('templates/{documentTemplate}/toggle',                         [DocumentTemplateController::class, 'toggle'])->name('templates.toggle');
+        });
+        Route::delete('templates/{documentTemplate}', [DocumentTemplateController::class, 'destroy'])
+            ->middleware('can:documents.delete')
+            ->name('templates.destroy');
 
         // Document Types (CMS setup)
         Route::get('types',                         [DocumentTypeController::class, 'index'])->name('types.index');
         Route::get('types/samples',                 [DocumentTypeController::class, 'samples'])->name('types.samples');
-        Route::get('types/create',                  [DocumentTypeController::class, 'create'])->name('types.create');
-        Route::post('types',                        [DocumentTypeController::class, 'store'])->name('types.store');
-        Route::get('types/{documentType}/edit',          [DocumentTypeController::class, 'edit'])->name('types.edit');
-        Route::put('types/{documentType}',               [DocumentTypeController::class, 'update'])->name('types.update');
-        Route::patch('types/{documentType}/toggle',      [DocumentTypeController::class, 'toggle'])->name('types.toggle');
-        Route::delete('types/{documentType}',            [DocumentTypeController::class, 'destroy'])->name('types.destroy');
+        Route::middleware('can:documents.create')->group(function () {
+            Route::get('types/create',              [DocumentTypeController::class, 'create'])->name('types.create');
+            Route::post('types',                    [DocumentTypeController::class, 'store'])->name('types.store');
+        });
+        Route::middleware('can:documents.edit')->group(function () {
+            Route::get('types/{documentType}/edit',      [DocumentTypeController::class, 'edit'])->name('types.edit');
+            Route::put('types/{documentType}',           [DocumentTypeController::class, 'update'])->name('types.update');
+            Route::patch('types/{documentType}/toggle',  [DocumentTypeController::class, 'toggle'])->name('types.toggle');
+        });
+        Route::delete('types/{documentType}', [DocumentTypeController::class, 'destroy'])
+            ->middleware('can:documents.delete')
+            ->name('types.destroy');
 
         // Document Requests
+        // NOTE: the controller additionally narrows per document type via its
+        // issue_document.* permission (see DocumentRequestController::canIssue).
+        // These module-level gates are the floor, not the whole check.
         Route::get('requests',                              [DocumentRequestController::class, 'index'])->name('requests.index');
-        Route::get('requests/create',                       [DocumentRequestController::class, 'create'])->name('requests.create');
         Route::get('requests/resolve-defaults',             [DocumentRequestController::class, 'resolveDefaults'])->name('requests.resolve-defaults');
-        Route::post('requests/preview',                     [DocumentRequestController::class, 'preview'])->name('requests.preview');
-        Route::post('requests',                             [DocumentRequestController::class, 'store'])->name('requests.store');
+        Route::get('requests/fee-summary',                  [DocumentRequestController::class, 'feeSummaryPrint'])->name('requests.fee-summary')
+            ->middleware('can:documents.fees');
+
+        // Declared BEFORE "requests/{documentRequest}" — otherwise the wildcard
+        // matches first and "requests/create" 404s looking for a request whose
+        // id is the literal string "create".
+        Route::middleware('can:documents.create')->group(function () {
+            Route::get('requests/create',                   [DocumentRequestController::class, 'create'])->name('requests.create');
+            Route::post('requests/preview',                 [DocumentRequestController::class, 'preview'])->name('requests.preview');
+            Route::post('requests',                         [DocumentRequestController::class, 'store'])->name('requests.store');
+            // Walk-ins (not registered residents) + what a document needs from the person
+            Route::get('requests/walkins',                  [DocumentRequestController::class, 'walkinSearch'])->name('requests.walkins.search');
+            Route::post('requests/walkins',                 [DocumentRequestController::class, 'walkinStore'])->name('requests.walkins.store');
+            Route::get('requests/person-check',             [DocumentRequestController::class, 'personCheck'])->name('requests.person-check');
+        });
+
         Route::get('requests/{documentRequest}',            [DocumentRequestController::class, 'show'])->name('requests.show');
-        Route::patch('requests/{documentRequest}/approve',  [DocumentRequestController::class, 'approve'])->name('requests.approve');
-        Route::patch('requests/{documentRequest}/release',  [DocumentRequestController::class, 'release'])->name('requests.release');
-        Route::patch('requests/{documentRequest}/reject',   [DocumentRequestController::class, 'reject'])->name('requests.reject');
-        Route::patch('requests/{documentRequest}/print',    [DocumentRequestController::class, 'countPrint'])->name('requests.print');
-        Route::delete('requests/{documentRequest}',         [DocumentRequestController::class, 'destroy'])->name('requests.destroy');
+
+        // Approving / releasing / rejecting moves a request through its
+        // workflow — an edit of an existing record.
+        Route::middleware('can:documents.edit')->group(function () {
+            Route::patch('requests/{documentRequest}/approve',  [DocumentRequestController::class, 'approve'])->name('requests.approve');
+            Route::patch('requests/{documentRequest}/release',  [DocumentRequestController::class, 'release'])->name('requests.release');
+            Route::patch('requests/{documentRequest}/reject',   [DocumentRequestController::class, 'reject'])->name('requests.reject');
+            Route::patch('requests/{documentRequest}/print',    [DocumentRequestController::class, 'countPrint'])->name('requests.print');
+        });
+
+        // Voiding cancels a released document but keeps it on record.
+        Route::patch('requests/{documentRequest}/void', [DocumentRequestController::class, 'void'])
+            ->middleware('can:documents.void')
+            ->name('requests.void');
+
+        Route::delete('requests/{documentRequest}', [DocumentRequestController::class, 'destroy'])
+            ->middleware('can:documents.delete')
+            ->name('requests.destroy');
     });
 
     // Users & Roles module
-    Route::get('users', [UserController::class, 'index'])->name('users.index');
-    Route::post('users', [UserController::class, 'store'])->name('users.store');
-    Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
-    Route::patch('users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
+    // User management assigns roles, so leaving it ungated allowed any signed-in
+    // account to create a user and grant it any role (privilege escalation).
+    Route::get('users', [UserController::class, 'index'])->middleware('can:users.view')->name('users.index');
+    Route::post('users', [UserController::class, 'store'])->middleware('can:users.create')->name('users.store');
+    Route::put('users/{user}', [UserController::class, 'update'])->middleware('can:users.edit')->name('users.update');
+    Route::patch('users/{user}/toggle', [UserController::class, 'toggleActive'])->middleware('can:users.edit')->name('users.toggle');
 
     Route::get('roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('roles.index');
     Route::post('roles', [RoleController::class, 'store'])->middleware('can:roles.create')->name('roles.store');
@@ -328,35 +517,92 @@ Route::middleware('auth')->group(function () {
     Route::put('profile/info', [ProfileController::class, 'updateInfo'])->name('profile.update-info');
     Route::put('profile/password', [ProfileController::class, 'updatePassword'])->name('profile.update-password');
 
-    // Inventory module
-    Route::prefix('inventory')->name('inventory.')->middleware('can:inventory.view')->group(function () {
-        // Categories
-        Route::get('categories',                                [InventoryController::class, 'categoriesIndex'])->name('categories.index');
-        Route::get('categories/create',                         [InventoryController::class, 'categoriesCreate'])->name('categories.create');
-        Route::post('categories',                               [InventoryController::class, 'categoriesStore'])->name('categories.store');
-        Route::get('categories/{category}/edit',                [InventoryController::class, 'categoriesEdit'])->name('categories.edit');
-        Route::put('categories/{category}',                     [InventoryController::class, 'categoriesUpdate'])->name('categories.update');
-        Route::delete('categories/{category}',                  [InventoryController::class, 'categoriesDestroy'])->name('categories.destroy');
+    // Inventory module — one permission set per area (see PermissionSeeder):
+    // inventory_items / _categories / _releases / _rentals / _schedule.
+    Route::prefix('inventory')->name('inventory.')->group(function () {
+        // ── Categories ──────────────────────────────────────────────────────
+        Route::middleware('can:inventory_categories.view')->group(function () {
+            Route::get('categories',                            [InventoryController::class, 'categoriesIndex'])->name('categories.index');
+            Route::middleware('can:inventory_categories.create')->group(function () {
+                Route::get('categories/create',                 [InventoryController::class, 'categoriesCreate'])->name('categories.create');
+                Route::post('categories',                       [InventoryController::class, 'categoriesStore'])->name('categories.store');
+            });
+            Route::middleware('can:inventory_categories.edit')->group(function () {
+                Route::get('categories/{category}/edit',        [InventoryController::class, 'categoriesEdit'])->name('categories.edit');
+                Route::put('categories/{category}',             [InventoryController::class, 'categoriesUpdate'])->name('categories.update');
+            });
+            Route::delete('categories/{category}',              [InventoryController::class, 'categoriesDestroy'])->name('categories.destroy')
+                ->middleware('can:inventory_categories.delete');
+        });
 
-        // Items
-        Route::get('items',                                     [InventoryController::class, 'itemsIndex'])->name('items.index');
-        Route::get('items/create',                              [InventoryController::class, 'itemsCreate'])->name('items.create');
-        Route::post('items',                                    [InventoryController::class, 'itemsStore'])->name('items.store');
-        Route::get('items/{item}/edit',                         [InventoryController::class, 'itemsEdit'])->name('items.edit');
-        Route::put('items/{item}',                              [InventoryController::class, 'itemsUpdate'])->name('items.update');
-        Route::post('items/{item}/stock-in',                    [InventoryController::class, 'itemsStockIn'])->name('items.stock-in');
-        Route::post('items/{item}/adjust',                      [InventoryController::class, 'itemsAdjust'])->name('items.adjust');
-        Route::delete('items/{item}/image',                     [InventoryController::class, 'itemsDeleteImage'])->name('items.image.delete');
+        // ── Items ───────────────────────────────────────────────────────────
+        Route::middleware('can:inventory_items.view')->group(function () {
+            Route::get('items',                                 [InventoryController::class, 'itemsIndex'])->name('items.index');
+            Route::middleware('can:inventory_items.create')->group(function () {
+                Route::get('items/create',                      [InventoryController::class, 'itemsCreate'])->name('items.create');
+                Route::post('items',                            [InventoryController::class, 'itemsStore'])->name('items.store');
+            });
+            // The manage page serves both editing details (edit) and stock-in /
+            // adjustments (stock); the controller checks for either.
+            Route::get('items/{item}/edit',                     [InventoryController::class, 'itemsEdit'])->name('items.edit');
+            Route::middleware('can:inventory_items.edit')->group(function () {
+                Route::put('items/{item}',                      [InventoryController::class, 'itemsUpdate'])->name('items.update');
+                Route::delete('items/{item}/image',             [InventoryController::class, 'itemsDeleteImage'])->name('items.image.delete');
+            });
+            Route::middleware('can:inventory_items.stock')->group(function () {
+                Route::post('items/{item}/stock-in',            [InventoryController::class, 'itemsStockIn'])->name('items.stock-in');
+                Route::post('items/{item}/adjust',              [InventoryController::class, 'itemsAdjust'])->name('items.adjust');
+            });
+            Route::delete('items/{item}',                       [InventoryController::class, 'itemsDestroy'])->name('items.destroy')
+                ->middleware('can:inventory_items.delete');
+        });
 
-        // Releases
-        Route::get('releases',                                  [InventoryController::class, 'releasesIndex'])->name('releases.index');
-        Route::get('releases/create',                           [InventoryController::class, 'releasesCreate'])->name('releases.create');
-        Route::post('releases',                                 [InventoryController::class, 'releasesStore'])->name('releases.store');
-        Route::get('releases/{release}',                        [InventoryController::class, 'releasesShow'])->name('releases.show');
-        Route::patch('releases/{release}/approve',              [InventoryController::class, 'releasesApprove'])->name('releases.approve');
-        Route::patch('releases/{release}/release',              [InventoryController::class, 'releasesRelease'])->name('releases.release');
-        Route::patch('releases/{release}/reject',               [InventoryController::class, 'releasesReject'])->name('releases.reject');
-        Route::get('releases/{release}/print',                  [InventoryController::class, 'releasesPrint'])->name('releases.print');
+        // ── Releases ────────────────────────────────────────────────────────
+        Route::middleware('can:inventory_releases.view')->group(function () {
+            Route::get('releases',                              [InventoryController::class, 'releasesIndex'])->name('releases.index');
+            Route::middleware('can:inventory_releases.create')->group(function () {
+                Route::get('releases/create',                   [InventoryController::class, 'releasesCreate'])->name('releases.create');
+                Route::post('releases',                         [InventoryController::class, 'releasesStore'])->name('releases.store');
+            });
+            // Wildcards after "create" — otherwise {release} matches ".../create".
+            Route::get('releases/{release}',                    [InventoryController::class, 'releasesShow'])->name('releases.show');
+            Route::get('releases/{release}/print',              [InventoryController::class, 'releasesPrint'])->name('releases.print');
+            Route::middleware('can:inventory_releases.approve')->group(function () {
+                Route::patch('releases/{release}/approve',      [InventoryController::class, 'releasesApprove'])->name('releases.approve');
+                Route::patch('releases/{release}/release',      [InventoryController::class, 'releasesRelease'])->name('releases.release');
+                Route::patch('releases/{release}/reject',       [InventoryController::class, 'releasesReject'])->name('releases.reject');
+            });
+        });
+
+        // ── Rentals ─────────────────────────────────────────────────────────
+        Route::middleware('can:inventory_rentals.view')->group(function () {
+            Route::get('rentals',                               [InventoryRentalController::class, 'index'])->name('rentals.index');
+            Route::middleware('can:inventory_rentals.create')->group(function () {
+                Route::get('rentals/create',                    [InventoryRentalController::class, 'create'])->name('rentals.create');
+                Route::post('rentals',                          [InventoryRentalController::class, 'store'])->name('rentals.store');
+            });
+            Route::get('rentals/{rental}',                      [InventoryRentalController::class, 'show'])->name('rentals.show');
+            Route::middleware('can:inventory_rentals.edit')->group(function () {
+                Route::patch('rentals/{rental}/release',        [InventoryRentalController::class, 'release'])->name('rentals.release');
+                Route::post('rentals/{rental}/return',          [InventoryRentalController::class, 'returnItems'])->name('rentals.return');
+                Route::patch('rentals/{rental}/payment',        [InventoryRentalController::class, 'updatePayment'])->name('rentals.payment');
+                Route::patch('rentals/{rental}/cancel',         [InventoryRentalController::class, 'cancel'])->name('rentals.cancel');
+            });
+        });
+
+        // ── Schedule ────────────────────────────────────────────────────────
+        Route::middleware('can:inventory_schedule.view')->group(function () {
+            Route::get('schedule',                              [\App\Http\Controllers\InventoryScheduleController::class, 'index'])->name('schedule.index');
+            Route::get('schedule/events',                       [\App\Http\Controllers\InventoryScheduleController::class, 'events'])->name('schedule.events');
+            Route::get('schedule/availability',                 [\App\Http\Controllers\InventoryScheduleController::class, 'availability'])->name('schedule.availability');
+            Route::post('schedule',                             [\App\Http\Controllers\InventoryScheduleController::class, 'store'])->name('schedule.store')
+                ->middleware('can:inventory_schedule.create');
+            Route::middleware('can:inventory_schedule.edit')->group(function () {
+                Route::put('schedule/{schedule}',               [\App\Http\Controllers\InventoryScheduleController::class, 'update'])->name('schedule.update');
+                Route::patch('schedule/{schedule}/complete',    [\App\Http\Controllers\InventoryScheduleController::class, 'complete'])->name('schedule.complete');
+                Route::patch('schedule/{schedule}/cancel',      [\App\Http\Controllers\InventoryScheduleController::class, 'cancel'])->name('schedule.cancel');
+            });
+        });
     });
 });
 
@@ -367,6 +613,12 @@ Route::prefix('events')->name('events.')->group(function () {
     Route::get('{event}/raffle/public/winners',      [EventController::class, 'publicWinnerHistory'])->name('raffle.public.winners');
     Route::post('{event}/raffle/public/checkin-qr',  [EventController::class, 'publicCheckinQr'])->name('raffle.public.checkin-qr');
     Route::post('{event}/raffle/public/winner',      [EventController::class, 'publicRecordWinner'])->name('raffle.public.winner');
+    Route::post('{event}/raffle/public/no-show',     [EventController::class, 'publicNoShow'])->name('raffle.public.no-show');
+    Route::post('{event}/raffle/public/winners',     [EventController::class, 'publicRecordWinners'])->name('raffle.public.winners.store');
+    Route::post('{event}/raffle/public/undo',        [EventController::class, 'publicUndoWinner'])->name('raffle.public.undo');
+    // Long-poll for the audience display: no session/cookies/CSRF (the whole 'web' group is skipped) so each wake-up is cheap.
+    Route::get('{event}/raffle/public/live/wait',    [EventController::class, 'publicLiveWait'])->withoutMiddleware('web')->name('raffle.public.live.wait');
+    Route::post('{event}/raffle/public/live',        [EventController::class, 'publicPushLiveState'])->name('raffle.public.live.push');
 });
 
 // Route::group(['middleware' => 'superadmin'], function() {

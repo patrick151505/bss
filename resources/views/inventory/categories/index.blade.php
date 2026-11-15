@@ -27,9 +27,11 @@
         <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100">Categories</h2>
         <p class="text-sm text-gray-400">Manage inventory categories (medicine, relief goods, materials, etc.)</p>
     </div>
+    @can('inventory_categories.create')
     <a href="{{ route('inventory.categories.create') }}" class="btn bg-primary text-white gap-2">
         <i class="mgc_add_line text-base"></i> Add Category
     </a>
+    @endcan
 </div>
 
 <div class="card">
@@ -66,7 +68,14 @@
                                    @if($isHex) style="{{ $swatchFg }}" @endif></i>
                             </div>
                             <div>
-                                <p class="font-medium text-gray-800 dark:text-gray-100">{{ $cat->name }}</p>
+                                <p class="font-medium text-gray-800 dark:text-gray-100">
+                                    {{ $cat->name }}
+                                    @if($cat->is_medicine)
+                                    <span class="ms-1 inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-medium bg-green-100 text-green-800 align-middle" title="Items appear in Health → Medicines given">
+                                        <i class="mgc_heartbeat_line"></i>Medicine
+                                    </span>
+                                    @endif
+                                </p>
                                 <p class="text-xs text-gray-400">{{ $cat->slug }}</p>
                             </div>
                         </div>
@@ -87,24 +96,28 @@
                         @endif
                     </td>
                     <td class="px-5 py-3 text-right">
-                        <a href="{{ route('inventory.categories.edit', $cat) }}" class="btn btn-sm bg-primary text-white">
+                        @can('inventory_categories.edit')
+                        <a href="{{ route('inventory.categories.edit', $cat) }}" class="btn btn-sm bg-primary text-white" title="Edit">
                             <i class="mgc_edit_line"></i>
                         </a>
+                        @endcan
+                        @can('inventory_categories.delete')
                         <form action="{{ route('inventory.categories.destroy', $cat) }}" method="POST" class="inline"
                               id="delete-cat-{{ $cat->id }}">
                             @csrf @method('DELETE')
-                            <button type="button" class="btn btn-sm btn-soft-danger"
+                            <button type="button" class="btn btn-sm bg-danger/25 text-danger hover:bg-danger hover:text-white" title="Delete"
                                     onclick="swalDeleteCategory({{ $cat->id }}, '{{ addslashes($cat->name) }}')">
                                 <i class="mgc_delete_line"></i>
                             </button>
                         </form>
+                        @endcan
                     </td>
                 </tr>
                 @empty
                 <tr>
                     <td colspan="5" class="text-center py-12 text-gray-400">
                         <i class="mgc_box_3_line text-4xl mb-2 block opacity-30"></i>
-                        No categories yet. <a href="{{ route('inventory.categories.create') }}" class="text-primary underline">Add one</a>.
+                        No categories yet.@can('inventory_categories.create') <a href="{{ route('inventory.categories.create') }}" class="text-primary underline">Add one</a>.@endcan
                     </td>
                 </tr>
                 @endforelse

@@ -40,7 +40,8 @@
             <i class="mgc_up_line text-gray-400 transition-transform duration-200" id="icon-sec-funds"></i>
         </button>
         <div id="sec-funds" class="p-5">
-            <table class="w-full text-sm">
+            <div class="overflow-x-auto">
+            <table class="w-full min-w-[560px] text-sm">
                 <thead>
                     <tr class="border-b dark:border-gray-700 text-[10px] uppercase tracking-wide text-gray-400">
                         <th class="pb-2 text-left font-medium w-40">Fund</th>
@@ -74,6 +75,7 @@
                     @endforeach
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 

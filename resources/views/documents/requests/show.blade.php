@@ -14,6 +14,30 @@
     <p class="text-sm text-danger font-medium">{{ session('error') }}</p>
 </div>
 @endif
+{{-- A hold placed after the request was filed blocks approving/releasing it --}}
+@if($documentRequest->citizen?->activeHold && in_array($documentRequest->status, ['pending', 'approved', 'ready_for_release']))
+<div class="mb-4 p-4 rounded-lg bg-danger/10 border border-danger/40 flex gap-3">
+    <i class="mgc_lock_line text-danger text-xl mt-0.5 shrink-0"></i>
+    <div>
+        <p class="text-sm font-bold text-danger">Citizen is on hold — this request cannot be approved or released</p>
+        <p class="text-sm text-gray-800 dark:text-gray-200 mt-0.5 whitespace-pre-line">{{ $documentRequest->citizen->activeHold->reason }}</p>
+        <a href="{{ route('citizens.show', $documentRequest->citizen_id) }}" class="text-xs text-primary hover:underline mt-1 inline-block">Open citizen profile to review or lift the hold →</a>
+    </div>
+</div>
+@endif
+@if($documentRequest->isVoided())
+<div class="mb-4 p-4 rounded-lg bg-danger/10 border border-danger/40 flex gap-3">
+    <i class="mgc_forbid_circle_line text-danger text-2xl mt-0.5 shrink-0"></i>
+    <div>
+        <p class="text-sm font-bold text-danger">This document has been voided</p>
+        <p class="text-sm text-gray-800 dark:text-gray-200 mt-0.5 whitespace-pre-line">{{ $documentRequest->void_reason }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Voided by {{ $documentRequest->voidedBy->name ?? 'Unknown' }} · {{ $documentRequest->voided_at?->format('M d, Y g:i A') }}
+            — kept on record for audit; it can no longer be printed and is excluded from fee totals.
+        </p>
+    </div>
+</div>
+@endif
 @if($errors->any())
 <div class="mb-4 p-4 rounded-lg bg-danger/10 border border-danger/30">
     <ul class="list-disc list-inside text-sm text-danger/80 space-y-0.5">
@@ -29,6 +53,7 @@
         'ready_for_release' => ['pill' => 'bg-yellow-100 text-yellow-800', 'label' => 'Ready for Release'],
         'released'          => ['pill' => 'bg-green-100 text-green-800',   'label' => 'Released'],
         'rejected'          => ['pill' => 'bg-red-100 text-red-800',       'label' => 'Rejected'],
+        'voided'            => ['pill' => 'bg-red-600 text-white',         'label' => 'Voided'],
     ];
     $b = $badges[$documentRequest->status] ?? ['pill' => 'bg-gray-100 text-gray-700', 'label' => ucfirst(str_replace('_', ' ', $documentRequest->status))];
     // Both 'approved' and 'ready_for_release' are awaiting release.
@@ -81,6 +106,12 @@
                     Printed <span id="print-count-num">{{ $documentRequest->print_count }}</span>×
                 </span>
             </button>
+            @can('documents.void')
+            <button type="button" onclick="document.getElementById('void-modal').classList.remove('hidden')"
+                    class="btn bg-danger/25 text-danger hover:bg-danger hover:text-white flex items-center gap-2">
+                <i class="mgc_forbid_circle_line"></i> Void
+            </button>
+            @endcan
         @endif
     </div>
 </div>
@@ -99,6 +130,12 @@
                 <div>
                     <p class="text-xs text-gray-400">Full Name</p>
                     <p class="font-semibold text-gray-800 dark:text-gray-100">{{ $documentRequest->citizen->full_name ?? '—' }}</p>
+                    @if($documentRequest->citizen?->is_walkin)
+                        <span class="inline-flex items-center gap-1 mt-1 py-0.5 px-2 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700"><i class="mgc_walk_line"></i> Walk-in · {{ $documentRequest->citizen->walkin_code }}</span>
+                        @if($documentRequest->citizen->walkin_id_type)
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">ID presented: {{ $documentRequest->citizen->walkin_id_type }}{{ $documentRequest->citizen->walkin_id_number ? ' · ' . $documentRequest->citizen->walkin_id_number : '' }}</p>
+                        @endif
+                    @endif
                 </div>
                 <div>
                     <p class="text-xs text-gray-400">Age</p>
@@ -106,7 +143,7 @@
                 </div>
                 <div>
                     <p class="text-xs text-gray-400">Address</p>
-                    <p class="text-gray-700 dark:text-gray-300">{{ $documentRequest->citizen->complete_address ?? '—' }}</p>
+                    <p class="text-gray-700 dark:text-gray-300">{{ $documentRequest->citizen?->full_address ?: '—' }}</p>
                 </div>
                 <div>
                     <p class="text-xs text-gray-400">Civil Status</p>
@@ -129,31 +166,43 @@
                     <p class="text-xs text-gray-400">Fee</p>
                     @if($documentRequest->is_paid)
                         <p class="font-semibold text-warning">₱ {{ number_format($documentRequest->fee, 2) }}
-                            @if($documentRequest->fee_paid)
-                                <span class="text-success text-xs ml-1">✓ Paid</span>
-                            @else
-                                <span class="text-danger text-xs ml-1">Unpaid</span>
-                            @endif
+                            @switch($documentRequest->payment_status)
+                                @case('paid')<span class="text-success text-xs ml-1">✓ Paid</span>@break
+                                @case('short')<span class="text-danger text-xs ml-1">Short ₱ {{ number_format($documentRequest->short_amount, 2) }}</span>@break
+                                @case('voided')<span class="text-gray-500 dark:text-gray-400 text-xs ml-1">Voided — not counted</span>@break
+                                @default<span class="text-danger text-xs ml-1">Unpaid</span>
+                            @endswitch
                         </p>
                     @else
                         <p class="font-semibold text-success">FREE</p>
                     @endif
                 </div>
                 @if($documentRequest->is_paid && $documentRequest->amount_paid !== null)
-                @php $change = (float) $documentRequest->amount_paid - (float) $documentRequest->fee; @endphp
                 <div>
-                    <p class="text-xs text-gray-400">Amount Paid</p>
+                    <p class="text-xs text-gray-400">Amount Received</p>
                     <p class="font-semibold text-gray-800 dark:text-gray-100">₱ {{ number_format($documentRequest->amount_paid, 2) }}</p>
                 </div>
+                @if($documentRequest->payment_status === 'short')
+                <div>
+                    <p class="text-xs text-gray-400">Balance Short</p>
+                    <p class="font-semibold text-danger">₱ {{ number_format($documentRequest->short_amount, 2) }}</p>
+                </div>
+                @elseif($documentRequest->change_amount > 0)
                 <div>
                     <p class="text-xs text-gray-400">Change</p>
-                    <p class="font-semibold {{ $change < 0 ? 'text-danger' : 'text-gray-800 dark:text-gray-100' }}">
-                        ₱ {{ number_format(max($change, 0), 2) }}
-                        @if($change < 0)<span class="text-danger text-xs ml-1">(short ₱ {{ number_format(abs($change), 2) }})</span>@endif
-                    </p>
+                    <p class="font-semibold text-gray-800 dark:text-gray-100">₱ {{ number_format($documentRequest->change_amount, 2) }}</p>
                 </div>
                 @endif
-                @if($documentRequest->or_number)
+                @endif
+                @if($documentRequest->is_no_or)
+                <div>
+                    <p class="text-xs text-gray-400">OR Number</p>
+                    <p class="text-gray-700 dark:text-gray-300">
+                        <span class="text-xs font-medium px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">No OR</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400 ml-1">{{ $documentRequest->no_or_reason }}</span>
+                    </p>
+                </div>
+                @elseif($documentRequest->or_number)
                 <div>
                     <p class="text-xs text-gray-400">OR Number</p>
                     <p class="font-mono text-gray-700 dark:text-gray-300">{{ $documentRequest->or_number }}</p>
@@ -221,10 +270,12 @@
                 <h6 class="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
                     <i class="mgc_quill_pen_line text-primary"></i> Certificate Preview
                 </h6>
+                @unless($documentRequest->isVoided())
                 <button onclick="requestPrint()"
                         class="btn border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm py-1.5 px-3 flex items-center gap-1">
                     <i class="mgc_print_line"></i> Print
                 </button>
+                @endunless
             </div>
 
             @if($preview)
@@ -263,7 +314,9 @@
                         {{ $bgUrl ? "background-image: url('{$bgUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;" : '' }}
                      ">
                     {{-- Diagonal "NOT YET RELEASED" watermark until the document is released --}}
-                    @if(!in_array($documentRequest->status, ['released', 'rejected']))
+                    @if($documentRequest->isVoided())
+                    <div class="cert-watermark" style="color: rgba(220, 38, 38, 0.35); border-color: rgba(220, 38, 38, 0.35); font-size: 96px; letter-spacing: 0.2em;">VOID</div>
+                    @elseif(!in_array($documentRequest->status, ['released', 'rejected']))
                     <div class="cert-watermark">{{ strtoupper($documentRequest->status) }} — NOT YET RELEASED</div>
                     @endif
                     {{-- Auto barangay header only when there's no letterhead background --}}
@@ -348,6 +401,34 @@
         </form>
     </div>
 </div>
+
+{{-- Void Modal — released documents only --}}
+@can('documents.void')
+@if($documentRequest->status === 'released')
+<div id="void-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
+        <h6 class="font-semibold text-gray-800 dark:text-gray-100 mb-2 flex items-center gap-2">
+            <i class="mgc_forbid_circle_line text-danger"></i> Void Document
+        </h6>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
+            <strong>{{ $documentRequest->control_number }}</strong> will be cancelled. It stays on record with its control number,
+            but can no longer be printed and is excluded from fee totals. <strong>This cannot be undone.</strong>
+        </p>
+        <form action="{{ route('documents.requests.void', $documentRequest) }}" method="POST" id="void-form">
+            @csrf @method('PATCH')
+            <label class="form-label text-sm">Reason <span class="text-danger">*</span></label>
+            <textarea name="void_reason" rows="3" required maxlength="1000" class="form-input w-full mb-4"
+                      placeholder="e.g. Wrong name printed — reissued as BRGY-00012">{{ old('void_reason') }}</textarea>
+            <div class="flex gap-3 justify-end">
+                <button type="button" onclick="document.getElementById('void-modal').classList.add('hidden')"
+                        class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
+                <button type="submit" class="btn bg-danger text-white"><i class="mgc_forbid_circle_line me-1"></i> Void Document</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+@endcan
 
 {{-- Reject Modal --}}
 <div id="reject-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">

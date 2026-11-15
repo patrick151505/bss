@@ -44,7 +44,8 @@
                             <label class="form-label mb-0">Expense Lines <span class="text-danger">*</span></label>
                             <button type="button" onclick="addLine()" class="btn btn-xs btn-light">+ Add Line</button>
                         </div>
-                        <table class="table table-sm mb-2">
+                        <div class="overflow-x-auto">
+                        <table class="table table-sm mb-2 min-w-[560px]">
                             <thead><tr><th>OR No.</th><th>Date</th><th>Particulars</th><th class="text-end">Amount</th><th></th></tr></thead>
                             <tbody id="lines-body">
                                 @foreach($liquidation->lines as $i => $line)
@@ -58,6 +59,7 @@
                                 @endforeach
                             </tbody>
                         </table>
+                        </div>
                     </div>
 
                     <div class="mb-4">

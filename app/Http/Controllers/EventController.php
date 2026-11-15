@@ -11,10 +11,74 @@ use App\Models\EventAttendance;
 use App\Models\EventWinner;
 use App\Models\Citizen;
 use App\Models\Address;
+use App\Models\ActivityLog;
 
 class EventController extends Controller
 {
     // ─── Index ───────────────────────────────────────────────────────────────
+
+    // "Who can attend" — limit an event to residents of selected address zones.
+    private const AREA_RULES = [
+        'area_mode'           => 'nullable|in:all,selected',
+        'allowed_addresses'   => 'required_if:area_mode,selected|array',
+        'allowed_addresses.*' => 'integer|exists:eb_address,id',
+        // Extra rules: age, gender, groups and tags.
+        'min_age'             => 'nullable|integer|min:0|max:150',
+        'max_age'             => 'nullable|integer|min:0|max:150|gte:min_age',
+        'eligible_gender'     => 'nullable|in:0,1',
+        'eligible_groups'     => 'nullable|array',
+        'eligible_groups.*'   => 'in:senior,pwd,solo,voter',
+        'groups_match'        => 'nullable|in:any,all',
+        'eligible_tags'       => 'nullable|array',
+        'eligible_tags.*'     => 'integer|exists:eb_tags,id',
+    ];
+    private const AREA_MESSAGES = [
+        'allowed_addresses.required_if' => 'Pick at least one area, or choose All areas.',
+        'max_age.gte'                   => 'The maximum age must be the same as or above the minimum age.',
+    ];
+
+    /** Eligibility rules from the form, or null when none are set. */
+    private function eligibilityFrom(Request $request): ?array
+    {
+        $rules = [
+            'min_age'      => $request->filled('min_age') ? (int) $request->min_age : null,
+            'max_age'      => $request->filled('max_age') ? (int) $request->max_age : null,
+            'gender'       => $request->filled('eligible_gender') ? (int) $request->eligible_gender : null,
+            'groups'       => array_values(array_unique($request->input('eligible_groups', []))),
+            'groups_match' => $request->input('groups_match') === 'all' ? 'all' : 'any',
+            'tags'         => collect($request->input('eligible_tags', []))->map(fn($v) => (int) $v)->filter()->unique()->sort()->values()->all(),
+        ];
+        $any = $rules['min_age'] !== null || $rules['max_age'] !== null || $rules['gender'] !== null || $rules['groups'] || $rules['tags'];
+        return $any ? $rules : null;
+    }
+
+    private function allowedAddressesFrom(Request $request): ?array
+    {
+        if ($request->input('area_mode') !== 'selected') return null;
+        $ids = collect($request->input('allowed_addresses', []))
+            ->map(fn($v) => (int) $v)->filter()->unique()->sort()->values()->all();
+        return $ids ?: null;
+    }
+
+    /** Error response when a citizen may not attend (outside the allowed areas or fails a rule), or null if allowed. */
+    private function areaRefusal(Event $event, Citizen $citizen): ?\Illuminate\Http\JsonResponse
+    {
+        if (!$event->allowsAddress($citizen->address)) {
+            $zone = $citizen->addressZone?->description ?? 'no recorded address';
+            return response()->json([
+                'success' => false,
+                'message' => "{$citizen->full_name} ({$zone}) can't join — this event is only for "
+                    . $event->allowedAddresses()->pluck('description')->implode(', ') . '.',
+            ]);
+        }
+        if ($why = $event->eligibilityFailure($citizen)) {
+            return response()->json([
+                'success' => false,
+                'message' => "{$citizen->full_name} can't join — {$why}.",
+            ]);
+        }
+        return null;
+    }
 
     public function index()
     {
@@ -80,7 +144,9 @@ class EventController extends Controller
 
     public function create()
     {
-        return view('events.create');
+        $addresses = Address::where('is_active', true)->orderBy('description')->get();
+        $tags      = \App\Models\Tag::orderBy('name')->get(['id', 'name', 'color']);
+        return view('events.create', compact('addresses', 'tags'));
     }
 
     // ─── Store ────────────────────────────────────────────────────────────────
@@ -90,7 +156,7 @@ class EventController extends Controller
         $request->validate([
             'title'      => 'required|string|max:200',
             'event_date' => 'required|date',
-        ]);
+        ] + self::AREA_RULES, self::AREA_MESSAGES);
 
         $data = [
             'title'               => $request->title,
@@ -102,6 +168,8 @@ class EventController extends Controller
             'event_end'           => $request->event_end   ?: null,
             'raffle_enabled'      => $request->boolean('raffle_enabled') ? 1 : 0,
             'allow_winner_repeat' => $request->boolean('allow_winner_repeat') ? 1 : 0,
+            'allowed_addresses'   => $this->allowedAddressesFrom($request),
+            'eligibility'         => $this->eligibilityFrom($request),
             'status'              => 'open',
             'user_id'             => auth()->id(),
             'date_created'        => now(),
@@ -121,7 +189,9 @@ class EventController extends Controller
 
     public function show(Event $event)
     {
-        $addresses = Address::where('is_active', true)->orderBy('description')->get();
+        $addresses = Address::where('is_active', true)
+            ->when($event->restrictsAddresses(), fn($q) => $q->whereIn('id', $event->allowedAddressIds()))
+            ->orderBy('description')->get();
         return view('events.show', compact('event', 'addresses'));
     }
 
@@ -186,6 +256,7 @@ class EventController extends Controller
         if (!$citizen) {
             return response()->json(['success' => false, 'message' => 'QR code not recognised.']);
         }
+        if ($refusal = $this->areaRefusal($event, $citizen)) return $refusal;
 
         $already = EventAttendance::where('eventId', $event->id)
             ->where('citizenId', $citizen->id)->exists();
@@ -224,6 +295,187 @@ class EventController extends Controller
         return $this->recordWinner($request, $event);
     }
 
+    // ─── Public raffle: record several winners from one draw (no auth, pin-protected) ──
+    // All-or-nothing: every citizen must be an attendee (and not a past winner
+    // unless repeats are allowed), then they get consecutive rounds in one transaction.
+
+    public function publicRecordWinners(Request $request, Event $event)
+    {
+        if (!$event->raffle_enabled || !$event->hasValidPin() || $request->input('pin') !== $event->raffle_pin) {
+            return response()->json(['success' => false, 'message' => 'Session expired or invalid.']);
+        }
+
+        $request->validate([
+            'citizenIds'   => 'required|array|min:1|max:50',
+            'citizenIds.*' => 'integer',
+            'prize_label'  => 'nullable|string|max:150',
+        ]);
+
+        $ids   = collect($request->input('citizenIds'))->map(fn($id) => (int) $id)->unique()->values();
+        $prize = trim((string) $request->input('prize_label', '')) ?: null;
+
+        $attending = EventAttendance::where('eventId', $event->id)->whereIn('citizenId', $ids)->pluck('citizenId');
+        if ($attending->count() !== $ids->count()) {
+            return response()->json(['success' => false, 'message' => 'Some drawn people are not on this event\'s attendance list.']);
+        }
+
+        if (!$event->allow_winner_repeat) {
+            $already = EventWinner::where('eventId', $event->id)->whereIn('citizenId', $ids)->pluck('citizenId');
+            if ($already->isNotEmpty()) {
+                $names = Citizen::whereIn('id', $already)->get()->pluck('full_name')->implode(', ');
+                return response()->json(['success' => false, 'message' => "Already won in this event: {$names}."]);
+            }
+        }
+
+        $rounds = DB::transaction(function () use ($event, $ids, $prize) {
+            // Lock this event's winner rows so two screens can't hand out the same round numbers.
+            $round  = (int) EventWinner::where('eventId', $event->id)->lockForUpdate()->max('round');
+            $rounds = [];
+            foreach ($ids as $citizenId) {
+                $rounds[$citizenId] = ++$round;
+                EventWinner::create([
+                    'eventId'     => $event->id,
+                    'citizenId'   => $citizenId,
+                    'round'       => $round,
+                    'prize_label' => $prize,
+                    'drawn_at'    => now(),
+                ]);
+            }
+            return $rounds;
+        });
+
+        ActivityLog::record('raffle_batch_draw', 'event', $event->id,
+            'Raffle draw: ' . $ids->count() . ' winners drawn at once' . ($prize ? " (prize: {$prize})" : ''),
+            ['citizen_ids' => $ids->all(), 'rounds' => array_values($rounds), 'prize_label' => $prize]
+        );
+
+        return response()->json(['success' => true, 'rounds' => $rounds]);
+    }
+
+    // ─── Public raffle: undo a confirmed winner (no auth, pin-protected) ──────
+    // For a mistaken Confirm. Refused once the prize is claimed; the deleted row
+    // is kept in the activity log together with the reason.
+
+    public function publicUndoWinner(Request $request, Event $event)
+    {
+        if (!$event->raffle_enabled || !$event->hasValidPin() || $request->input('pin') !== $event->raffle_pin) {
+            return response()->json(['success' => false, 'message' => 'Session expired or invalid.']);
+        }
+
+        $request->validate([
+            'round'  => 'required|integer',
+            'reason' => 'required|string|min:3|max:200',
+        ]);
+
+        $winner = EventWinner::with('citizen')->where('eventId', $event->id)->where('round', (int) $request->round)->first();
+        if (!$winner) {
+            return response()->json(['success' => false, 'message' => 'That winner no longer exists.']);
+        }
+        if ($winner->claimed_at) {
+            return response()->json(['success' => false, 'message' => 'This prize was already claimed — it can no longer be undone here.']);
+        }
+
+        $name   = $winner->citizen?->full_name ?? 'unknown citizen';
+        $reason = trim($request->reason);
+        $winner->delete();
+
+        ActivityLog::record('raffle_winner_undone', 'event', $event->id,
+            "Raffle: undid winner {$name} (round #{$winner->round}" . ($winner->prize_label ? ", prize: {$winner->prize_label}" : '') . ") — {$reason}",
+            [
+                'citizen_id'  => $winner->citizenId,
+                'round'       => $winner->round,
+                'prize_label' => $winner->prize_label,
+                'drawn_at'    => $winner->drawn_at?->toDateTimeString(),
+                'reason'      => $reason,
+                'kept_out'    => $request->boolean('keep_out'),
+            ]
+        );
+
+        return response()->json(['success' => true, 'name' => $name]);
+    }
+
+    // ─── Public raffle: live state (controller ⇄ audience display) ───────────
+
+    // Long-poll: answers as soon as the state version differs from ?since, or after
+    // ?hold seconds (max 20) with no change. Without ?since (or hold=0) it answers
+    // at once — the display also uses that for clock sync ("now" = server ms).
+    // Runs outside the 'web' middleware group, so $event is the raw id.
+    public function publicLiveWait(Request $request, $event)
+    {
+        $nowMs = fn() => (int) round(microtime(true) * 1000);
+        $no = ['Cache-Control' => 'no-store'];
+
+        $ev = Event::find((int) $event);
+        if (!$ev || !$ev->raffle_enabled || !$ev->hasValidPin() || $request->query('pin') !== $ev->raffle_pin) {
+            return response()->json(['success' => false, 'message' => 'Session ended.', 'now' => $nowMs()], 200, $no);
+        }
+
+        $since = $request->has('since') ? (int) $request->query('since') : null;
+        $hold  = $since === null ? 0 : max(0, min(20, (int) $request->query('hold', 20)));
+        @set_time_limit($hold + 15);
+
+        $deadline = microtime(true) + $hold;
+        while (true) {
+            $ver = (int) DB::table('eb_event')->where('id', $ev->id)->value('raffle_live_ver');
+            if ($since === null || $ver !== $since || microtime(true) >= $deadline) break;
+            usleep(120000);                              // ~8 cheap primary-key reads per second
+        }
+
+        $state = $ver !== $since
+            ? json_decode((string) DB::table('eb_event')->where('id', $ev->id)->value('raffle_live'), true)
+            : null;
+
+        return response()->json(['success' => true, 'ver' => $ver, 'state' => $state, 'now' => $nowMs()], 200, $no);
+    }
+
+    public function publicPushLiveState(Request $request, Event $event)
+    {
+        if (!$event->raffle_enabled || !$event->hasValidPin() || $request->input('pin') !== $event->raffle_pin) {
+            return response()->json(['success' => false, 'message' => 'Session expired or invalid.']);
+        }
+
+        $request->validate([
+            'state'       => 'required|array',
+            'state.phase' => 'required|in:idle,spin,check,done,undo',
+        ]);
+
+        // Stamp the server time so displays can line their animation up with the controller.
+        $state = $request->input('state');
+        $state['server_at'] = (int) round(microtime(true) * 1000);
+        $json = json_encode($state);
+        if (strlen($json) > 100000) {
+            return response()->json(['success' => false, 'message' => 'State too large.'], 422);
+        }
+
+        DB::table('eb_event')->where('id', $event->id)->update([
+            'raffle_live'     => $json,
+            'raffle_live_ver' => DB::raw('raffle_live_ver + 1'),
+        ]);
+
+        return response()->json(['success' => true, 'now' => $state['server_at']]);
+    }
+
+    // ─── Public raffle: drawn person not present (no auth, pin-protected) ────
+    // Nothing is recorded as a win; the skip is logged so a re-draw is traceable.
+
+    public function publicNoShow(Request $request, Event $event)
+    {
+        if (!$event->raffle_enabled || !$event->hasValidPin() || $request->input('pin') !== $event->raffle_pin) {
+            return response()->json(['success' => false, 'message' => 'Session expired or invalid.']);
+        }
+
+        $citizen = Citizen::find((int) $request->input('citizenId'));
+        $prize   = trim((string) $request->input('prize_label', ''));
+
+        ActivityLog::record('raffle_no_show', 'event', $event->id,
+            'Raffle draw: ' . ($citizen?->full_name ?? 'unknown citizen') . ' was not present — drew again'
+                . ($prize !== '' ? " (prize: {$prize})" : ''),
+            ['citizen_id' => $citizen?->id, 'prize_label' => $prize ?: null]
+        );
+
+        return response()->json(['success' => true]);
+    }
+
     // ─── Public raffle: pool (no auth, pin-protected) ─────────────────────────
 
     public function publicRafflePool(Request $request, Event $event)
@@ -250,7 +502,9 @@ class EventController extends Controller
 
     public function edit(Event $event)
     {
-        return view('events.edit', compact('event'));
+        $addresses = Address::where('is_active', true)->orderBy('description')->get();
+        $tags      = \App\Models\Tag::orderBy('name')->get(['id', 'name', 'color']);
+        return view('events.edit', compact('event', 'addresses', 'tags'));
     }
 
     // ─── Update ───────────────────────────────────────────────────────────────
@@ -260,7 +514,7 @@ class EventController extends Controller
         $request->validate([
             'title'      => 'required|string|max:200',
             'event_date' => 'required|date',
-        ]);
+        ] + self::AREA_RULES, self::AREA_MESSAGES);
 
         $data = [
             'title'               => $request->title,
@@ -272,6 +526,8 @@ class EventController extends Controller
             'event_end'           => $request->event_end   ?: null,
             'raffle_enabled'      => $request->boolean('raffle_enabled') ? 1 : 0,
             'allow_winner_repeat' => $request->boolean('allow_winner_repeat') ? 1 : 0,
+            'allowed_addresses'   => $this->allowedAddressesFrom($request),
+            'eligibility'         => $this->eligibilityFrom($request),
             'date_updated'        => now(),
         ];
 
@@ -290,14 +546,23 @@ class EventController extends Controller
 
     // ─── Toggle open/closed ───────────────────────────────────────────────────
 
+    // Close or reopen, based on what staff see (the effective status, which
+    // includes auto-close). Reopening after the scheduled end keeps the event open
+    // until it is closed again.
     public function toggleStatus(Event $event)
     {
+        $reopen = !$event->is_open;
+
         $event->update([
-            'status'       => $event->status === 'open' ? 'closed' : 'open',
+            'status'       => $reopen ? 'open' : 'closed',
+            'reopened_at'  => $reopen && $event->isPastSchedule() ? now() : null,
             'date_updated' => now(),
         ]);
 
-        return response()->json(['success' => true, 'status' => $event->status]);
+        ActivityLog::record($reopen ? 'reopened' : 'closed', 'event', $event->id,
+            ($reopen ? 'Reopened' : 'Closed') . " event: {$event->title}");
+
+        return response()->json(['success' => true, 'status' => $event->effective_status]);
     }
 
     // ─── Delete ───────────────────────────────────────────────────────────────
@@ -323,10 +588,7 @@ class EventController extends Controller
         $query = EventAttendance::with('citizen.addressZone')
             ->where('eventId', $event->id)
             ->when($search, function ($q) use ($search) {
-                $q->whereHas('citizen', fn($c) =>
-                    $c->where('fname', 'like', "%$search%")
-                      ->orWhere('lname', 'like', "%$search%")
-                );
+                $q->whereHas('citizen', fn($c) => $c->searchName($search));
             })
             ->orderByDesc('time_in');
 
@@ -374,7 +636,7 @@ class EventController extends Controller
 
     public function bulkPreview(Request $request, Event $event)
     {
-        $citizens = $this->buildBulkQuery($request)->get(['id', 'fname', 'mname', 'lname', 'bday', 'gender', 'address']);
+        $citizens = $this->buildBulkQuery($request, $event)->get(['id', 'fname', 'mname', 'lname', 'bday', 'gender', 'address']);
 
         $alreadyIn = EventAttendance::where('eventId', $event->id)
             ->pluck('citizenId')->toArray();
@@ -397,7 +659,7 @@ class EventController extends Controller
 
     public function bulkAdd(Request $request, Event $event)
     {
-        $citizens = $this->buildBulkQuery($request)->pluck('id');
+        $citizens = $this->buildBulkQuery($request, $event)->pluck('id');
 
         $alreadyIn = EventAttendance::where('eventId', $event->id)
             ->pluck('citizenId')->toArray();
@@ -447,11 +709,8 @@ class EventController extends Controller
         $query = Citizen::with('addressZone')
             ->where('is_active', 1)
             ->where('approval_status', 1)
-            ->when($search, fn($q) => $q->where(fn($q) =>
-                $q->where('fname', 'like', "%$search%")
-                  ->orWhere('lname', 'like', "%$search%")
-                  ->orWhere('mname', 'like', "%$search%")
-            ))
+            ->when($search, fn($q) => $q->searchName($search))
+            ->tap(fn($q) => $event->applyEligibility($q))
             ->orderBy('lname')->orderBy('fname');
 
         $total    = $query->count();
@@ -478,19 +737,34 @@ class EventController extends Controller
             ? collect()
             : EventWinner::where('eventId', $event->id)->pluck('citizenId');
 
-        $pool = EventAttendance::with('citizen')
+        $pool = EventAttendance::with(['citizen.addressZone', 'citizen.tags:id'])
             ->where('eventId', $event->id)
             ->whereNotIn('citizenId', $wonIds)
             ->get()
+            // Attendees checked in before the event was limited (areas or rules) stay on
+            // the attendance list but can't win.
+            ->filter(fn(EventAttendance $a) => $a->citizen
+                && $event->allowsAddress($a->citizen->address) && !$event->eligibilityFailure($a->citizen))
+            ->values()
             ->map(fn(EventAttendance $a) => [
                 'citizenId' => $a->citizenId,
+                // Shown under the name on the draw cards (e.g. EBT-000472).
+                'code'      => \App\Models\Setting::instance()->formatCitizenId($a->citizenId),
                 'name'      => $a->citizen?->full_name ?? '—',
+                // Lets the draw screen filter the pool by area (e.g. one subdivision only).
+                'addressId' => $a->citizen?->address ? (int) $a->citizen->address : null,
+                'address'   => $a->citizen?->addressZone?->description,
                 'photo'     => $a->citizen?->profile
                     ? asset(str_replace('public/', 'storage/', $a->citizen->profile))
                     : null,
             ]);
 
-        return response()->json(['success' => true, 'pool' => $pool]);
+        // The event's allowed areas (null = everyone) — the raffle's area filter lists exactly these.
+        $areas = $event->restrictsAddresses()
+            ? $event->allowedAddresses()->map(fn($a) => ['id' => $a->id, 'label' => $a->description])->values()
+            : null;
+
+        return response()->json(['success' => true, 'pool' => $pool, 'areas' => $areas]);
     }
 
     // ─── Raffle: record winner ────────────────────────────────────────────────
@@ -547,6 +821,7 @@ class EventController extends Controller
                 'name'        => $w->citizen?->full_name ?? '—',
                 'prize_label' => $w->prize_label,
                 'drawn_at'    => $w->drawn_at->format('g:i A'),
+                'claimed'     => (bool) $w->claimed_at,   // claimed wins can't be undone from the draw screen
                 'photo'       => $w->citizen?->profile
                     ? asset(str_replace('public/', 'storage/', $w->citizen->profile))
                     : null,
@@ -567,6 +842,7 @@ class EventController extends Controller
         if (!$citizen) {
             return response()->json(['success' => false, 'message' => 'Citizen not found.']);
         }
+        if ($refusal = $this->areaRefusal($event, $citizen)) return $refusal;
 
         $exists = EventAttendance::where('eventId', $event->id)
             ->where('citizenId', $citizenId)->exists();
@@ -597,9 +873,12 @@ class EventController extends Controller
 
     // ─── Private: build bulk filter query ────────────────────────────────────
 
-    private function buildBulkQuery(Request $request)
+    private function buildBulkQuery(Request $request, Event $event)
     {
         $query = Citizen::where('is_active', 1)->where('approval_status', 1);
+
+        // The event's own areas and rules always apply; the wizard's filters narrow further.
+        $event->applyEligibility($query);
 
         if ($request->filled('addressId')) {
             $query->where('address', $request->addressId);

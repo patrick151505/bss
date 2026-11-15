@@ -45,10 +45,12 @@
                     @endif
                 </td>
                 <td class="px-4 py-3 text-center whitespace-nowrap">
+                    @can('citizen_ids.print')
                     <a href="{{ route('citizens.ids.print', $record->id) }}" target="_blank"
                        class="text-primary hover:text-primary/70 text-base" title="Print ID">
                         <i class="mgc_print_line"></i>
                     </a>
+                    @endcan
                 </td>
             </tr>
             @empty
@@ -112,10 +114,12 @@
             </div>
 
             <div class="flex items-center gap-2 pt-1 mt-auto">
+                @can('citizen_ids.print')
                 <a href="{{ route('citizens.ids.print', $record->id) }}" target="_blank"
                    class="btn btn-sm bg-primary/10 text-primary flex-1 flex items-center justify-center gap-1">
                     <i class="mgc_print_line"></i> Print ID
                 </a>
+                @endcan
             </div>
         </div>
         @empty

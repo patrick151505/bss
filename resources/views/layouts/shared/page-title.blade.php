@@ -1,8 +1,9 @@
 <!-- Page Title Start -->
 <div class="flex justify-between items-start mb-6">
 
-    {{-- Left: title + optional tagline --}}
-    <div>
+    {{-- Left: title + optional tagline. min-w-0 so a long tagline wraps
+         instead of pushing the row wider than the screen. --}}
+    <div class="min-w-0">
         <h4 class="text-slate-900 dark:text-slate-200 text-lg font-medium leading-tight">{{ $title }}</h4>
         @if(!empty($tagline))
         <p class="text-sm text-slate-400 mt-0.5">{{ $tagline }}</p>

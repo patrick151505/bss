@@ -83,7 +83,8 @@
             </div>
             <div>
                 <label class="form-label">Incident Time</label>
-                <input type="time" name="incident_time" value="{{ old('incident_time', $blotter->incident_time) }}"
+                {{-- DB stores HH:MM:SS; the time input + validation use HH:MM --}}
+                <input type="time" name="incident_time" value="{{ old('incident_time', $blotter->incident_time ? substr($blotter->incident_time, 0, 5) : '') }}"
                     class="form-input @error('incident_time') border-danger @enderror">
                 @error('incident_time') <p class="text-danger text-xs mt-1">{{ $message }}</p> @enderror
             </div>

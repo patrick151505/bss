@@ -411,12 +411,88 @@
     </div>
 </div>
 
+{{-- Income classification (optional — only when switched on in Settings) --}}
+@if($income)
+<div class="card mt-6">
+    <div class="card-header">
+        <div class="flex flex-wrap justify-between items-center gap-2">
+            <h4 class="card-title flex items-center gap-1">
+                Income Classification
+                <span class="info-tip" data-tip="Families grouped by monthly income per member, compared with the poverty threshold set in Settings (PIDS income clusters). Only families with income recorded are counted in the percentages.">
+                    <i class="mgc_information_line text-sm text-gray-400"></i>
+                </span>
+            </h4>
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+                @if($income['threshold'])
+                    Poverty threshold: ₱{{ number_format($income['threshold'], 2) }} per person / month
+                @else
+                    <span class="text-warning">Set the poverty threshold in Settings to classify families by amount.</span>
+                @endif
+            </span>
+        </div>
+    </div>
+    <div class="p-5 space-y-5">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Families assessed</p>
+                <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($income['assessed']) }} <span class="text-sm font-normal text-gray-400">of {{ number_format($income['total']) }}</span></p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Not assessed</p>
+                <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($income['unassessed'] + $income['waiting']) }}</p>
+                @if($income['waiting'])<p class="text-xs text-warning">{{ number_format($income['waiting']) }} have an amount but no threshold is set</p>@endif
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Poor (of assessed)</p>
+                <p class="text-2xl font-bold text-danger">{{ $income['poor_pct'] !== null ? $income['poor_pct'] . '%' : '—' }}</p>
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">People in assessed families</p>
+                <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ number_format(array_sum($income['people'])) }}</p>
+            </div>
+        </div>
+
+        @if($income['assessed'])
+            <div id="chart-income" class="apex-charts" dir="ltr"></div>
+
+            <div class="overflow-x-auto">
+                <table class="table min-w-full text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Zone / Purok</th>
+                            @foreach($income['labels'] as $label)
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase dark:text-gray-400">{{ $label }}</th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($income['by_zone'] as $zone => $counts)
+                            <tr class="border-t dark:border-gray-700">
+                                <td class="px-4 py-2 text-gray-800 dark:text-gray-200">{{ $zone }}</td>
+                                @foreach($income['keys'] as $key)
+                                    <td class="px-3 py-2 text-right tabular-nums text-gray-700 dark:text-gray-300">{{ $counts[$key] ?: '—' }}</td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @else
+            <div class="text-center py-10 text-gray-400">
+                <i class="mgc_wallet_4_line text-4xl mb-2 block opacity-30"></i>
+                No family income recorded yet. Add it from a family card in Households.
+            </div>
+        @endif
+    </div>
+</div>
+@endif
+
 @include('partials.stat-animations')
 
 @endsection
 
 @section('script')
-<script src="/js/apexcharts.min.js"></script>
+<script src="{{ asset('js/apexcharts.min.js') }}"></script>
 <script>
 (function () {
     var gender      = @json($charts['gender']);
@@ -549,6 +625,15 @@
         { name: 'Solo Parents', data: sectorsZone.solo_parents },
         { name: 'Senior (60+)', data: sectorsZone.senior },
     ], ['#a855f7', '#f97316', '#14b8a6'], false);
+
+    // Optional income classification: families and people per class
+    var income = @json($income);
+    if (income && income.assessed && document.getElementById('chart-income')) {
+        barChart('chart-income', income.labels, [
+            { name: 'Families', data: income.families },
+            { name: 'People',   data: income.people },
+        ], ['#3073F1', '#94a3b8'], false);
+    }
 
 })();
 </script>

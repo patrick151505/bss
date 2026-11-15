@@ -110,9 +110,11 @@
                     <i class="mgc_grid_line"></i>
                 </button>
             </div>
+            @can('citizen_ids.generate')
             <button type="button" id="create-id-btn" class="btn bg-success text-white flex items-center gap-2">
                 <i class="mgc_add_line"></i> New Barangay ID
             </button>
+            @endcan
         </div>
     </div>
 
@@ -400,7 +402,7 @@ function closeModal() {
     modal.classList.remove('flex');
 }
 
-openBtn.addEventListener('click', openModal);
+openBtn?.addEventListener('click', openModal);
 closeBtn.addEventListener('click', closeModal);
 doneBtn.addEventListener('click', () => { closeModal(); location.reload(); });
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });

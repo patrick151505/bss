@@ -45,9 +45,11 @@
             <a href="{{ route('inventory.releases.index') }}" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white text-sm">Clear</a>
         @endif
     </form>
+    @can('inventory_releases.create')
     <a href="{{ route('inventory.releases.create') }}" class="btn bg-primary text-white gap-2">
         <i class="mgc_add_line"></i> New Release
     </a>
+    @endcan
 </div>
 
 <div class="card">
@@ -102,7 +104,7 @@
                 <tr>
                     <td colspan="7" class="text-center py-12 text-gray-400">
                         <i class="mgc_send_line text-4xl mb-2 block opacity-30"></i>
-                        No releases found. <a href="{{ route('inventory.releases.create') }}" class="text-primary underline">Create one</a>.
+                        No releases found.@can('inventory_releases.create') <a href="{{ route('inventory.releases.create') }}" class="text-primary underline">Create one</a>.@endcan
                     </td>
                 </tr>
                 @endforelse

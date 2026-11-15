@@ -15,6 +15,13 @@
     <p class="text-sm text-success font-medium">{{ session('success') }}</p>
 </div>
 @endif
+@if(session('error'))
+<div class="mb-4 p-4 rounded-lg bg-danger/10 border border-danger/30 flex gap-3">
+    <i class="mgc_alert_line text-danger text-xl mt-0.5 shrink-0"></i>
+    <p class="text-sm text-danger font-medium">{{ session('error') }}</p>
+</div>
+@endif
+@can('inventory_items.delete') @include('inventory.items._delete-script') @endcan
 
 @php
     $lowStockItems = \App\Models\InventoryItem::active()
@@ -52,10 +59,12 @@
                     {{ $ls->stock == 0 ? 'Out of stock' : $ls->stock . ' ' . $ls->unit . ' left' }}
                 </span>
                 <span class="text-xs text-gray-400">threshold: {{ $ls->low_stock_threshold }}</span>
+                @can('inventory_items.stock')
                 <a href="{{ route('inventory.items.edit', $ls) }}"
                    class="text-xs text-primary hover:underline flex items-center gap-0.5">
                     Stock in <i class="mgc_arrow_right_line text-xs"></i>
                 </a>
+                @endcan
             </div>
         </div>
         @endforeach
@@ -69,9 +78,11 @@
             
         </p>
     </div>
+    @can('inventory_items.create')
     <a href="{{ route('inventory.items.create') }}" class="btn bg-primary text-white gap-2">
         <i class="mgc_add_line text-base"></i> Add Item
     </a>
+    @endcan
 </div>
 
 {{-- Filters --}}
@@ -132,6 +143,11 @@
                                     <span class="w-1.5 h-1.5 inline-block bg-yellow-400 rounded-full"></span>Requires approval
                                 </span>
                                 @endif
+                                @if($item->is_rentable)
+                                <span class="inline-flex items-center gap-1.5 py-1 px-2 rounded-full text-xs font-medium bg-primary/25 text-sky-800 mt-0.5">
+                                    <span class="w-1.5 h-1.5 inline-block bg-sky-400 rounded-full"></span>Rentable
+                                </span>
+                                @endif
                             </div>
                         </div>
                     </td>
@@ -162,16 +178,29 @@
                         @endif
                     </td>
                     <td class="px-5 py-3 text-right">
+                        <div class="inline-flex items-center gap-1">
+                        @canany(['inventory_items.edit', 'inventory_items.stock'])
                         <a href="{{ route('inventory.items.edit', $item) }}" class="btn btn-sm bg-success/25 text-success hover:bg-success hover:text-white">
                             <i class="mgc_edit_line"></i> Manage
                         </a>
+                        @endcanany
+                        @can('inventory_items.delete')
+                        <form action="{{ route('inventory.items.destroy', $item) }}" method="POST" id="delete-item-{{ $item->id }}" class="inline">
+                            @csrf @method('DELETE')
+                            <button type="button" class="btn btn-sm bg-danger/25 text-danger hover:bg-danger hover:text-white" title="Delete"
+                                    onclick="swalDeleteItem({{ $item->id }}, @js($item->name))">
+                                <i class="mgc_delete_line"></i>
+                            </button>
+                        </form>
+                        @endcan
+                        </div>
                     </td>
                 </tr>
                 @empty
                 <tr>
                     <td colspan="6" class="text-center py-12 text-gray-400">
                         <i class="mgc_box_3_line text-4xl mb-2 block opacity-30"></i>
-                        No items found. <a href="{{ route('inventory.items.create') }}" class="text-primary underline">Add one</a>.
+                        No items found.@can('inventory_items.create') <a href="{{ route('inventory.items.create') }}" class="text-primary underline">Add one</a>.@endcan
                     </td>
                 </tr>
                 @endforelse

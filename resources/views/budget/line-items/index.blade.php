@@ -39,7 +39,7 @@
 
 {{-- Grand total strip --}}
 @php
-    $totals = ['PS' => 0, 'MOOE' => 0, 'CO' => 0];
+    $totals = ['PS' => 0, 'MOOE' => 0, 'FE' => 0, 'CO' => 0];
     foreach ($lineItems as $items) {
         foreach ($items as $item) $totals[$item->object_class] += (float)$item->appropriation;
     }
@@ -49,6 +49,7 @@
     @foreach([
         'PS'   => ['Personal Services',  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'],
         'MOOE' => ['MOOE',               'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'],
+        'FE'   => ['Financial Expenses', 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'],
         'CO'   => ['Capital Outlay',     'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'],
     ] as $cls => [$lbl, $badge])
     <div class="flex items-center gap-2 px-4 py-3 flex-1">
@@ -66,6 +67,25 @@
         </div>
     </div>
 </div>
+
+{{-- Accounts listed on BBPF02 but not funded this year are not shown here;
+     they stay on the entry worksheet until they are given an amount. --}}
+@if($unfundedCount > 0)
+<div class="mb-4 p-4 rounded-lg bg-primary/10 border border-primary/30 flex gap-3 items-start">
+    <i class="mgc_information_line text-primary text-xl mt-0.5 shrink-0"></i>
+    <div class="flex-1">
+        <p class="text-sm text-gray-700 dark:text-gray-200">
+            Showing funded accounts only.
+            <span class="font-semibold">{{ $unfundedCount }}</span>
+            {{ \Illuminate\Support\Str::plural('account', $unfundedCount) }}
+            listed on the budget form {{ $unfundedCount === 1 ? 'has' : 'have' }} no amount yet.
+        </p>
+        <a href="{{ route('budget.entry.index', ['fy' => $fy->id]) }}" class="text-sm text-primary font-medium hover:underline">
+            Open Budget Entry to set amounts →
+        </a>
+    </div>
+</div>
+@endif
 
 {{-- Main layout: 70% cards + 30% sidebar --}}
 <div class="grid grid-cols-10 gap-5 items-start">
@@ -94,6 +114,7 @@
             @foreach([
                 'PS'   => 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
                 'MOOE' => 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+                'FE'   => 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
                 'CO'   => 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
             ] as $hCls => $hBadge)
             @php $hTotal = $progItems->where('object_class', $hCls)->sum('appropriation'); @endphp
@@ -110,13 +131,14 @@
     <div id="prog-body-{{ $prog->id }}">
 
     {{-- PS / MOOE / CO sections --}}
-    @foreach(['PS' => 'Personal Services', 'MOOE' => 'Maintenance & Other Operating', 'CO' => 'Capital Outlay'] as $cls => $clsLabel)
+    @foreach(['PS' => 'Personal Services', 'MOOE' => 'Maintenance & Other Operating', 'FE' => 'Financial Expenses', 'CO' => 'Capital Outlay'] as $cls => $clsLabel)
     @php
         $clsItems = $progItems->where('object_class', $cls)->sortBy('sort_order')->values();
         $clsTotal = $clsItems->sum('appropriation');
         $clsBadge = match($cls) {
             'PS'   => 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
             'MOOE' => 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+            'FE'   => 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
             'CO'   => 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
         };
     @endphp
@@ -135,16 +157,6 @@
                 <span class="text-xs tabular-nums text-gray-400" id="cls-total-{{ $prog->id }}-{{ $cls }}">
                     {{ $clsTotal > 0 ? '₱'.number_format($clsTotal, 2) : '' }}
                 </span>
-                <button type="button"
-                    onclick="event.stopPropagation(); seedDefaults({{ $prog->id }}, '{{ $cls }}')"
-                    class="text-xs text-gray-400 hover:text-primary transition-colors">
-                    + seed
-                </button>
-                <button type="button"
-                    onclick="event.stopPropagation(); openAdd({{ $prog->id }}, '{{ $cls }}')"
-                    class="text-xs text-primary hover:text-primary/70 font-medium transition-colors">
-                    + Add item
-                </button>
             </div>
         </div>
 
@@ -231,12 +243,10 @@
                 <span>Click a program header to collapse or expand it.</span>
             </div>
             <div class="flex gap-2">
-                <i class="mgc_magic_1_line text-primary shrink-0 mt-0.5"></i>
-                <span><strong class="text-gray-600 dark:text-gray-300">+ seed</strong> loads standard COA names with ₱0 — fill in the amounts after.</span>
-            </div>
-            <div class="flex gap-2">
                 <i class="mgc_add_line text-primary shrink-0 mt-0.5"></i>
-                <span><strong class="text-gray-600 dark:text-gray-300">+ Add item</strong> creates a custom line under that object class.</span>
+                <span>Accounts are listed and given amounts on
+                    <a href="{{ route('budget.entry.index', ['fy' => $fy->id]) }}" class="text-primary font-medium hover:underline">Budget Entry</a>.
+                    Only funded accounts appear here.</span>
             </div>
             <div class="flex gap-2">
                 <i class="mgc_delete_line text-primary shrink-0 mt-0.5"></i>
@@ -277,37 +287,6 @@
 
 @endif
 
-{{-- Add Modal --}}
-<div id="add-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm mx-4">
-        <div class="flex justify-between items-center px-5 py-3 border-b dark:border-gray-700">
-            <h3 class="font-semibold text-sm text-gray-800 dark:text-white" id="add-modal-title">Add Line Item</h3>
-            <button onclick="closeAdd()" class="text-gray-400 hover:text-gray-600"><i class="mgc_close_line"></i></button>
-        </div>
-        <div class="p-5 space-y-3">
-            <div class="flex gap-3">
-                <div class="w-28 shrink-0">
-                    <label class="text-xs text-gray-400 mb-1 block">Object Code</label>
-                    <input type="text" id="add-code" class="form-input w-full text-sm font-mono" placeholder="50203010" maxlength="20">
-                </div>
-                <div class="flex-1">
-                    <label class="text-xs text-gray-400 mb-1 block">Name <span class="text-danger">*</span></label>
-                    <input type="text" id="add-name" class="form-input w-full text-sm" placeholder="e.g. Office Supplies">
-                    <p id="add-name-error" class="text-danger text-xs mt-1 hidden"></p>
-                </div>
-            </div>
-            <div>
-                <label class="text-xs text-gray-400 mb-1 block">Appropriation (₱) <span class="text-danger">*</span></label>
-                <input type="number" id="add-amount" class="form-input w-full text-sm text-right tabular-nums" step="0.01" min="0" placeholder="0.00">
-            </div>
-        </div>
-        <div class="flex justify-end gap-2 px-5 py-3 border-t dark:border-gray-700">
-            <button type="button" onclick="closeAdd()" class="btn btn-sm bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
-            <button type="button" onclick="submitAdd()" id="add-btn" class="btn btn-sm bg-primary text-white">Add</button>
-        </div>
-    </div>
-</div>
-
 {{-- Edit Modal --}}
 <div id="edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm mx-4">
@@ -345,8 +324,6 @@
 <script>
 const FY_ID          = {{ $fy?->id ?? 'null' }};
 const CSRF           = '{{ csrf_token() }}';
-const STORE_URL      = '{{ route('budget.line-items.store') }}';
-const SEED_URL       = '{{ route('budget.line-items.seed-defaults') }}';
 const UPDATE_BASE    = '{{ url('budget/line-items') }}';
 
 // ── Toast ──────────────────────────────────────────────
@@ -376,7 +353,7 @@ function recalcAll() {
         const pid = card.id.replace('prog-card-','');
         let progTotal = 0;
 
-        ['PS','MOOE','CO'].forEach(cls => {
+        ['PS','MOOE','FE','CO'].forEach(cls => {
             let clsTotal = 0;
             card.querySelectorAll(`[data-prog="${pid}"][data-cls="${cls}"]`).forEach(row => {
                 clsTotal += parseFloat(row.dataset.amount) || 0;
@@ -395,7 +372,7 @@ function recalcAll() {
         if (progEl) progEl.textContent = fmt(progTotal);
     });
 
-    ['PS','MOOE','CO'].forEach(cls => {
+    ['PS','MOOE','FE','CO'].forEach(cls => {
         const el = document.getElementById('summary-' + cls);
         if (el) el.textContent = fmt(totals[cls]);
     });
@@ -423,52 +400,6 @@ function buildRow(item) {
                 class="p-1 text-gray-400 hover:text-danger rounded"><i class="mgc_delete_line"></i></button>
         </div>`;
     return div;
-}
-
-// ── Add ────────────────────────────────────────────────
-let addProgId = null, addCls = null;
-
-function openAdd(progId, cls) {
-    addProgId = progId; addCls = cls;
-    document.getElementById('add-modal-title').textContent = `Add ${cls} Line Item`;
-    document.getElementById('add-name').value   = '';
-    document.getElementById('add-code').value   = '';
-    document.getElementById('add-amount').value = '';
-    document.getElementById('add-name-error').classList.add('hidden');
-    const m = document.getElementById('add-modal');
-    m.classList.remove('hidden'); m.classList.add('flex');
-    setTimeout(() => document.getElementById('add-name').focus(), 50);
-}
-function closeAdd() {
-    const m = document.getElementById('add-modal');
-    m.classList.add('hidden'); m.classList.remove('flex');
-}
-async function submitAdd() {
-    const name   = document.getElementById('add-name').value.trim();
-    const code   = document.getElementById('add-code').value.trim();
-    const amount = document.getElementById('add-amount').value;
-    const errEl  = document.getElementById('add-name-error');
-    if (!name) { errEl.textContent = 'Name is required.'; errEl.classList.remove('hidden'); return; }
-    errEl.classList.add('hidden');
-
-    const btn = document.getElementById('add-btn');
-    btn.disabled = true; btn.textContent = 'Adding…';
-    try {
-        const res  = await fetch(STORE_URL, {
-            method:'POST',
-            headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF,'Accept':'application/json'},
-            body: JSON.stringify({fiscal_year_id:FY_ID, program_id:addProgId, object_class:addCls, object_code:code, name, appropriation:amount||0}),
-        });
-        const data = await res.json();
-        if (!res.ok) { errEl.textContent = data.error||'Failed.'; errEl.classList.remove('hidden'); return; }
-
-        const container = document.getElementById(`items-${addProgId}-${addCls}`);
-        container.appendChild(buildRow(data.item));
-        recalcAll();
-        closeAdd();
-        showToast(data.message);
-    } catch(e) { showToast('Network error.','error'); }
-    finally { btn.disabled=false; btn.textContent='Add'; }
 }
 
 // ── Edit ───────────────────────────────────────────────
@@ -536,23 +467,6 @@ function confirmDelete(id, name) {
     });
 }
 
-// ── Seed ───────────────────────────────────────────────
-async function seedDefaults(progId, cls) {
-    try {
-        const res  = await fetch(SEED_URL, {
-            method:'POST',
-            headers:{'Content-Type':'application/json','X-CSRF-TOKEN':CSRF,'Accept':'application/json'},
-            body: JSON.stringify({fiscal_year_id:FY_ID, program_id:progId, object_class:cls}),
-        });
-        const data = await res.json();
-        if (!res.ok) { showToast(data.error||'Failed.','error'); return; }
-        const container = document.getElementById(`items-${progId}-${cls}`);
-        data.items.forEach(item => container.appendChild(buildRow(item)));
-        recalcAll();
-        showToast(data.message);
-    } catch(e) { showToast('Network error.','error'); }
-}
-
 // ── Collapse ───────────────────────────────────────────
 function toggleCard(progId, headerEl) {
     const body    = document.getElementById('prog-body-' + progId);
@@ -578,7 +492,7 @@ function toggleVouchers(itemId, btn) {
 }
 
 // ── Backdrop close ─────────────────────────────────────
-['add-modal','edit-modal'].forEach(id => {
+['edit-modal'].forEach(id => {
     document.getElementById(id).addEventListener('click', function(e) {
         if (e.target === this) { this.classList.add('hidden'); this.classList.remove('flex'); }
     });

@@ -18,7 +18,7 @@
         $addrParts[] = $zone->description;
         $fullAddress = implode(' ', $addrParts);
     } elseif ($zone && $zone->is_subd == 2) {
-        $fullAddress = $citizen->complete_address ?? $zone->description;
+        $fullAddress = $citizen->full_address;
     } else {
         $addrParts = [];
         if ($citizen->no)     $addrParts[] = $citizen->no;
@@ -39,6 +39,40 @@
 <div class="mb-4 p-4 rounded-lg bg-success/10 border border-success/30 flex items-center gap-3">
     <i class="mgc_check_circle_line text-success text-xl"></i>
     <p class="text-sm font-medium text-success">{{ session('success') }}</p>
+</div>
+@endif
+
+@if(session('error'))
+<div class="mb-4 p-4 rounded-lg bg-danger/10 border border-danger/30 flex items-center gap-3">
+    <i class="mgc_alert_line text-danger text-xl"></i>
+    <p class="text-sm font-medium text-danger">{{ session('error') }}</p>
+</div>
+@endif
+
+@error('reason')
+<div class="mb-4 p-4 rounded-lg bg-danger/10 border border-danger/30 flex items-center gap-3">
+    <i class="mgc_alert_line text-danger text-xl"></i>
+    <p class="text-sm font-medium text-danger">{{ $message }}</p>
+</div>
+@enderror
+
+{{-- Hold banner — while on hold the citizen cannot be issued documents --}}
+@if($hold = $citizen->activeHold)
+<div class="mb-4 p-4 rounded-lg bg-danger/10 border border-danger/40 flex flex-wrap items-start gap-3">
+    <i class="mgc_lock_line text-danger text-2xl mt-0.5 shrink-0"></i>
+    <div class="flex-1 min-w-0">
+        <p class="text-sm font-bold text-danger">On Hold — cannot be issued documents</p>
+        <p class="text-sm text-gray-800 dark:text-gray-200 mt-1 whitespace-pre-line">{{ $hold->reason }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Placed by {{ $hold->placedBy->name ?? 'Unknown' }} · {{ $hold->placed_at->format('M d, Y g:i A') }}
+        </p>
+    </div>
+    @can('citizens.hold')
+    <button type="button" data-fc-type="modal" data-fc-target="lift-hold-modal"
+        class="btn btn-sm bg-success/25 text-success hover:bg-success hover:text-white shrink-0">
+        <i class="mgc_unlock_line me-1"></i> Lift Hold
+    </button>
+    @endcan
 </div>
 @endif
 
@@ -251,9 +285,11 @@
         <div class="card">
             <div class="card-header flex items-center justify-between">
                 <h5 class="card-title"><i class="mgc_tag_line me-2 text-primary"></i>Tags</h5>
+                @can('citizens.tag')
                 <button onclick="openTagModal()" class="btn btn-sm bg-primary/10 text-primary flex items-center gap-1.5">
                     <i class="mgc_edit_line"></i> Manage Tags
                 </button>
+                @endcan
             </div>
             <div class="p-5">
                 <div id="citizen-tags" class="flex flex-wrap gap-2 min-h-[32px]">
@@ -332,6 +368,14 @@
                 ['id' => 'tab-docs',      'label' => 'Documents', 'icon' => 'mgc_file_line',         'count' => $documentRequests->count(),   'color' => 'info'],
                 ['id' => 'tab-blotters',  'label' => 'Blotters',  'icon' => 'mgc_shield_line',       'count' => $blotterInvolvement->count(), 'color' => 'danger'],
             ];
+
+            // Health check-ups: only for users who may see health records.
+            $healthCheckups = auth()->user()->can('health.view')
+                ? \App\Models\HealthCheckup::with('medicines')->where('citizen_id', $citizen->id)->orderByDesc('checked_at')->get()
+                : null;
+            if ($healthCheckups !== null) {
+                $profileTabs[] = ['id' => 'tab-health', 'label' => 'Health', 'icon' => 'mgc_heartbeat_line', 'count' => $healthCheckups->count(), 'color' => 'success'];
+            }
         @endphp
 
         <div class="card">
@@ -659,6 +703,61 @@
                 @endif
             </div>
 
+            {{-- ── Tab: Health check-ups ── --}}
+            @if($healthCheckups !== null)
+            <div id="tab-health" class="profile-tab-panel hidden">
+                @can('health.create')
+                <div class="flex justify-end px-4 pt-4">
+                    <a href="{{ route('health.create', ['citizen' => $citizen->id]) }}" class="btn btn-sm bg-success/25 text-success hover:bg-success hover:text-white">
+                        <i class="mgc_add_line me-1"></i>New check-up
+                    </a>
+                </div>
+                @endcan
+                @if($healthCheckups->isEmpty())
+                    <div class="flex flex-col items-center gap-2 py-12 text-gray-400">
+                        <i class="mgc_heartbeat_line text-4xl"></i>
+                        <p class="text-sm">No check-ups on record.</p>
+                    </div>
+                @else
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Date</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">BP</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Weight</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Complaint</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Medicines</th>
+                                <th class="px-4 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                            @foreach($healthCheckups as $hc)
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                                <td class="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ $hc->checked_at->format('M d, Y') }}</td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    @if($hc->bloodPressure())
+                                    @php $f = $hc->bpFlag(); @endphp
+                                    <span class="font-medium {{ $f[1] === 'danger' ? 'text-danger' : ($f[1] === 'warning' ? 'text-warning' : 'text-gray-800 dark:text-gray-100') }}">{{ $hc->bloodPressure() }}</span>
+                                    @else<span class="text-gray-400">—</span>@endif
+                                </td>
+                                <td class="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ $hc->weight_kg ? $hc->weight_kg . ' kg' : '—' }}</td>
+                                <td class="px-4 py-3 text-gray-700 dark:text-gray-300 max-w-[220px] truncate" title="{{ $hc->complaint }}">{{ $hc->complaint ?: '—' }}</td>
+                                <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">{{ $hc->medicines->map(fn($m) => $m->quantity . '× ' . $m->name)->implode(', ') ?: '—' }}</td>
+                                <td class="px-4 py-3 text-right">
+                                    <a href="{{ route('health.show', $hc) }}" class="p-1.5 rounded text-gray-400 hover:text-primary hover:bg-primary/10 transition-colors inline-flex">
+                                        <i class="mgc_eye_line text-sm"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @endif
+            </div>
+            @endif
+
         </div>{{-- end profiling card --}}
 
     </div>
@@ -670,15 +769,23 @@
         <div class="card">
             <div class="p-6 flex flex-col items-center text-center gap-3">
 
-                @if($citizen->profile)
-                    <img src="{{ asset('storage/' . $citizen->profile) }}"
-                        class="w-24 h-24 rounded-full object-cover border-4 border-white dark:border-gray-700 shadow"
-                        alt="{{ $citizen->fname }}">
-                @else
-                    <div class="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center shadow text-primary font-bold text-2xl">
-                        {{ strtoupper(substr($citizen->fname, 0, 1)) }}{{ strtoupper(substr($citizen->lname, 0, 1)) }}
-                    </div>
-                @endif
+                <div class="relative">
+                    @if($citizen->profile)
+                        <img src="{{ $citizen->profile_url }}"
+                            class="w-24 h-24 rounded-full object-cover border-4 shadow {{ $citizen->activeHold ? 'border-danger' : 'border-white dark:border-gray-700' }}"
+                            alt="{{ $citizen->fname }}">
+                    @else
+                        <div class="w-24 h-24 rounded-full flex items-center justify-center shadow font-bold text-2xl {{ $citizen->activeHold ? 'bg-danger/15 text-danger ring-4 ring-danger' : 'bg-primary/20 text-primary' }}">
+                            {{ strtoupper(substr($citizen->fname, 0, 1)) }}{{ strtoupper(substr($citizen->lname, 0, 1)) }}
+                        </div>
+                    @endif
+                    @if($citizen->activeHold)
+                        <span class="absolute bottom-0 end-0 w-8 h-8 rounded-full bg-danger text-white flex items-center justify-center ring-4 ring-white dark:ring-gray-800"
+                              title="On hold — cannot be issued documents">
+                            <i class="mgc_lock_fill text-base leading-none"></i>
+                        </span>
+                    @endif
+                </div>
 
                 <div>
                     <h5 class="text-base font-semibold text-gray-800 dark:text-gray-200">
@@ -711,13 +818,35 @@
                     @if(!$citizen->is_active)
                         <span class="text-xs font-medium bg-red-100 text-red-600 rounded px-2 py-0.5">Inactive</span>
                     @endif
+                    @if($citizen->activeHold)
+                        <span class="inline-flex items-center gap-1 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded px-2 py-0.5">
+                            <i class="mgc_lock_line"></i> On Hold
+                        </span>
+                    @endif
                 </div>
 
                 <div class="flex gap-2 mt-1 w-full">
+                    @can('citizens.edit')
                     <a href="{{ route('citizens.edit', $citizen->id) }}"
                         class="btn bg-primary text-white flex-1 text-sm">
                         <i class="mgc_edit_line me-1"></i> Edit
                     </a>
+                    @endcan
+                    @can('citizens.hold')
+                        @if($citizen->activeHold)
+                            <button type="button" data-fc-type="modal" data-fc-target="lift-hold-modal"
+                                class="btn bg-success/25 text-success hover:bg-success hover:text-white text-sm px-3"
+                                title="Lift hold">
+                                <i class="mgc_unlock_line"></i>
+                            </button>
+                        @else
+                            <button type="button" data-fc-type="modal" data-fc-target="place-hold-modal"
+                                class="btn bg-danger/25 text-danger hover:bg-danger hover:text-white text-sm px-3"
+                                title="Place on hold (blocks document issuance)">
+                                <i class="mgc_lock_line"></i>
+                            </button>
+                        @endif
+                    @endcan
                     <a href="{{ route('citizens.index') }}"
                         class="btn border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm px-3">
                         <i class="mgc_arrow_left_line"></i>
@@ -725,6 +854,41 @@
                 </div>
             </div>
         </div>
+
+        {{-- Hold History — only once a hold has ever been placed --}}
+        @if($citizen->holds->isNotEmpty())
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title"><i class="mgc_lock_line me-2 text-danger"></i>Hold History</h5>
+            </div>
+            <div class="p-4 space-y-3">
+                @foreach($citizen->holds as $h)
+                <div class="p-3 rounded-lg border {{ $h->isActive() ? 'border-danger/40 bg-danger/5' : 'border-gray-200 dark:border-gray-700' }}">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        @if($h->isActive())
+                            <span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300">
+                                <span class="w-1.5 h-1.5 inline-block bg-red-500 rounded-full"></span>Active
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                <span class="w-1.5 h-1.5 inline-block bg-gray-400 rounded-full"></span>Lifted
+                            </span>
+                        @endif
+                        <span class="text-xs text-gray-400">{{ $h->placed_at->format('M d, Y') }}</span>
+                    </div>
+                    <p class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">{{ $h->reason }}</p>
+                    <p class="text-xs text-gray-400 mt-1">Placed by {{ $h->placedBy->name ?? 'Unknown' }} · {{ $h->placed_at->format('M d, Y g:i A') }}</p>
+                    @unless($h->isActive())
+                        <p class="text-xs text-gray-400">Lifted by {{ $h->liftedBy->name ?? 'Unknown' }} · {{ $h->lifted_at->format('M d, Y g:i A') }}</p>
+                        @if($h->lift_note)
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 italic">“{{ $h->lift_note }}”</p>
+                        @endif
+                    @endunless
+                </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
 
         {{-- Household Card --}}
         @php
@@ -869,8 +1033,10 @@
                 <div class="px-5 py-8 text-center">
                     <i class="mgc_home_3_line text-3xl text-gray-200 dark:text-gray-700 mb-2 block"></i>
                     <p class="text-xs text-gray-400">Not assigned to any household.</p>
+                    @can('citizens.edit')
                     <a href="{{ route('citizens.edit', $citizen->id) }}"
                         class="text-xs text-primary hover:underline mt-1 inline-block">Assign via Edit</a>
+                    @endcan
                 </div>
             @endif
         </div>
@@ -943,6 +1109,67 @@
     </div>
 
 </div>
+@can('citizens.hold')
+{{-- Place Hold modal --}}
+<div id="place-hold-modal" class="fc-modal hidden w-full h-full fixed top-0 start-0 z-50">
+    <div class="fc-modal-open:opacity-100 fc-modal-open:duration-500 opacity-0 transition-all sm:max-w-lg sm:w-full m-3 sm:mx-auto">
+        <form method="POST" action="{{ route('citizens.hold.store', $citizen->id) }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+            @csrf
+            <div class="flex justify-between items-center py-3 px-4 border-b dark:border-gray-700">
+                <h3 class="font-bold text-gray-800 dark:text-white"><i class="mgc_lock_line me-1 text-danger"></i> Place Citizen on Hold</h3>
+                <button type="button" data-fc-dismiss="modal"><i class="mgc_close_line text-xl text-gray-500 dark:text-gray-400"></i></button>
+            </div>
+            <div class="p-4 space-y-3">
+                <p class="text-sm text-gray-600 dark:text-gray-300">
+                    While on hold, <strong>{{ $citizen->fname }} {{ $citizen->lname }}</strong> cannot be issued any document.
+                    Staff who select this citizen will see the reason below.
+                </p>
+                <div>
+                    <label for="hold-reason" class="text-sm font-medium text-gray-700 dark:text-gray-200 block mb-1.5">Reason <span class="text-danger">*</span></label>
+                    <textarea id="hold-reason" name="reason" rows="4" required maxlength="1000"
+                        class="form-input w-full" placeholder="e.g. Unsettled blotter case #2026-014 — must appear before the Lupon first.">{{ old('reason') }}</textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 py-3 px-4 border-t dark:border-gray-700">
+                <button type="button" data-fc-dismiss="modal" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
+                <button type="submit" class="btn bg-danger text-white"><i class="mgc_lock_line me-1"></i> Place Hold</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- Lift Hold modal --}}
+@if($citizen->activeHold)
+<div id="lift-hold-modal" class="fc-modal hidden w-full h-full fixed top-0 start-0 z-50">
+    <div class="fc-modal-open:opacity-100 fc-modal-open:duration-500 opacity-0 transition-all sm:max-w-lg sm:w-full m-3 sm:mx-auto">
+        <form method="POST" action="{{ route('citizens.hold.destroy', $citizen->id) }}" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+            @csrf
+            @method('DELETE')
+            <div class="flex justify-between items-center py-3 px-4 border-b dark:border-gray-700">
+                <h3 class="font-bold text-gray-800 dark:text-white"><i class="mgc_unlock_line me-1 text-success"></i> Lift Hold</h3>
+                <button type="button" data-fc-dismiss="modal"><i class="mgc_close_line text-xl text-gray-500 dark:text-gray-400"></i></button>
+            </div>
+            <div class="p-4 space-y-3">
+                <div class="p-3 rounded-lg bg-danger/5 border border-danger/30">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Current hold reason</p>
+                    <p class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">{{ $citizen->activeHold->reason }}</p>
+                </div>
+                <div>
+                    <label for="lift-note" class="text-sm font-medium text-gray-700 dark:text-gray-200 block mb-1.5">Note <span class="text-xs font-normal text-gray-400">(optional)</span></label>
+                    <textarea id="lift-note" name="lift_note" rows="3" maxlength="1000"
+                        class="form-input w-full" placeholder="e.g. Case settled on Oct 26, 2026."></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 py-3 px-4 border-t dark:border-gray-700">
+                <button type="button" data-fc-dismiss="modal" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
+                <button type="submit" class="btn bg-success text-white"><i class="mgc_unlock_line me-1"></i> Lift Hold</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+@endcan
+
 @endsection
 
 @section('script')

@@ -15,14 +15,25 @@ class RoleController extends Controller
     public static function groupedPermissions(?\App\Models\User $user = null): array
     {
         $labels = [
+            // Citizen areas share one "Citizens" box, one labeled row each.
             'citizens'      => 'Citizens',
-            'households'    => 'Households',
+            'citizen_ids'   => 'Citizens',
+            'birthdays'     => 'Citizens',
+            'households'    => 'Citizens',
+            'tags'          => 'Citizens',
             'blotter'       => 'Blotter',
+            'legislation'   => 'Ordinances & Resolutions',
+            'health'        => 'Health Check-ups',
             'documents'     => 'Documents',
-            'inventory'     => 'Inventory',
+            // The inventory areas share one "Inventory" box; each area is a labeled
+            // row inside it (see SUBGROUPS). Order here = order of the rows.
+            'inventory_schedule'   => 'Inventory',
+            'inventory_releases'   => 'Inventory',
+            'inventory_rentals'    => 'Inventory',
+            'inventory_items'      => 'Inventory',
+            'inventory_categories' => 'Inventory',
             'events'        => 'Events',
             'budget'        => 'Budget',
-            'tags'          => 'Tags',
             'addresses'     => 'Zones / Addresses',
             'settings'      => 'Settings',
             'users'         => 'Users',
@@ -44,11 +55,53 @@ class RoleController extends Controller
 
         foreach ($labels as $key => $label) {
             if (isset($all[$key])) {
-                $groups[$label] = $all[$key];
+                $perms = $all[$key]->sortBy(fn($p) => array_search(explode('.', $p->name)[1], self::ACTION_ORDER) ?: 99)->values();
+                $groups[$label] = isset($groups[$label]) ? $groups[$label]->concat($perms) : $perms;
             }
         }
 
         return $groups;
+    }
+
+    /** Row labels inside a shared box, by permission prefix (labeling only). */
+    const SUBGROUPS = [
+        'citizens'             => 'Records',
+        'citizen_ids'          => 'Barangay IDs',
+        'birthdays'            => 'Birthdays',
+        'households'           => 'Households',
+        'tags'                 => 'Tags',
+        'inventory_schedule'   => 'Schedule',
+        'inventory_releases'   => 'Releases',
+        'inventory_rentals'    => 'Rentals',
+        'inventory_items'      => 'Items',
+        'inventory_categories' => 'Categories',
+    ];
+
+    /** Checkbox order within a row: view first, delete last. */
+    const ACTION_ORDER = [1 => 'view', 'create', 'generate', 'print', 'edit', 'approve', 'tag', 'signature', 'template', 'stock', 'export', 'archive', 'restore', 'hold', 'income', 'demographics', 'fees', 'void', 'delete'];
+
+    /** Short hints shown next to actions whose meaning isn't obvious. */
+    public static function actionHint(string $permission): ?string
+    {
+        return [
+            'citizens.approve'           => 'set approval status: pending, approved, rejected',
+            'citizens.tag'               => 'assign tags to a citizen',
+            'citizens.archive'           => 'set inactive',
+            'citizens.hold'              => 'place or lift a hold that blocks documents',
+            'citizens.demographics'      => 'Demographics dashboard',
+            'citizen_ids.generate'       => 'issue a new ID card',
+            'citizen_ids.signature'      => 'add or remove the signature on an ID',
+            'citizen_ids.template'       => 'ID Template designer',
+            'households.income'          => 'family income (when switched on)',
+            'inventory_items.stock'      => 'stock-in & adjust',
+            'inventory_releases.approve' => 'approve, reject, release',
+            'inventory_rentals.edit'     => 'release, return, payment, cancel',
+            'inventory_schedule.create'  => 'book',
+            'inventory_schedule.edit'    => 'change, complete, cancel',
+            'documents.fees'             => 'Fee Summary: possible income, fees collected, print',
+            'health.dispense'            => 'give medicines from Inventory stock',
+            'legislation.approve'        => 'advance status: readings, approval, effectivity, veto; timeline notes',
+        ][$permission] ?? null;
     }
 
     // Flat list of permission names the given user is allowed to assign.

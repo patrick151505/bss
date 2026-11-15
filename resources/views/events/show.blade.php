@@ -52,6 +52,16 @@
                     <span class="flex items-center gap-1"><i class="mgc_location_line"></i> {{ $event->venue }}</span>
                 @endif
                 <span class="flex items-center gap-1"><i class="mgc_user_3_line"></i> <span id="header-count">...</span> attended</span>
+                @if($event->restrictsAddresses())
+                    <span class="flex items-center gap-1" title="Only residents of these areas can check in">
+                        <i class="mgc_map_pin_line"></i> Only: {{ $addresses->pluck('description')->implode(', ') }}
+                    </span>
+                @endif
+                @if($event->hasEligibilityRules())
+                    <span class="flex items-center gap-1" title="Only citizens who meet these rules can check in or win">
+                        <i class="mgc_user_3_line"></i> For: {{ implode(' · ', $event->eligibilityLabels()) }}
+                    </span>
+                @endif
             </div>
         </div>
         <div class="flex flex-wrap gap-2 shrink-0">
@@ -60,9 +70,13 @@
                 class="btn bg-warning text-white text-sm gap-1.5 shadow-sm">
                 <i class="mgc_star_line"></i> Open Raffle
             </a>
+            <a href="{{ route('events.winners.index', $event) }}"
+                class="btn bg-warning/25 text-warning hover:bg-warning hover:text-white text-sm gap-1.5">
+                <i class="mgc_trophy_line"></i> Winners
+            </a>
             @endif
             <button id="btn-toggle-status" onclick="toggleStatus()"
-                class="btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white text-sm gap-1.5">
+                class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white text-sm gap-1.5">
                 <i class="mgc_power_line"></i>
                 <span id="toggle-label">{{ $event->effective_status === 'open' ? 'Close Event' : 'Reopen Event' }}</span>
             </button>
@@ -222,7 +236,7 @@
                     <div>
                         <label class="text-xs text-gray-500 font-medium block mb-1.5">Zone / Address</label>
                         <select id="bulk-address" class="form-select w-full">
-                            <option value="">All zones</option>
+                            <option value="">{{ $event->restrictsAddresses() ? 'All allowed areas' : 'All zones' }}</option>
                             @foreach($addresses as $addr)
                                 <option value="{{ $addr->id }}">{{ $addr->description }}</option>
                             @endforeach
@@ -310,11 +324,11 @@
 
         {{-- Modal footer / actions --}}
         <div class="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-700 shrink-0">
-            <button id="bulk-back-btn" onclick="bulkWizardBack()" class="hidden btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white gap-1.5">
+            <button id="bulk-back-btn" onclick="bulkWizardBack()" class="hidden btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white gap-1.5">
                 <i class="mgc_left_line"></i> Back
             </button>
             <div class="ml-auto flex gap-3">
-                <button id="bulk-cancel-btn" onclick="closeBulkWizard()" class="btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white">
+                <button id="bulk-cancel-btn" onclick="closeBulkWizard()" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">
                     Cancel
                 </button>
                 <button id="bulk-next-btn" onclick="bulkWizardNext()"
@@ -330,6 +344,7 @@
 @endsection
 
 @push('inline-scripts')
+@include('partials.scan-anywhere')
 <script>
 const ROUTES = {
     attendance:     '{{ route('events.attendance.list', $event) }}',
@@ -356,6 +371,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('qr-input').addEventListener('keydown', e => {
         if (e.key === 'Enter') doQrCheckin();
     });
+    // Check people in by scanning their ID anywhere on the page — no need to click the QR box
+    // first, and scanners that don't send Enter work too (see partials/scan-anywhere).
+    listenForScans({
+        onScan: code => {
+            const input = document.getElementById('qr-input');
+            input.value = code;
+            input.closest('.card')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            doQrCheckin();
+        },
+    });
     document.getElementById('manual-search').addEventListener('keydown', e => {
         if (e.key === 'Enter') searchManual(1);
     });
@@ -364,11 +389,19 @@ document.addEventListener('DOMContentLoaded', () => {
 // ─── Toggle Status ────────────────────────────────────────────────────────────
 
 async function toggleStatus() {
+    const reopening = document.getElementById('toggle-label').textContent.trim() === 'Reopen Event';
     const confirmed = await Swal.fire({
-        title: 'Toggle event status?', icon: 'question',
+        title: reopening ? 'Reopen this event?' : 'Close this event?',
+        text:  reopening
+            ? 'Check-in will be allowed again. It stays open until you close it, even after the scheduled end time.'
+            : 'Check-in will stop until you reopen the event.',
+        icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#4361ee', cancelButtonColor: '#6c757d',
-        confirmButtonText: 'Yes, toggle it',
+        confirmButtonText: reopening ? 'Yes, reopen' : 'Yes, close',
+        reverseButtons: true,
+        didOpen: () => {
+            document.querySelector('.swal2-confirm').style.setProperty('background-color', '#727cf5', 'important');
+        },
     });
     if (!confirmed.isConfirmed) return;
 
@@ -431,9 +464,13 @@ async function doQrCheckin() {
         updateHeaderCount();
     }
 
-    setTimeout(() => fb.classList.add('hidden'), 4000);
+    // One timer for the message: with quick back-to-back scans, the previous
+    // person's timer must not hide the current person's result.
+    clearTimeout(qrFeedbackTimer);
+    qrFeedbackTimer = setTimeout(() => fb.classList.add('hidden'), 4000);
     input.focus();
 }
+let qrFeedbackTimer = null;
 
 // ─── Manual Citizen Search ────────────────────────────────────────────────────
 

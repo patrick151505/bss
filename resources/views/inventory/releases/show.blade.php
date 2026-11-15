@@ -54,7 +54,7 @@
                 </div>
                 <div>
                     <p class="font-semibold text-gray-800 dark:text-gray-100 text-base">{{ $c?->full_name ?? 'Unknown' }}</p>
-                    <p class="text-sm text-gray-400">{{ $c?->complete_address ?? '—' }}</p>
+                    <p class="text-sm text-gray-400">{{ $c?->full_address ?: '—' }}</p>
                     @if($c?->contact)
                     <p class="text-sm text-gray-400">📞 {{ $c->contact }}</p>
                     @endif
@@ -153,7 +153,7 @@
         </div>
 
         {{-- Actions --}}
-        @if($release->isPending())
+        @if($release->isPending() && auth()->user()->can('inventory_releases.approve'))
         <div class="card p-5 space-y-3">
             <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Actions</h3>
             <form action="{{ route('inventory.releases.approve', $release) }}" method="POST">
@@ -175,7 +175,7 @@
         </div>
         @endif
 
-        @if($release->isApproved())
+        @if($release->isApproved() && auth()->user()->can('inventory_releases.approve'))
         <div class="card p-5">
             <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Actions</h3>
             <form action="{{ route('inventory.releases.release', $release) }}" method="POST" id="release-confirm-form">

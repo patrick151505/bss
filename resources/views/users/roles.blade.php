@@ -173,23 +173,37 @@
                                             onclick="toggleModule('{{ Str::slug($moduleName) }}')"
                                             class="text-xs text-primary hover:underline">toggle</button>
                                 </div>
-                                <div class="px-4 py-3 flex flex-wrap gap-3">
-                                    @foreach($permissions as $perm)
-                                    @php
-                                        // Document-type "issue" perms show the type name; others show the action.
-                                        $label = $docTypeLabels[$perm->name] ?? explode('.', $perm->name)[1];
-                                        $isDocType = isset($docTypeLabels[$perm->name]);
-                                    @endphp
-                                    <label class="perm-module-{{ Str::slug($moduleName) }} flex items-center gap-2 cursor-pointer select-none {{ $isDocType ? 'w-full' : '' }}">
-                                        <input type="checkbox"
-                                               name="permissions[]"
-                                               value="{{ $perm->name }}"
-                                               class="perm-checkbox rounded border-gray-300 text-primary focus:ring-primary"
-                                               id="perm-{{ $perm->id }}">
-                                        <span class="text-sm text-gray-700 dark:text-gray-200 {{ $isDocType ? '' : 'capitalize' }}">
-                                            {{ $label }}
-                                        </span>
-                                    </label>
+                                @php
+                                    // A box can hold several areas (e.g. Inventory → Schedule, Items…): one labeled row each.
+                                    $rows = $permissions->groupBy(fn($p) => explode('.', $p->name)[0]);
+                                    $subLabels = \App\Http\Controllers\RoleController::SUBGROUPS;
+                                @endphp
+                                <div class="px-4 py-3 {{ $rows->count() > 1 ? 'space-y-3' : '' }}">
+                                    @foreach($rows as $prefix => $rowPerms)
+                                    @if($rows->count() > 1)
+                                    <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 -mb-1.5 {{ $loop->first ? '' : 'pt-2 border-t border-gray-100 dark:border-gray-700' }}">{{ $subLabels[$prefix] ?? Str::headline($prefix) }}</p>
+                                    @endif
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        @foreach($rowPerms as $perm)
+                                        @php
+                                            // Document-type "issue" perms show the type name; others show the action.
+                                            $label = $docTypeLabels[$perm->name] ?? explode('.', $perm->name)[1];
+                                            $isDocType = isset($docTypeLabels[$perm->name]);
+                                            $hint = \App\Http\Controllers\RoleController::actionHint($perm->name);
+                                        @endphp
+                                        <label class="perm-module-{{ Str::slug($moduleName) }} flex items-center gap-2 cursor-pointer select-none {{ $isDocType ? 'w-full' : '' }}"
+                                               @if($hint) title="{{ ucfirst($hint) }}" @endif>
+                                            <input type="checkbox"
+                                                   name="permissions[]"
+                                                   value="{{ $perm->name }}"
+                                                   class="perm-checkbox rounded border-gray-300 text-primary focus:ring-primary"
+                                                   id="perm-{{ $perm->id }}">
+                                            <span class="text-sm text-gray-700 dark:text-gray-200 {{ $isDocType ? '' : 'capitalize' }}">
+                                                {{ $label }}@if($hint)<i class="mgc_information_line text-xs text-gray-400 ms-0.5"></i>@endif
+                                            </span>
+                                        </label>
+                                        @endforeach
+                                    </div>
                                     @endforeach
                                 </div>
                             </div>

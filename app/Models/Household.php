@@ -12,18 +12,28 @@ class Household extends Model
     protected $fillable = [
         'addressId', 'blk', 'lot', 'phaseStreet', 'no',
         'internal', 'completeAdress', 'citizenHeadId',
+        'is_active', 'archived_at', 'archived_by',
         'user_id', 'date_created', 'date_lastupdated',
     ];
 
     protected $casts = [
         'date_created'     => 'datetime',
         'date_lastupdated' => 'datetime',
+        'archived_at'      => 'datetime',
+        'is_active'        => 'boolean',
         'blk'              => 'integer',
         'lot'              => 'integer',
         'addressId'        => 'integer',
         'citizenHeadId'    => 'integer',
         'user_id'          => 'integer',
+        'archived_by'      => 'integer',
     ];
+
+    // Active households only — the default view everywhere in the module.
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', 1);
+    }
 
     public function address()
     {

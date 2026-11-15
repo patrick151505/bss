@@ -88,7 +88,7 @@ class BudgetDashboardController extends Controller
             : 0;
 
         // Spending grouped by object class (PS / MOOE / CO) for the donut + cards.
-        $byClass = collect(['PS', 'MOOE', 'CO'])->mapWithKeys(function ($class) use ($allocationRows) {
+        $byClass = collect(['PS', 'MOOE', 'FE', 'CO'])->mapWithKeys(function ($class) use ($allocationRows) {
             $rows = $allocationRows->filter(fn($r) => $r->alloc->object_class === $class);
             return [$class => (object) [
                 'appropriation' => $rows->sum('adjusted'),

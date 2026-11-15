@@ -19,6 +19,12 @@ return [
     'name' => env('APP_NAME', 'Laravel'),
 
     /*
+    | System version — the newest entry in config/changelog.php.
+    | Shown on Settings → Version & Updates.
+    */
+    'version' => collect(require __DIR__ . '/changelog.php')->first()['version'] ?? '1.0',
+
+    /*
     |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------

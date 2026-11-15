@@ -35,7 +35,9 @@
             <span class="font-semibold text-sm text-gray-800 dark:text-gray-100">Voucher Header</span>
             <span class="text-xs text-gray-400">{{ $fy->displayLabel() }}</span>
         </div>
-        <div class="p-5 grid grid-cols-2 gap-4">
+        {{-- Single column on phones; the col-span-2 children below clamp to
+             the available track count, so they still span the full width. --}}
+        <div class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
 
             {{-- Voucher Type --}}
             <div class="col-span-2">
@@ -172,7 +174,7 @@
             </div>
 
             {{-- Check / Bank Transfer fields --}}
-            <div id="check-fields" class="col-span-2 grid grid-cols-3 gap-4 {{ in_array(old('mode_of_payment'), ['check','bank_transfer']) ? '' : 'hidden' }}">
+            <div id="check-fields" class="col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 {{ in_array(old('mode_of_payment'), ['check','bank_transfer']) ? '' : 'hidden' }}">
                 <div>
                     <label class="text-xs text-gray-400 mb-1 block">Check No.</label>
                     <input type="text" name="check_no" class="form-input w-full text-sm"
@@ -190,7 +192,7 @@
             </div>
 
             {{-- Cash / OR fields --}}
-            <div id="or-fields" class="col-span-2 grid grid-cols-2 gap-4 {{ old('mode_of_payment') === 'cash' ? '' : 'hidden' }}">
+            <div id="or-fields" class="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 {{ old('mode_of_payment') === 'cash' ? '' : 'hidden' }}">
                 <div>
                     <label class="text-xs text-gray-400 mb-1 block">OR Number</label>
                     <input type="text" name="or_number" class="form-input w-full text-sm"

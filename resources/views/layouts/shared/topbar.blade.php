@@ -76,7 +76,7 @@
             <div class="py-2 max-h-80 overflow-y-auto" data-simplebar>
                 @if(isset($lowStockItems) && $lowStockItems->count() > 0)
                     @foreach($lowStockItems as $lsi)
-                    <a href="{{ route('inventory.items.edit', $lsi) }}"
+                    <a href="{{ auth()->user()->canAny(['inventory_items.edit', 'inventory_items.stock']) ? route('inventory.items.edit', $lsi) : route('inventory.items.index') }}"
                        class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                         <div class="flex-shrink-0">
                             @if($lsi->image)

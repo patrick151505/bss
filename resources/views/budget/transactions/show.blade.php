@@ -130,7 +130,8 @@
         <div class="px-5 py-2.5 border-b dark:border-gray-700">
             <span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Charge to Budget Line Items</span>
         </div>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto">
+        <table class="w-full min-w-[560px] text-sm">
             <thead>
                 <tr class="border-b dark:border-gray-700 text-[10px] uppercase tracking-wide text-gray-400 bg-gray-50 dark:bg-gray-700/30">
                     <th class="px-4 py-2 text-left font-medium">Program</th>
@@ -178,6 +179,7 @@
                 </tr>
             </tfoot>
         </table>
+        </div>
     </div>
 
     {{-- ── Amount Summary ── --}}

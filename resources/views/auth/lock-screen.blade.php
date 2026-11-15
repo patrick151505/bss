@@ -19,13 +19,13 @@
                     <div class="flex justify-between">
                         <div class="flex flex-col gap-4 mb-6">
                             <a href="{{ route('any', 'index') }}" class="block">
-                                <img class="h-6 block dark:hidden" src="/images/logo-dark.png">
-                                <img class="h-6 hidden dark:block" src="/images/logo-light.png">
+                                <img class="h-6 block dark:hidden" src="{{ asset('images/logo-dark.png') }}">
+                                <img class="h-6 hidden dark:block" src="{{ asset('images/logo-light.png') }}">
                             </a>
                             <h4 class="text-slate-900 dark:text-slate-200/50 font-semibold">Hi ! Adam </h4>
                         </div>
 
-                        <img src="/images/users/avatar-1.jpg" alt="user-image" class="h-16 w-16 rounded-full shadow">
+                        <img src="{{ asset('images/users/avatar-1.jpg') }}" alt="user-image" class="h-16 w-16 rounded-full shadow">
                     </div>
 
                     <div class="mb-4">

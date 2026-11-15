@@ -10,7 +10,7 @@ class BudgetAllocation extends Model
 {
     protected $table = 'eb_budget_allocations';
 
-    const OBJECT_CLASSES = ['PS', 'MOOE', 'CO'];
+    const OBJECT_CLASSES = ['PS', 'MOOE', 'FE', 'CO'];
 
     protected $fillable = [
         'fiscal_year_id',

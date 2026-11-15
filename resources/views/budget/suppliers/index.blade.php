@@ -28,7 +28,10 @@
             </button>
         </div>
 
-        <table class="w-full text-sm table-fixed">
+        {{-- 7 percentage-width columns: below ~760px they collapse into
+             unreadable slivers, so scroll instead of squeezing. --}}
+        <div class="overflow-x-auto">
+        <table class="w-full min-w-[760px] text-sm table-fixed">
             <colgroup>
                 <col style="width:22%">
                 <col style="width:22%">
@@ -124,6 +127,7 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
 
         @if($suppliers->hasPages())
         <div class="px-5 py-3 border-t dark:border-gray-700">
@@ -164,7 +168,7 @@
                 <input type="text" id="f-name" class="form-input w-full text-sm" placeholder="e.g. MERALCO" required>
             </div>
 
-            <div class="grid grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                     <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Business Type <span class="text-danger">*</span></label>
                     <select id="f-business-type" class="form-select w-full text-sm">

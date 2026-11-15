@@ -68,8 +68,22 @@
                             <i class="mgc_link_line"></i>
                         </button>
                     </div>
+                    {{-- Two-screen setup: projector shows the stage, staff run it from a phone/tablet --}}
+                    @php $pubUrl = $event->hasValidPin() ? route('events.raffle.public', ['event' => $event->id, 'pin' => $event->raffle_pin]) : '#'; @endphp
+                    <div class="grid grid-cols-2 gap-2">
+                        <a id="link-display" href="{{ $pubUrl }}&mode=display" target="_blank"
+                            class="btn btn-sm bg-primary/10 text-primary hover:bg-primary hover:text-white justify-center gap-1.5"
+                            title="Audience screen for the projector — no buttons, mirrors the controller">
+                            <i class="mgc_tv_2_line"></i> Display
+                        </a>
+                        <a id="link-control" href="{{ $pubUrl }}&mode=control" target="_blank"
+                            class="btn btn-sm bg-primary/10 text-primary hover:bg-primary hover:text-white justify-center gap-1.5"
+                            title="Staff screen with the Draw buttons — the display follows it">
+                            <i class="mgc_cellphone_line"></i> Controller
+                        </a>
+                    </div>
+                    <p class="text-xs text-gray-400">Open <b>Display</b> on the projector and <b>Controller</b> on a staff phone or tablet. The link above shows both in one screen.</p>
                 </div>
-
                 <div id="no-pin-area" class="{{ $event->hasValidPin() ? 'hidden' : '' }} py-4 text-center">
                     <i class="mgc_lock_line text-3xl text-gray-200 dark:text-gray-600 mb-2 block"></i>
                     <p class="text-xs text-gray-400">No active PIN yet.</p>
@@ -130,9 +144,14 @@
         <div class="card">
             <div class="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-700">
                 <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">Winner History</p>
-                <button onclick="loadWinners()" class="text-xs text-primary hover:underline flex items-center gap-1">
-                    <i class="mgc_refresh_1_line text-xs"></i> Refresh
-                </button>
+                <div class="flex items-center gap-3">
+                    <a href="{{ route('events.winners.index', $event) }}" class="text-xs text-primary hover:underline flex items-center gap-1">
+                        <i class="mgc_edit_line text-xs"></i> Manage winners
+                    </a>
+                    <button onclick="loadWinners()" class="text-xs text-primary hover:underline flex items-center gap-1">
+                        <i class="mgc_refresh_1_line text-xs"></i> Refresh
+                    </button>
+                </div>
             </div>
             <div id="winner-list" class="divide-y divide-gray-100 dark:divide-gray-700 max-h-[55vh] overflow-y-auto">
                 <div class="py-10 text-center text-gray-400 text-sm animate-pulse">Loading…</div>
@@ -184,8 +203,9 @@ async function loadWinners() {
         return;
     }
 
-    // Show latest winner card
-    const latest = res.winners[0];
+    // Show latest winner card. The API returns oldest-first (by round), so the
+    // latest draw is the LAST item — [0] showed the very first winner.
+    const latest = res.winners[res.winners.length - 1];
     const photo  = document.getElementById('winner-photo');
     const initEl = document.getElementById('winner-initials');
     if (latest.photo) {
@@ -202,8 +222,8 @@ async function loadWinners() {
     document.getElementById('winner-announcement').classList.remove('hidden');
     document.getElementById('no-winner-yet').classList.add('hidden');
 
-    // History rows
-    el.innerHTML = res.winners.map(w => `
+    // History rows — newest first
+    el.innerHTML = [...res.winners].reverse().map(w => `
         <div class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
             <div class="w-10 h-10 rounded-full overflow-hidden bg-warning/10 border border-warning/20 flex items-center justify-center shrink-0 text-sm font-bold text-warning">
                 ${w.photo ? `<img src="${w.photo}" class="w-full h-full object-cover">` : initials(w.name)}
@@ -250,6 +270,8 @@ async function generatePin() {
     document.getElementById('pin-display').textContent = res.pin;
     document.getElementById('pin-expires').textContent = 'Expires ' + res.expires_at;
     document.getElementById('share-url').value = res.public_url;
+    document.getElementById('link-display').href = res.public_url + '&mode=display';
+    document.getElementById('link-control').href = res.public_url + '&mode=control';
     document.getElementById('pin-area').classList.remove('hidden');
     document.getElementById('no-pin-area').classList.add('hidden');
 

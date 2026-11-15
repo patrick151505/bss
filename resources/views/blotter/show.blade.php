@@ -66,9 +66,10 @@
             <a href="{{ route('blotters.edit', $blotter) }}" class="btn border-gray-300 dark:border-gray-600 text-sm">
                 <i class="mgc_edit_2_line me-1"></i> Edit
             </a>
-            <button type="button" onclick="window.print()" class="btn border-gray-300 dark:border-gray-600 text-sm">
+            <a href="{{ route('blotters.print', $blotter) }}" target="_blank" rel="noopener"
+               class="btn border-gray-300 dark:border-gray-600 text-sm">
                 <i class="mgc_print_line me-1"></i> Print
-            </button>
+            </a>
             <form action="{{ route('blotters.destroy', $blotter) }}" method="POST" id="delete-blotter-form">
                 @csrf @method('DELETE')
                 <button type="button" onclick="swalDeleteBlotter()" class="btn border-danger/40 text-danger text-sm hover:bg-danger/5">

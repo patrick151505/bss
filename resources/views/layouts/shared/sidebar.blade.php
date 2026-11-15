@@ -26,7 +26,7 @@
         <ul class="menu" data-fc-type="accordion">
             <li class="menu-title">Dashboard</li>
 
-            @can('citizens.view')
+            @can('citizens.demographics')
             <li class="menu-item {{ request()->routeIs('citizens.demographics') ? 'active' : '' }}">
                 <a href="{{ route('citizens.demographics') }}" class="menu-link">
                     <span class="menu-icon"><i class="mgc_chart_pie_line"></i></span>
@@ -46,8 +46,10 @@
                 $canCitizens   = auth()->user()?->can('citizens.view');
                 $canHouseholds = auth()->user()?->can('households.view');
                 $canTags       = auth()->user()?->can('tags.view');
+                $canIds        = auth()->user()?->can('citizen_ids.view');
+                $canBirthdays  = auth()->user()?->can('birthdays.view');
                 $canBlotter    = auth()->user()?->can('blotter.view');
-                $citizenGroupVisible = $canCitizens || $canHouseholds || $canTags;
+                $citizenGroupVisible = $canCitizens || $canHouseholds || $canTags || $canIds || $canBirthdays;
                 $citizenGroupActive = request()->routeIs('citizens.*') || request()->routeIs('tags.*') || request()->routeIs('birthdays.index') || request()->routeIs('households.*');
                 // The Barangay section covers the Citizen group + Blotter — show its
                 // title only if the user can access at least one of those.
@@ -66,16 +68,25 @@
                 </a>
                 <ul class="sub-menu {{ $citizenGroupActive ? '' : 'hidden' }}">
                     @if($canCitizens)
-                    <li class="menu-item {{ request()->routeIs('citizens.index') || (request()->routeIs('citizens.*') && !request()->routeIs('citizens.ids.*') && !request()->routeIs('citizens.demographics')) ? 'active' : '' }}">
+                    <li class="menu-item {{ request()->routeIs('citizens.index') || (request()->routeIs('citizens.*') && !request()->routeIs('citizens.ids.*') && !request()->routeIs('citizens.demographics') && !request()->routeIs('citizens.inactive')) ? 'active' : '' }}">
                         <a href="{{ route('citizens.index') }}" class="menu-link">
                             <span class="menu-text">Citizens</span>
                         </a>
                     </li>
+                    <li class="menu-item {{ request()->routeIs('citizens.inactive') ? 'active' : '' }}">
+                        <a href="{{ route('citizens.inactive') }}" class="menu-link">
+                            <span class="menu-text">Archive</span>
+                        </a>
+                    </li>
+                    @endif
+                    @if($canIds)
                     <li class="menu-item {{ request()->routeIs('citizens.ids.*') ? 'active' : '' }}">
                         <a href="{{ route('citizens.ids.index') }}" class="menu-link">
                             <span class="menu-text">Barangay IDs</span>
                         </a>
                     </li>
+                    @endif
+                    @if($canBirthdays)
                     <li class="menu-item {{ request()->routeIs('birthdays.index') ? 'active' : '' }}">
                         <a href="{{ route('birthdays.index') }}" class="menu-link">
                             <span class="menu-text">Birthdays</span>
@@ -109,9 +120,27 @@
             </li>
             @endcan
 
-            @if(auth()->user()?->canAny(['events.view', 'documents.view', 'inventory.view']))
+            @can('legislation.view')
+            <li class="menu-item {{ request()->routeIs('legislation.*') ? 'active' : '' }}">
+                <a href="{{ route('legislation.index') }}" class="menu-link">
+                    <span class="menu-icon"><i class="mgc_book_6_line"></i></span>
+                    <span class="menu-text">Ordinances</span>
+                </a>
+            </li>
+            @endcan
+
+            @if(auth()->user()?->canAny(['health.view', 'events.view', 'documents.view', 'inventory_schedule.view', 'inventory_releases.view', 'inventory_rentals.view', 'inventory_items.view', 'inventory_categories.view']))
             <li class="menu-title">Services</li>
             @endif
+
+            @can('health.view')
+            <li class="menu-item {{ request()->routeIs('health.*') ? 'active' : '' }}">
+                <a href="{{ route('health.index') }}" class="menu-link">
+                    <span class="menu-icon"><i class="mgc_heartbeat_line"></i></span>
+                    <span class="menu-text">Health</span>
+                </a>
+            </li>
+            @endcan
 
             @can('events.view')
             <li class="menu-item {{ request()->routeIs('events.*') ? 'active' : '' }}">
@@ -149,7 +178,7 @@
             </li>
             @endcan
 
-            @can('inventory.view')
+            @canany(['inventory_schedule.view', 'inventory_releases.view', 'inventory_rentals.view', 'inventory_items.view', 'inventory_categories.view'])
             <li class="menu-item {{ request()->routeIs('inventory.*') ? 'active open' : '' }}">
                 <a href="javascript:void(0)" data-fc-type="collapse" class="menu-link">
                     <span class="menu-icon"><i class="mgc_box_3_line"></i></span>
@@ -157,24 +186,44 @@
                     <span class="menu-arrow"></span>
                 </a>
                 <ul class="sub-menu {{ request()->routeIs('inventory.*') ? '' : 'hidden' }}">
+                    @can('inventory_schedule.view')
+                    <li class="menu-item {{ request()->routeIs('inventory.schedule.*') ? 'active' : '' }}">
+                        <a href="{{ route('inventory.schedule.index') }}" class="menu-link">
+                            <span class="menu-text">Schedule</span>
+                        </a>
+                    </li>
+                    @endcan
+                    @can('inventory_releases.view')
                     <li class="menu-item {{ request()->routeIs('inventory.releases.*') ? 'active' : '' }}">
                         <a href="{{ route('inventory.releases.index') }}" class="menu-link">
                             <span class="menu-text">Releases</span>
                         </a>
                     </li>
+                    @endcan
+                    @can('inventory_rentals.view')
+                    <li class="menu-item {{ request()->routeIs('inventory.rentals.*') ? 'active' : '' }}">
+                        <a href="{{ route('inventory.rentals.index') }}" class="menu-link">
+                            <span class="menu-text">Rentals</span>
+                        </a>
+                    </li>
+                    @endcan
+                    @can('inventory_items.view')
                     <li class="menu-item {{ request()->routeIs('inventory.items.*') ? 'active' : '' }}">
                         <a href="{{ route('inventory.items.index') }}" class="menu-link">
                             <span class="menu-text">Items</span>
                         </a>
                     </li>
+                    @endcan
+                    @can('inventory_categories.view')
                     <li class="menu-item {{ request()->routeIs('inventory.categories.*') ? 'active' : '' }}">
                         <a href="{{ route('inventory.categories.index') }}" class="menu-link">
                             <span class="menu-text">Categories</span>
                         </a>
                     </li>
+                    @endcan
                 </ul>
             </li>
-            @endcan
+            @endcanany
 
             @can('budget.view')
             <li class="menu-title">Finance</li>
@@ -199,6 +248,11 @@
                     <li class="menu-item {{ request()->routeIs('budget.programs.*') ? 'active' : '' }}">
                         <a href="{{ route('budget.programs.index') }}" class="menu-link">
                             <span class="menu-text">Programs (PPA)</span>
+                        </a>
+                    </li>
+                    <li class="menu-item {{ request()->routeIs('budget.entry.*') ? 'active' : '' }}">
+                        <a href="{{ route('budget.entry.index') }}" class="menu-link">
+                            <span class="menu-text">Budget Entry</span>
                         </a>
                     </li>
                     <li class="menu-item {{ request()->routeIs('budget.line-items.*') ? 'active' : '' }}">
@@ -255,14 +309,26 @@
             @php
                 $canSystem = auth()->user()?->canAny(['settings.view', 'users.view', 'roles.view', 'addresses.view']);
                 $canActivityLogs = auth()->user()?->can('activity_logs.view');
+
+                // The Settings link must land on a page the user may actually
+                // open. settings.index itself needs settings.view, so someone
+                // holding only users.view / roles.view / addresses.view is sent
+                // to the first section they do have, instead of hitting a 403.
+                $settingsLanding = match (true) {
+                    auth()->user()?->can('settings.view')  => 'settings.index',
+                    auth()->user()?->can('users.view')     => 'users.index',
+                    auth()->user()?->can('roles.view')     => 'roles.index',
+                    auth()->user()?->can('addresses.view') => 'addresses.index',
+                    default                                => null,
+                };
             @endphp
             @if($canSystem || $canActivityLogs)
             <li class="menu-title">System</li>
             @endif
 
-            @if($canSystem)
+            @if($canSystem && $settingsLanding)
             <li class="menu-item {{ request()->routeIs('settings.index') || request()->routeIs('settings.update') || request()->routeIs('officials.*') || request()->routeIs('addresses.*') || request()->routeIs('users.*') || request()->routeIs('roles.*') || request()->routeIs('documents.templates.*') ? 'active' : '' }}">
-                <a href="{{ route('settings.index') }}" class="menu-link">
+                <a href="{{ route($settingsLanding) }}" class="menu-link">
                     <span class="menu-icon"><i class="mgc_settings_4_line"></i></span>
                     <span class="menu-text">Settings</span>
                 </a>

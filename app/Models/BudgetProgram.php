@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BudgetProgram extends Model
@@ -17,7 +18,9 @@ class BudgetProgram extends Model
     ];
 
     protected $fillable = [
+        'parent_id',
         'name',
+        'section_label',
         'special_fund',
         'sort_order',
         'is_active',
@@ -31,6 +34,36 @@ class BudgetProgram extends Model
     public function allocations(): HasMany
     {
         return $this->hasMany(BudgetAllocation::class, 'program_id');
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id')->orderBy('sort_order');
+    }
+
+    public function lineItems(): HasMany
+    {
+        return $this->hasMany(BudgetLineItem::class, 'program_id');
+    }
+
+    /**
+     * BBPF02 puts line items on the deepest node: top-level programs with
+     * sub-programs are headings that only carry subtotals.
+     */
+    public function holdsLineItems(): bool
+    {
+        return $this->children()->doesntExist();
+    }
+
+    /** Top-level programs only, children eager-loaded in form order. */
+    public function scopeRoots($query)
+    {
+        return $query->whereNull('parent_id')->orderBy('sort_order');
     }
 
     public function isMandatory(): bool

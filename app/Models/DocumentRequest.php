@@ -6,6 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class DocumentRequest extends Model
 {
+    /**
+     * SQL for the money actually received on one request: the full fee when
+     * paid in full (or no amount recorded), only the amount received when
+     * short. Change handed back is not revenue. Use with scopeCollectable().
+     */
+    public const COLLECTED_SQL = 'CASE WHEN amount_paid IS NULL OR amount_paid >= fee THEN fee ELSE amount_paid END';
+
     protected $table = 'eb_document_requests';
 
     protected $fillable = [
@@ -26,6 +33,9 @@ class DocumentRequest extends Model
         'approved_by',
         'approved_at',
         'released_at',
+        'void_reason',
+        'voided_at',
+        'voided_by',
         'print_count',
         'template_version_id',
     ];
@@ -38,6 +48,7 @@ class DocumentRequest extends Model
         'amount_paid'   => 'decimal:2',
         'approved_at'   => 'datetime',
         'released_at'   => 'datetime',
+        'voided_at'     => 'datetime',
     ];
 
     public function templateVersion()
@@ -50,9 +61,10 @@ class DocumentRequest extends Model
         return $this->belongsTo(DocumentType::class);
     }
 
+    // The requester may be a registered resident or a walk-in.
     public function citizen()
     {
-        return $this->belongsTo(Citizen::class, 'citizen_id');
+        return $this->belongsTo(Citizen::class, 'citizen_id')->withoutGlobalScope('residents');
     }
 
     public function approvedBy()
@@ -92,6 +104,7 @@ class DocumentRequest extends Model
             'approved' => 'info',
             'released' => 'success',
             'rejected' => 'danger',
+            'voided'   => 'danger',
             default    => 'secondary',
         };
     }
@@ -99,6 +112,78 @@ class DocumentRequest extends Model
     public function getStatusLabelAttribute(): string
     {
         return ucfirst($this->status);
+    }
+
+    // ── Payment ─────────────────────────────────────────────────────────
+    // One source of truth for how a request's payment reads, so the list,
+    // the mobile cards and the detail page never contradict each other.
+
+    /**
+     * Requests that brought in money: paid types that were released (voided
+     * and rejected ones never count). Pair with COLLECTED_SQL for amounts.
+     */
+    public function scopeCollectable($query)
+    {
+        return $query->where('is_paid', true)->where('status', 'released');
+    }
+
+    public function voidedBy()
+    {
+        return $this->belongsTo(User::class, 'voided_by');
+    }
+
+    public function isVoided(): bool
+    {
+        return $this->status === 'voided';
+    }
+
+    /**
+     * 'free' | 'unpaid' | 'paid' | 'short' | 'voided'.
+     * "short" = an amount was recorded and it is below the fee (a release
+     * confirmed with "Release anyway"), even on older rows still flagged paid.
+     */
+    public function getPaymentStatusAttribute(): string
+    {
+        if (! $this->is_paid) {
+            return 'free';
+        }
+        // A voided document no longer counts toward fees, whatever was taken.
+        if ($this->status === 'voided') {
+            return 'voided';
+        }
+        if ($this->amount_paid !== null && (float) $this->amount_paid < (float) $this->fee
+            && ($this->fee_paid || $this->status === 'released')) {
+            return 'short';
+        }
+
+        return $this->fee_paid ? 'paid' : 'unpaid';
+    }
+
+    /** How much is still owed on a short payment (0 otherwise). */
+    public function getShortAmountAttribute(): float
+    {
+        return $this->payment_status === 'short'
+            ? round((float) $this->fee - (float) $this->amount_paid, 2)
+            : 0.0;
+    }
+
+    /** Change given back on an over-payment (0 otherwise). */
+    public function getChangeAmountAttribute(): float
+    {
+        return $this->amount_paid !== null
+            ? max(0, round((float) $this->amount_paid - (float) $this->fee, 2))
+            : 0.0;
+    }
+
+    /** Released without an official receipt ("NO OR: <reason>"). */
+    public function getIsNoOrAttribute(): bool
+    {
+        return str_starts_with((string) $this->or_number, 'NO OR:');
+    }
+
+    public function getNoOrReasonAttribute(): ?string
+    {
+        return $this->is_no_or ? trim(substr($this->or_number, 6)) : null;
     }
 
     public function renderHeader(): string
@@ -183,7 +268,7 @@ class DocumentRequest extends Model
             'birthday'     => $citizen?->bday?->format('F d, Y') ?? '',
             'birthplace'   => $citizen?->bplace ?? '',
             'age'          => $citizen?->age !== null ? (string)$citizen->age : '',
-            'address'      => $citizen?->complete_address ?? '',
+            'address'      => $citizen?->full_address ?? '',   // built from Blk/Lot/zone when the text field is empty
             'contact'      => $citizen?->contact ?? '',
             'email'        => $citizen?->email ?? '',
             'occupation'   => $citizen?->occupation ?? '',

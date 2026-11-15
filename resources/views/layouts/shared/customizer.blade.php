@@ -3,10 +3,19 @@
     <i class="mgc_arrow_up_line text-lg"></i>
 </button>
 
+@php
+    // The floating gear is only offered inside the Settings area — it sat on
+    // top of page content everywhere else, and theme tweaking is a settings
+    // task. The panel itself stays in the DOM on every page so an already-open
+    // offcanvas never breaks, but there is no trigger for it elsewhere.
+    $onSettingsPage = request()->routeIs('settings.*', 'officials.*', 'addresses.*', 'users.*', 'roles.*');
+@endphp
+
 <!-- Theme Settings -->
 <div>
     <!-- Theme Setting Button -->
-    <div class="fixed end-0 bottom-20">
+    @if($onSettingsPage)
+    <div class="fixed end-0 bottom-20 z-40">
         <button data-fc-type="offcanvas" data-fc-target="theme-customization" type="button" class="bg-white rounded-s-full shadow-lg p-2.5 ps-3 transition-all dark:bg-slate-800">
             <span class="sr-only">Setting</span>
             <span class="flex items-center justify-center animate-spin">
@@ -14,6 +23,7 @@
             </span>
         </button>
     </div>
+    @endif
 
     <!-- Theme Settings Offcanvas -->
     <div id="theme-customization" class="fc-offcanvas-open:translate-x-0 hidden translate-x-full rtl:-translate-x-full fixed inset-y-0 end-0 transition-all duration-300 transform max-w-sm w-full z-50 bg-white border-s border-gray-900/10 dark:bg-gray-800 dark:border-white/10" tabindex="-1">

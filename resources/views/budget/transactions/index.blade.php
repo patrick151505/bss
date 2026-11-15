@@ -56,7 +56,9 @@
         @endif
     </div>
     @else
-    <table class="w-full text-sm">
+    {{-- 8 columns: needs its own scroll area or it widens the page on mobile --}}
+    <div class="overflow-x-auto">
+    <table class="w-full min-w-[720px] text-sm">
         <thead>
             <tr class="border-b dark:border-gray-700 text-xs text-gray-400 bg-gray-50 dark:bg-gray-700/30">
                 <th class="px-4 py-3 text-left">Voucher No.</th>
@@ -95,6 +97,7 @@
             @endforeach
         </tbody>
     </table>
+    </div>
 
     @if(method_exists($transactions, 'links'))
     <div class="px-4 py-3 border-t dark:border-gray-700">

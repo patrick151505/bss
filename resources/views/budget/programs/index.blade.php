@@ -32,7 +32,7 @@
                 <table class="table min-w-full text-sm">
                     <thead class="bg-gray-50 dark:bg-gray-700">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400 w-12">#</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400 w-16">Sec.</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Program Name</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400 w-48">Type</th>
                             <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase dark:text-gray-400 w-24">Status</th>
@@ -40,53 +40,16 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                        @foreach($programs as $prog)
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 {{ !$prog->is_active ? 'opacity-50' : '' }}">
-                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 tabular-nums">{{ $prog->sort_order }}</td>
-                            <td class="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{{ $prog->name }}</td>
-                            <td class="px-4 py-3">
-                                @if($prog->special_fund)
-                                    <span class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                        <span class="w-1.5 h-1.5 inline-block bg-orange-400 rounded-full"></span>
-                                        {{ \App\Models\BudgetProgram::SPECIAL_FUNDS[$prog->special_fund] }}
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                        <span class="w-1.5 h-1.5 inline-block bg-gray-400 rounded-full"></span>
-                                        Discretionary
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-center">
-                                @if($prog->is_active)
-                                    <span class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        <span class="w-1.5 h-1.5 inline-block bg-green-400 rounded-full"></span>
-                                        Active
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                        <span class="w-1.5 h-1.5 inline-block bg-gray-400 rounded-full"></span>
-                                        Inactive
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-right whitespace-nowrap">
-                                <button class="btn btn-sm bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white"
-                                    onclick="openEdit({{ $prog->id }}, @js($prog->name), {{ $prog->sort_order }}, {{ $prog->is_active ? 'true' : 'false' }})">
-                                    <i class="mgc_edit_line"></i>
-                                </button>
-                                @if(!$prog->isMandatory())
-                                <form id="del-prog-{{ $prog->id }}" method="POST" action="{{ route('budget.programs.destroy', $prog) }}" class="inline">
-                                    @csrf @method('DELETE')
-                                    <button type="button" class="btn btn-sm bg-danger/25 text-danger hover:bg-danger hover:text-white"
-                                        onclick="swalDeleteProgram({{ $prog->id }}, @js($prog->name))">
-                                        <i class="mgc_delete_line"></i>
-                                    </button>
-                                </form>
-                                @endif
-                            </td>
-                        </tr>
-                        @endforeach
+                        @forelse($programs as $prog)
+                            @include('budget.programs._row', ['prog' => $prog, 'depth' => 0])
+                            @foreach($prog->children as $child)
+                                @include('budget.programs._row', ['prog' => $child, 'depth' => 1])
+                            @endforeach
+                        @empty
+                        <tr><td colspan="5" class="text-center py-12 text-gray-400">
+                            <i class="mgc_box_3_line text-4xl mb-2 block opacity-30"></i>No programs yet.
+                        </td></tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
@@ -112,8 +75,25 @@
                         @enderror
                     </div>
                     <div class="mb-4">
-                        <label class="text-gray-800 text-sm font-medium inline-block mb-2">Sort Order</label>
-                        <input type="number" name="sort_order" class="form-input w-full" min="0" value="{{ old('sort_order', 99) }}">
+                        <label class="text-gray-800 text-sm font-medium inline-block mb-2">Parent Program</label>
+                        <select name="parent_id" class="form-select w-full">
+                            <option value="">— None (top-level program) —</option>
+                            @foreach($parents as $parent)
+                                <option value="{{ $parent->id }}" {{ old('parent_id') == $parent->id ? 'selected' : '' }}>
+                                    {{ $parent->section_label ? $parent->section_label.'. ' : '' }}{{ $parent->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="mb-4 flex gap-3">
+                        <div class="w-24 shrink-0">
+                            <label class="text-gray-800 text-sm font-medium inline-block mb-2">Section</label>
+                            <input type="text" name="section_label" class="form-input w-full" maxlength="8" placeholder="A" value="{{ old('section_label') }}">
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-gray-800 text-sm font-medium inline-block mb-2">Sort Order</label>
+                            <input type="number" name="sort_order" class="form-input w-full" min="0" value="{{ old('sort_order', 99) }}">
+                        </div>
                     </div>
                     <button type="submit" class="btn bg-primary text-white w-full">
                         <i class="mgc_add_line me-1"></i> Add Program
@@ -142,14 +122,34 @@
             @csrf @method('PUT')
             <div class="p-4 space-y-3">
                 <div>
-                    <label class="text-gray-800 text-sm font-medium inline-block mb-2">Program Name</label>
+                    <label class="text-gray-800 dark:text-gray-200 text-sm font-medium inline-block mb-2">Program Name <span class="text-danger">*</span></label>
                     <input type="text" name="name" id="edit_name" class="form-input w-full" required>
                 </div>
                 <div>
-                    <label class="text-gray-800 text-sm font-medium inline-block mb-2">Sort Order</label>
-                    <input type="number" name="sort_order" id="edit_sort_order" class="form-input w-full" min="0">
+                    <label class="text-gray-800 dark:text-gray-200 text-sm font-medium inline-block mb-2">Parent Program</label>
+                    <select name="parent_id" id="edit_parent_id" class="form-select w-full">
+                        <option value="">— None (top-level program) —</option>
+                        @foreach($parents as $parent)
+                            <option value="{{ $parent->id }}">{{ $parent->section_label ? $parent->section_label.'. ' : '' }}{{ $parent->name }}</option>
+                        @endforeach
+                    </select>
+                    <p id="edit_parent_hint" class="text-xs text-gray-400 mt-1 hidden">
+                        This program has sub-programs, so it must stay top-level.
+                    </p>
+                </div>
+                <div class="flex gap-3">
+                    <div class="w-28 shrink-0">
+                        <label class="text-gray-800 dark:text-gray-200 text-sm font-medium inline-block mb-2">Section</label>
+                        <input type="text" name="section_label" id="edit_section_label" class="form-input w-full" maxlength="8" placeholder="A">
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-gray-800 dark:text-gray-200 text-sm font-medium inline-block mb-2">Sort Order</label>
+                        <input type="number" name="sort_order" id="edit_sort_order" class="form-input w-full" min="0">
+                    </div>
                 </div>
                 <div>
+                    {{-- Unchecked checkboxes are not posted, so send an explicit 0. --}}
+                    <input type="hidden" name="is_active" value="0">
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" name="is_active" id="edit_is_active" value="1" class="form-checkbox">
                         <span class="text-sm text-gray-800 dark:text-gray-200">Active</span>
@@ -181,11 +181,23 @@ function swalDeleteProgram(id, name) {
         if (result.isConfirmed) document.getElementById('del-prog-' + id).submit();
     });
 }
-function openEdit(id, name, sort, isActive) {
+function openEdit(id, name, parentId, section, sort, isActive, hasChildren) {
     document.getElementById('edit-form').action = `{{ url('budget/programs') }}/${id}`;
-    document.getElementById('edit_name').value = name;
-    document.getElementById('edit_sort_order').value = sort;
-    document.getElementById('edit_is_active').checked = isActive;
+    document.getElementById('edit_name').value          = name;
+    document.getElementById('edit_section_label').value = section || '';
+    document.getElementById('edit_sort_order').value    = sort;
+    document.getElementById('edit_is_active').checked   = isActive;
+
+    // Only two levels are supported: a program with sub-programs cannot
+    // itself become one, and no program may be its own parent.
+    const parentSel = document.getElementById('edit_parent_id');
+    [...parentSel.options].forEach(opt => {
+        opt.disabled = opt.value !== '' && (hasChildren || Number(opt.value) === id);
+    });
+    parentSel.value    = parentId === null ? '' : String(parentId);
+    parentSel.disabled = hasChildren;
+    document.getElementById('edit_parent_hint').classList.toggle('hidden', !hasChildren);
+
     const modal = document.getElementById('edit-modal');
     modal.classList.remove('hidden');
     modal.classList.add('flex');

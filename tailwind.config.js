@@ -1,7 +1,10 @@
 module.exports = {
     content: [
         "node_modules/@frostui/tailwindcss/**/*.js",
-        './storage/framework/views/*.php',
+        // Laravel's pagination templates (used by ->links()). Not the compiled view cache in
+        // storage/framework/views: `php artisan view:clear` deletes those files while
+        // `npm run dev` is watching them, which crashes the CSS build.
+        './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
         './resources/**/*.blade.php',
         './resources/**/*.js',
         './resources/**/*.vue',

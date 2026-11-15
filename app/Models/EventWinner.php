@@ -11,10 +11,12 @@ class EventWinner extends Model
 
     protected $fillable = [
         'eventId', 'citizenId', 'round', 'prize_label', 'drawn_at',
+        'claimed_at', 'claimed_by',
     ];
 
     protected $casts = [
-        'drawn_at'  => 'datetime',
+        'drawn_at'   => 'datetime',
+        'claimed_at' => 'datetime',
         'eventId'   => 'integer',
         'citizenId' => 'integer',
         'round'     => 'integer',
@@ -28,5 +30,16 @@ class EventWinner extends Model
     public function citizen()
     {
         return $this->belongsTo(Citizen::class, 'citizenId');
+    }
+
+    /** Staff member who handed over the prize. */
+    public function claimedBy()
+    {
+        return $this->belongsTo(User::class, 'claimed_by');
+    }
+
+    public function isClaimed(): bool
+    {
+        return $this->claimed_at !== null;
     }
 }

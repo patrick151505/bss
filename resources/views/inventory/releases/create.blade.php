@@ -40,6 +40,7 @@
                        placeholder="Search citizen name or scan ID…" autocomplete="off"
                        value="{{ $selectedCitizen ? $selectedCitizen->full_name : '' }}">
             </div>
+            <p class="text-xs text-gray-400 mt-1.5"><i class="mgc_qrcode_line"></i> Scan a citizen's ID anytime on this page — no need to click here first.</p>
             <div id="citizen-dropdown"
                  class="hidden mt-1 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-lg bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
             </div>
@@ -49,7 +50,7 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-semibold text-gray-800 dark:text-gray-100" id="card-name">{{ $selectedCitizen?->full_name }}</p>
-                    <p class="text-xs text-gray-500" id="card-address">{{ $selectedCitizen?->complete_address }}</p>
+                    <p class="text-xs text-gray-500" id="card-address">{{ $selectedCitizen?->full_address }}</p>
                     <p class="text-xs text-gray-500" id="card-contact">{{ $selectedCitizen?->contact ? '📞 '.$selectedCitizen->contact : '' }}</p>
                 </div>
                 <button type="button" onclick="clearCitizen()" class="text-gray-400 hover:text-danger">
@@ -65,7 +66,7 @@
                         $rcProfile = $rc->profile ? asset(str_replace('public/', 'storage/', $rc->profile)) : null;
                     @endphp
                     <button type="button"
-                            onclick="selectCitizen({{ $rc->id }}, '{{ addslashes($rc->full_name) }}', '{{ addslashes($rc->complete_address ?? '') }}', '{{ addslashes($rc->contact ?? '') }}', '{{ $rcProfile }}')"
+                            onclick="selectCitizen({{ $rc->id }}, '{{ addslashes($rc->full_name) }}', '{{ addslashes($rc->full_address) }}', '{{ addslashes($rc->contact ?? '') }}', '{{ $rcProfile }}')"
                             class="recent-citizen-btn flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary/50 hover:bg-primary/5 transition text-left w-full group">
                         <div class="w-9 h-9 rounded-full shrink-0 overflow-hidden bg-primary/10 flex items-center justify-center">
                             @if($rcProfile)
@@ -76,7 +77,7 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <p class="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate group-hover:text-primary">{{ $rc->full_name }}</p>
-                            <p class="text-[10px] text-gray-400 truncate">{{ $rc->complete_address ?? '—' }}</p>
+                            <p class="text-[10px] text-gray-400 truncate">{{ $rc->full_address ?: '—' }}</p>
                         </div>
                     </button>
                     @endforeach
@@ -163,6 +164,7 @@
 @endsection
 
 @push('inline-scripts')
+@include('partials.scan-anywhere')
 <script>
 const SEARCH_URL = '{{ route('citizens.search') }}';
 let searchTimer = null;
@@ -224,6 +226,27 @@ function selectCitizen(id, name, address, contact, profileUrl) {
     const grid = document.getElementById('recent-grid');
     if (grid) grid.classList.add('hidden');
 }
+
+// Scan a Barangay ID anywhere on this page → select that citizen. Exact QR match
+// only, so a scan never picks the wrong person (see partials/scan-anywhere).
+listenForScans({
+    onScan: code => {
+        fetch(SEARCH_URL + '?q=' + encodeURIComponent(code), { headers: { Accept: 'application/json' } })
+            .then(r => r.json())
+            .then(results => {
+                const c = results.find(x => x.qrcode === code);
+                if (c) {
+                    selectCitizen(c.id, c.name, c.address, c.contact, c.profile ?? '');
+                    document.getElementById('citizen-card').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    return;
+                }
+                dropdown.innerHTML = '<p class="px-4 py-3 text-sm text-danger"><i class="mgc_alert_line"></i> No citizen found for this code. Check that the ID belongs to an active citizen, or search by name.</p>';
+                dropdown.classList.remove('hidden');
+                searchInput.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            })
+            .catch(() => {});
+    },
+});
 
 function clearCitizen() {
     document.getElementById('citizen_id').value = '';

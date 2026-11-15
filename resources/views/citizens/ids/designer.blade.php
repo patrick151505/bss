@@ -42,13 +42,16 @@ $sample = [
         <span class="hidden md:inline text-gray-400">
             Selected: <kbd class="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[9px]">← ↑ → ↓</kbd> nudge
             (<kbd class="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[9px]">Shift</kbd> = 10px) ·
-            <kbd class="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[9px]">Del</kbd> remove
+            <kbd class="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[9px]">Del</kbd> remove ·
+            <kbd class="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-[9px]">Space</kbd>+drag pan
         </span>
         <span id="unsaved-badge" class="hidden font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
             <i class="mgc_edit_line text-xs"></i> Unsaved
         </span>
     </div>
-    <div class="flex items-center gap-2">
+    {{-- flex-wrap: this row holds the preview search, three toggles, the zoom
+         cluster and two buttons — far more than fits on a phone. --}}
+    <div class="flex items-center gap-2 flex-wrap">
         {{-- Preview as a real citizen so the layout is accurate --}}
         <div class="relative">
             <div class="flex items-center gap-1.5 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1">
@@ -69,6 +72,36 @@ $sample = [
         <label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none">
             <input type="checkbox" id="snap-toggle" checked class="rounded"> Snap &amp; guides
         </label>
+        <label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none" title="Show alignment grid (G)">
+            <input type="checkbox" id="grid-toggle" class="rounded" onchange="applyGrid()"> Grid
+        </label>
+        <label class="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer select-none" title="Show spacing to neighbours and card edges while moving">
+            <input type="checkbox" id="spacing-toggle" checked class="rounded"> Spacing
+        </label>
+
+        {{-- Zoom: affects the editing view only, never the saved template --}}
+        <div class="flex items-center rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+            <button type="button" id="zoom-out" onclick="zoomStep(-1)" title="Zoom out (Ctrl -)"
+                    class="px-2 py-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                <i class="mgc_zoom_out_line text-sm"></i>
+            </button>
+            <button type="button" id="zoom-label" onclick="setZoom(1)" title="Reset to 100% (Ctrl 0)"
+                    class="px-2 py-1 text-xs text-gray-600 dark:text-gray-300 font-medium tabular-nums min-w-[3rem] hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                100%
+            </button>
+            <button type="button" id="zoom-in" onclick="zoomStep(1)" title="Zoom in (Ctrl +)"
+                    class="px-2 py-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                <i class="mgc_zoom_in_line text-sm"></i>
+            </button>
+            <button type="button" onclick="zoomToFit()" title="Fit to width"
+                    class="px-2 py-1 text-gray-500 border-s border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                <i class="mgc_fullscreen_line text-sm"></i>
+            </button>
+        </div>
+        <button type="button" data-fc-type="modal" data-fc-target="preset-modal" onclick="drawPresetThumbs()"
+                class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white flex items-center gap-2 text-sm">
+            <i class="mgc_layout_grid_line"></i> Templates
+        </button>
         <button onclick="saveTemplate()" id="save-btn" class="btn bg-primary text-white flex items-center gap-2 text-sm">
             <i class="mgc_save_line"></i> Save Template
         </button>
@@ -142,16 +175,19 @@ $sample = [
                 </div>
             </div>
 
-            {{-- Canvas: true card size, scaled up for editing --}}
-            <div class="flex justify-center bg-gray-100 dark:bg-gray-900 rounded-lg p-4 overflow-auto">
-                <div id="canvas-{{ $side }}" class="id-canvas relative shadow-lg"
+            {{-- Canvas: true card size, scaled up for editing.
+                 The wrapper is height-capped so zooming in scrolls inside this
+                 box instead of stretching the page; pan with space-drag or the
+                 middle mouse button. --}}
+            <div class="canvas-wrap flex bg-gray-100 dark:bg-gray-900 rounded-lg p-4 overflow-auto">
+                <div id="canvas-{{ $side }}" class="id-canvas relative shadow-lg shrink-0"
                      data-side="{{ $side }}"
                      style="background-image:{{ $bgUrl ? "url('$bgUrl')" : 'none' }};background-size:cover;background-color:#fff;">
                     {{-- elements injected by JS --}}
                 </div>
             </div>
             <p class="text-[10px] text-gray-400 text-center mt-2">
-                <span id="dims-{{ $side }}">{{ $orient==='portrait' ? '2.125 × 3.375 in' : '3.375 × 2.125 in' }}</span> · CR80 · shown at 2× scale
+                <span id="dims-{{ $side }}">{{ $orient==='portrait' ? '2.125 × 3.375 in' : '3.375 × 2.125 in' }}</span> · CR80 · <span class="zoom-caption">shown at 2× scale</span>
             </p>
         </div>
         @endforeach
@@ -290,6 +326,50 @@ $sample = [
     </div>
 </div>
 
+{{-- ── Starter template picker ─────────────────────────────────────────── --}}
+<div id="preset-modal" class="fc-modal hidden w-full h-full fixed top-0 start-0 z-50 overflow-y-auto">
+    <div class="fc-modal-open:opacity-100 fc-modal-open:duration-500 opacity-0 transition-all sm:max-w-4xl sm:w-full m-3 sm:mx-auto">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+            <div class="flex justify-between items-center py-3 px-4 border-b dark:border-gray-700">
+                <div>
+                    <h3 class="font-bold text-gray-800 dark:text-white">Choose a starting layout</h3>
+                    <p class="text-xs text-gray-400 mt-0.5">Plain layouts — no background. Apply one, then edit anything you like.</p>
+                </div>
+                <button type="button" data-fc-dismiss="modal" class="text-gray-400 hover:text-danger">
+                    <i class="mgc_close_line text-xl"></i>
+                </button>
+            </div>
+
+            <div class="p-4 max-h-[70vh] overflow-y-auto">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    @foreach($presets as $p)
+                    <button type="button" onclick="applyPreset('{{ $p['key'] }}')"
+                            class="preset-card text-left p-3 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-primary hover:bg-primary/5 transition">
+                        {{-- Thumbnail is drawn by JS from the same layout data that gets applied. --}}
+                        <div class="preset-thumb mb-2" data-key="{{ $p['key'] }}"></div>
+                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ $p['name'] }}</p>
+                        <p class="text-[11px] text-gray-400 leading-snug mt-0.5">{{ $p['desc'] }}</p>
+                        <p class="text-[10px] text-gray-400 mt-1.5">
+                            <i class="mgc_aspect_ratio_line"></i>
+                            {{ ucfirst($p['front_orientation']) }}
+                            · {{ count($p['front']) + count($p['back']) }} elements
+                        </p>
+                    </button>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center gap-2 py-3 px-4 border-t dark:border-gray-700">
+                <p class="text-[11px] text-gray-400">
+                    <i class="mgc_alert_line"></i> Applying replaces the current front and back layout.
+                </p>
+                <button type="button" data-fc-dismiss="modal"
+                        class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white text-sm">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('inline-scripts')
@@ -308,7 +388,16 @@ const OB = '{' + '{', CB = '}' + '}';
 function TAG(name) { return OB + name + CB; }
 
 // Card pixel size at CR80 96dpi; canvas is rendered at SCALE× for editing comfort.
-const SCALE = 2;
+// SCALE is BASE_SCALE × zoom, and every card-px→screen-px conversion goes
+// through it, so changing the zoom rescales positions, fonts, the grid, the
+// snap guides and the spacing measurements in one step. It is intentionally
+// `let`, not `const`.
+const BASE_SCALE = 2;
+const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 3];
+let zoom  = 1;
+let SCALE = BASE_SCALE * zoom;
+const ZOOM_PREF = 'ebk.idDesigner.zoom';
+
 const DIMS = {
     landscape: { w: 324, h: 204 },
     portrait:  { w: 204, h: 324 },
@@ -332,9 +421,121 @@ function sizeCanvas(side) {
     const c = document.getElementById('canvas-' + side);
     c.style.width  = (d.w * SCALE) + 'px';
     c.style.height = (d.h * SCALE) + 'px';
+    applyGridTo(side);   // keep the overlay in step with the new canvas size
 }
 
 function activeSideOf(el) { return el.closest('.id-canvas')?.dataset.side; }
+
+// ── Zoom ───────────────────────────────────────────────────────────────
+// Zoom only changes how big the card is drawn. Element coordinates stay in
+// card px, so nothing about the saved template changes and the position
+// inputs keep reading the same numbers at any zoom level.
+function setZoom(z, opts = {}) {
+    const lo = ZOOM_STEPS[0], hi = ZOOM_STEPS[ZOOM_STEPS.length - 1];
+    const prev = zoom;
+    zoom  = Math.min(hi, Math.max(lo, z));
+    SCALE = BASE_SCALE * zoom;
+
+    // Remember what each scroll box was centred on, as a fraction of its
+    // scrollable size, so zooming keeps roughly the same part of the card in
+    // view instead of drifting to the top-left corner.
+    const ratio = zoom / prev;
+    const wraps = [...document.querySelectorAll('.canvas-wrap')].map(w => ({
+        el: w,
+        cx: w.scrollLeft + w.clientWidth  / 2,
+        cy: w.scrollTop  + w.clientHeight / 2,
+    }));
+
+    renderAll();
+    if (selected) select(selected.side, selected.id);
+
+    if (ratio !== 1) {
+        wraps.forEach(({ el, cx, cy }) => {
+            el.scrollLeft = cx * ratio - el.clientWidth  / 2;
+            el.scrollTop  = cy * ratio - el.clientHeight / 2;
+        });
+    }
+
+    const lbl = document.getElementById('zoom-label');
+    if (lbl) lbl.textContent = Math.round(zoom * 100) + '%';
+
+    // The caption under each canvas states the real magnification.
+    const mag = Math.round(SCALE * 100) / 100;
+    document.querySelectorAll('.zoom-caption').forEach(n => n.textContent = 'shown at ' + mag + '× scale');
+
+    // Disable the buttons at the ends of the range so the limit is visible.
+    const atMin = zoom <= lo + 1e-6, atMax = zoom >= hi - 1e-6;
+    const zi = document.getElementById('zoom-in'), zo = document.getElementById('zoom-out');
+    if (zi) { zi.disabled = atMax; zi.classList.toggle('opacity-40', atMax); }
+    if (zo) { zo.disabled = atMin; zo.classList.toggle('opacity-40', atMin); }
+
+    if (!opts.silent) { try { localStorage.setItem(ZOOM_PREF, String(zoom)); } catch (e) {} }
+}
+
+// Step to the next/previous preset stop rather than a fixed multiplier, so the
+// percentages stay round (50, 75, 100, 125, 150, 200, 300).
+function zoomStep(dir) {
+    const i = ZOOM_STEPS.findIndex(s => Math.abs(s - zoom) < 1e-6);
+    if (i === -1) {
+        // Between stops (from zoom-to-fit): jump to the nearest one in `dir`.
+        const next = dir > 0 ? ZOOM_STEPS.find(s => s > zoom) : [...ZOOM_STEPS].reverse().find(s => s < zoom);
+        return setZoom(next ?? zoom);
+    }
+    setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, i + dir))]);
+}
+
+// Fit the whole card inside its scroll box — both axes, since the box is now
+// height-capped and a portrait card would otherwise still overflow downwards.
+function zoomToFit() {
+    const wrap = document.querySelector('.canvas-wrap');
+    if (!wrap) return;
+    const availW = wrap.clientWidth  - 32;               // minus the p-4 padding
+    const availH = wrap.clientHeight - 32;
+    const widest  = Math.max(DIMS[state.front.orientation].w, DIMS[state.back.orientation].w);
+    const tallest = Math.max(DIMS[state.front.orientation].h, DIMS[state.back.orientation].h);
+    setZoom(Math.min(availW / (widest * BASE_SCALE), availH / (tallest * BASE_SCALE)));
+}
+
+function restoreZoomPref() {
+    let z = 1;
+    try { const v = parseFloat(localStorage.getItem(ZOOM_PREF)); if (v > 0) z = v; } catch (e) {}
+    setZoom(z, { silent: true });
+}
+
+// ── Design grid ────────────────────────────────────────────────────────
+// Purely a visual aid — it never changes the saved template. Snapping stays
+// on the 2px card grid regardless of whether the grid is shown.
+const GRID_MINOR = 10;   // card px between light lines
+const GRID_MAJOR = 50;   // card px between darker lines
+const GRID_PREF  = 'ebk.idDesigner.grid';
+
+function applyGridTo(side) {
+    const c = document.getElementById('canvas-' + side);
+    if (!c) return;
+    c.style.setProperty('--grid-minor-size', (GRID_MINOR * SCALE) + 'px');
+    c.style.setProperty('--grid-major-size', (GRID_MAJOR * SCALE) + 'px');
+    c.classList.toggle('show-grid', document.getElementById('grid-toggle').checked);
+}
+
+function applyGrid() {
+    const on = document.getElementById('grid-toggle').checked;
+    ['front', 'back'].forEach(applyGridTo);
+    // Remember the choice per browser; failures here are not worth surfacing.
+    try { localStorage.setItem(GRID_PREF, on ? '1' : '0'); } catch (e) {}
+}
+
+function toggleGrid() {
+    const box = document.getElementById('grid-toggle');
+    box.checked = !box.checked;
+    applyGrid();
+}
+
+function restoreGridPref() {
+    let on = false;
+    try { on = localStorage.getItem(GRID_PREF) === '1'; } catch (e) {}
+    document.getElementById('grid-toggle').checked = on;
+    applyGrid();
+}
 
 // ── Add elements ───────────────────────────────────────────────────────
 function currentSide() {
@@ -566,11 +767,17 @@ function nudge(dx, dy) {
     el.y = Math.min(Math.max(0, Math.round((el.y + dy) * 10) / 10), Math.max(0, dim.h - h));
     renderSide(selected.side);
     select(selected.side, selected.id);
+    // Show the measurements briefly so nudging reads like dragging.
+    drawSpacing(selected.side, el);
+    clearTimeout(nudge._t);
+    const nudgedSide = selected.side;
+    nudge._t = setTimeout(() => clearSpacing(nudgedSide), 900);
     markDirty();
 }
 
 // ── Drag + resize with Canva-style snapping ────────────────────────────
 function snapEnabled() { return document.getElementById('snap-toggle').checked; }
+function spacingEnabled() { return document.getElementById('spacing-toggle').checked; }
 
 function wireDrag(node, side, el, handle) {
     // move
@@ -586,8 +793,9 @@ function wireDrag(node, side, el, handle) {
             el.x = Math.max(0, Math.round(nx*10)/10);
             el.y = Math.max(0, Math.round(ny*10)/10);
             renderSide(side); select(side, el.id);
+            drawSpacing(side, el);
         };
-        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); clearGuides(side); markDirty(); };
+        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); clearGuides(side); clearSpacing(side); markDirty(); };
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
     });
@@ -609,8 +817,9 @@ function wireDrag(node, side, el, handle) {
                 el.h = Math.round(nh * 10) / 10;
             }
             renderSide(side); select(side, el.id);
+            drawSpacing(side, el);
         };
-        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); markDirty(); };
+        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); clearSpacing(side); markDirty(); };
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
     });
@@ -635,6 +844,102 @@ function maybeSnap(side, self, x, y) {
     if (gy !== null) drawGuide(side, 'h', gy);
     return [x, y];
 }
+// ── Spacing measurements (Photoshop/Figma style) ───────────────────────
+// While dragging, show the gap between the dragged field and whatever is
+// nearest on each side — a neighbouring field if one overlaps on that axis,
+// otherwise the card edge. Measurements are in card px, same units as the
+// position inputs, so what you read here is what you can type there.
+
+// Live bounds of an element in card px. Text heights are not stored on the
+// model (they depend on the rendered content), so read them back from the DOM.
+function elBounds(side, el) {
+    const node = document.querySelector('#canvas-' + side + ' .id-el[data-id="' + el.id + '"]');
+    let h;
+    if (node) {
+        h = node.offsetHeight / SCALE;
+    } else if (el.kind === 'photo')      h = el.h || 62;
+    else if (el.kind === 'qr')           h = el.w;
+    else if (el.kind === 'signature')    h = el.h || 24;
+    else                                 h = el.fontSize * 1.15;
+    return { x: el.x, y: el.y, w: el.w, h, r: el.x + el.w, b: el.y + h };
+}
+
+// Nearest neighbour gap on one axis, or the card edge when nothing overlaps.
+// Returns {gap, from, to, edge} in card px, or null when there is no room.
+function nearestGap(self, others, dir, dims) {
+    const overlapsV = o => o.b > self.y && o.y < self.b;   // share horizontal band
+    const overlapsH = o => o.r > self.x && o.x < self.r;   // share vertical band
+    let best = null;
+
+    if (dir === 'left') {
+        others.filter(o => overlapsV(o) && o.r <= self.x)
+              .forEach(o => { const g = self.x - o.r; if (!best || g < best.gap) best = { gap: g, at: o.r }; });
+        return best ?? { gap: self.x, at: 0 };
+    }
+    if (dir === 'right') {
+        others.filter(o => overlapsV(o) && o.x >= self.r)
+              .forEach(o => { const g = o.x - self.r; if (!best || g < best.gap) best = { gap: g, at: o.x }; });
+        return best ?? { gap: dims.w - self.r, at: dims.w };
+    }
+    if (dir === 'top') {
+        others.filter(o => overlapsH(o) && o.b <= self.y)
+              .forEach(o => { const g = self.y - o.b; if (!best || g < best.gap) best = { gap: g, at: o.b }; });
+        return best ?? { gap: self.y, at: 0 };
+    }
+    // bottom
+    others.filter(o => overlapsH(o) && o.y >= self.b)
+          .forEach(o => { const g = o.y - self.b; if (!best || g < best.gap) best = { gap: g, at: o.y }; });
+    return best ?? { gap: dims.h - self.b, at: dims.h };
+}
+
+function clearSpacing(side) {
+    document.querySelectorAll('#canvas-' + side + ' .sp-mark').forEach(n => n.remove());
+}
+
+function drawSpacing(side, self) {
+    const c = document.getElementById('canvas-' + side);
+    if (!c) return;
+    clearSpacing(side);
+    if (!spacingEnabled()) return;
+
+    const dims   = DIMS[state[side].orientation];
+    const others = state[side].els.filter(e => e.id !== self.id).map(e => elBounds(side, e));
+    const s      = elBounds(side, self);
+
+    // Mid-lines of the dragged element, used to place each measurement bar.
+    const midY = (s.y + s.b) / 2;
+    const midX = (s.x + s.r) / 2;
+
+    [['left', 'h'], ['right', 'h'], ['top', 'v'], ['bottom', 'v']].forEach(([dir, axis]) => {
+        const g = nearestGap(s, others, dir, dims);
+        if (!g || g.gap < 0.5) return;           // touching or overlapping: nothing to show
+
+        const bar = document.createElement('div');
+        bar.className = 'sp-mark sp-bar sp-' + axis;
+        const lbl = document.createElement('div');
+        lbl.className = 'sp-mark sp-label';
+        lbl.textContent = Math.round(g.gap * 10) / 10;
+
+        if (axis === 'h') {
+            const from = dir === 'left' ? g.at : s.r;
+            bar.style.left  = (from * SCALE) + 'px';
+            bar.style.width = (g.gap * SCALE) + 'px';
+            bar.style.top   = (midY * SCALE) + 'px';
+            lbl.style.left  = ((from + g.gap / 2) * SCALE) + 'px';
+            lbl.style.top   = (midY * SCALE) + 'px';
+        } else {
+            const from = dir === 'top' ? g.at : s.b;
+            bar.style.top    = (from * SCALE) + 'px';
+            bar.style.height = (g.gap * SCALE) + 'px';
+            bar.style.left   = (midX * SCALE) + 'px';
+            lbl.style.top    = ((from + g.gap / 2) * SCALE) + 'px';
+            lbl.style.left   = (midX * SCALE) + 'px';
+        }
+        c.appendChild(bar);
+        c.appendChild(lbl);
+    });
+}
+
 function drawGuide(side, dir, pos) {
     const c = document.getElementById('canvas-' + side);
     const g = document.createElement('div');
@@ -652,6 +957,77 @@ function clearGuides(side) {
     document.getElementById('canvas-'+side).addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('id-canvas')) deselect();
     });
+});
+
+// Ctrl/Cmd + wheel over a canvas zooms, as in most design tools. Bound on the
+// scroll wrapper (not the canvas) so it still fires when the pointer is over
+// the padding, and passive:false so preventDefault can stop the page zooming.
+document.querySelectorAll('.canvas-wrap').forEach(wrap => {
+    wrap.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.metaKey) {           // zoom
+            e.preventDefault();
+            zoomStep(e.deltaY < 0 ? 1 : -1);
+            return;
+        }
+        if (e.shiftKey) {                       // horizontal pan
+            e.preventDefault();
+            wrap.scrollLeft += e.deltaY;
+        }
+        // plain wheel: leave it alone, the box scrolls vertically as normal
+    }, { passive: false });
+});
+
+// ── Pan ────────────────────────────────────────────────────────────────
+// Once zoomed past the viewport the canvas has to be movable. Two ways in,
+// both standard in design tools:
+//   • hold Space and drag  (pointer becomes a grab hand)
+//   • drag with the middle mouse button
+// While panning, element hit-testing is disabled via CSS so a drag that starts
+// over a field pans the view instead of moving that field.
+let _spaceHeld = false;
+
+function setPanReady(on) {
+    _spaceHeld = on;
+    document.querySelectorAll('.canvas-wrap').forEach(w => w.classList.toggle('pan-ready', on));
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' || _spaceHeld) return;
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    e.preventDefault();          // stop Space from scrolling the page
+    setPanReady(true);
+});
+document.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') setPanReady(false);
+});
+// Releasing Space outside the window would otherwise leave it stuck on.
+window.addEventListener('blur', () => setPanReady(false));
+
+document.querySelectorAll('.canvas-wrap').forEach(wrap => {
+    wrap.addEventListener('mousedown', (e) => {
+        const middle = e.button === 1;
+        if (!middle && !(_spaceHeld && e.button === 0)) return;
+        e.preventDefault();
+
+        const startX = e.clientX, startY = e.clientY;
+        const fromL  = wrap.scrollLeft, fromT = wrap.scrollTop;
+        wrap.classList.add('panning');
+
+        const onMove = (ev) => {
+            wrap.scrollLeft = fromL - (ev.clientX - startX);
+            wrap.scrollTop  = fromT - (ev.clientY - startY);
+        };
+        const onUp = () => {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            wrap.classList.remove('panning');
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+    // Middle-click otherwise opens the browser's autoscroll widget.
+    wrap.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
 });
 
 // ── Orientation ────────────────────────────────────────────────────────
@@ -710,6 +1086,99 @@ function saveTemplate() {
     }).catch(()=> {
         btn.disabled=false; btn.innerHTML='<i class="mgc_close_line"></i> Failed'; btn.style.background='#fa5c7c';
         setTimeout(()=> { btn.innerHTML='<i class="mgc_save_line"></i> Save Template'; btn.style.background=''; }, 2200);
+    });
+}
+
+// ── Starter templates ──────────────────────────────────────────────────
+const PRESETS = @js($presets);
+
+// The modal is opened declaratively by frostui (data-fc-type="modal"), so
+// closing goes through its own dismiss button rather than a JS API.
+function closePresets() {
+    document.querySelector('#preset-modal [data-fc-dismiss="modal"]')?.click();
+}
+
+// Miniature of a layout, drawn from the same data that gets applied so the
+// thumbnail can never drift from the result. Cheap enough to redraw on open.
+function drawPresetThumbs() {
+    document.querySelectorAll('.preset-thumb').forEach(box => {
+        const p = PRESETS.find(x => x.key === box.dataset.key);
+        if (!p) return;
+        const d = DIMS[p.front_orientation];
+        const W = 150, s = W / d.w;                  // fit width, keep aspect
+        box.style.width  = W + 'px';
+        box.style.height = Math.round(d.h * s) + 'px';
+
+        box.innerHTML = p.front.map(el => {
+            const h = el.h != null ? el.h
+                    : el.kind === 'qr' ? el.w
+                    : (el.fontSize || 6) * 1.4;
+            const cls = el.kind === 'photo' ? 'pt-photo'
+                      : el.kind === 'qr' ? 'pt-qr'
+                      : el.kind === 'signature' ? 'pt-sig'
+                      : 'pt-text';
+            // Text is drawn as a bar rather than real glyphs — at this size
+            // actual type would be unreadable mush.
+            return `<i class="${cls}" style="left:${el.x*s}px;top:${el.y*s}px;`
+                 + `width:${el.w*s}px;height:${Math.max(1, h*s)}px;`
+                 + (cls === 'pt-text' ? `background:${el.color || '#334155'};` : '')
+                 + `"></i>`;
+        }).join('');
+    });
+}
+
+function applyPreset(key) {
+    const p = PRESETS.find(x => x.key === key);
+    if (!p) return;
+
+    const hasWork = state.front.els.length || state.back.els.length;
+    const go = () => {
+        // Deep copy so editing the applied layout never mutates PRESETS —
+        // otherwise re-applying the same preset would carry over earlier edits.
+        const clone = els => JSON.parse(JSON.stringify(els)).map(e => ({ ...e, id: 'e' + (++_uid) }));
+        state.front.orientation = p.front_orientation;
+        state.back.orientation  = p.back_orientation;
+        state.front.els = clone(p.front);
+        state.back.els  = clone(p.back);
+
+        deselect();
+        syncOrientationButtons();
+        renderAll();
+        markDirty();
+        closePresets();
+    };
+
+    if (!hasWork) return go();
+
+    // Close the picker first so the confirm dialog is not stacked on top of it.
+    closePresets();
+    Swal.fire({
+        title: 'Replace current layout?',
+        text:  'Applying "' + p.name + '" clears the fields on both sides. Your saved template is untouched until you press Save.',
+        icon:  'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, apply it',
+        cancelButtonText:  'Keep my layout',
+        reverseButtons: true,
+        didOpen: () => {
+            document.querySelector('.swal2-confirm').style.setProperty('background-color', '#727cf5', 'important');
+        },
+    }).then(r => { if (r.isConfirmed) go(); });
+}
+
+// Orientation buttons are plain markup, so reflect state after a preset swap.
+function syncOrientationButtons() {
+    ['front','back'].forEach(side => {
+        const o = state[side].orientation;
+        ['landscape','portrait'].forEach(mode => {
+            const b = document.getElementById('btn-' + mode + '-' + side);
+            if (!b) return;
+            b.classList.toggle('bg-primary', o === mode);
+            b.classList.toggle('text-white', o === mode);
+            b.classList.toggle('text-gray-500', o !== mode);
+        });
+        const dims = document.getElementById('dims-' + side);
+        if (dims) dims.textContent = o === 'portrait' ? '2.125 × 3.375 in' : '3.375 × 2.125 in';
     });
 }
 
@@ -788,7 +1257,24 @@ window.addEventListener('beforeunload', (e) => { if (_dirty) { e.preventDefault(
 document.addEventListener('keydown', (e) => {
     const t = e.target;
     const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
-    if (typing || !selected) return;
+
+    // Zoom shortcuts work even while typing, matching how browsers behave.
+    if (e.ctrlKey || e.metaKey) {
+        if (e.key === '=' || e.key === '+') { zoomStep(1);  e.preventDefault(); return; }
+        if (e.key === '-' || e.key === '_') { zoomStep(-1); e.preventDefault(); return; }
+        if (e.key === '0')                  { setZoom(1);   e.preventDefault(); return; }
+    }
+
+    if (typing) return;
+
+    // Grid toggle works with nothing selected, so it comes before that guard.
+    if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        toggleGrid();
+        e.preventDefault();
+        return;
+    }
+
+    if (!selected) return;
 
     const step = e.shiftKey ? 10 : 1;
     switch (e.key) {
@@ -828,7 +1314,9 @@ function applyUserCss() {
 }
 if (cssBox) { cssBox.addEventListener('input', applyUserCss); applyUserCss(); }
 
-renderAll();
+// setZoom() renders, so this stands in for the initial renderAll().
+restoreZoomPref();
+restoreGridPref();   // after the first render, so both canvases exist
 </script>
 <style>
 .id-canvas { image-rendering:auto; }
@@ -836,6 +1324,7 @@ renderAll();
     position:absolute; box-sizing:border-box; cursor:move; white-space:normal;
     font-family:"Arial Narrow", Arial, sans-serif; line-height:1.15; overflow:visible;
     outline:1px dashed transparent;
+    z-index:2;   /* above the grid overlay (z-index 1), below the guides */
 }
 .id-el:hover { outline-color:rgba(114,124,245,.5); }
 .id-el.selected { outline:1.5px solid #727cf5; z-index:5; }
@@ -856,5 +1345,92 @@ renderAll();
 .snap-guide { position:absolute; background:#ec4899; z-index:20; pointer-events:none; }
 .snap-guide.v { top:0; bottom:0; width:1px; }
 .snap-guide.h { left:0; right:0; height:1px; }
+
+/* Spacing measurements shown while a field is being moved or resized.
+   Bars run from the field's edge to the nearest neighbour or the card edge;
+   the label sits at the midpoint of the bar. Both are inert to the mouse. */
+.sp-mark { position:absolute; pointer-events:none; z-index:21; }
+.sp-bar { background:#ec4899; }
+.sp-bar.sp-h { height:1px; transform:translateY(-.5px); }
+.sp-bar.sp-v { width:1px;  transform:translateX(-.5px); }
+/* End ticks, so a bar reads as a measurement rather than a stray guide. */
+.sp-bar::before, .sp-bar::after { content:''; position:absolute; background:#ec4899; }
+.sp-bar.sp-h::before, .sp-bar.sp-h::after { top:-3px; width:1px; height:7px; }
+.sp-bar.sp-h::before { left:0; }
+.sp-bar.sp-h::after  { right:0; }
+.sp-bar.sp-v::before, .sp-bar.sp-v::after { left:-3px; height:1px; width:7px; }
+.sp-bar.sp-v::before { top:0; }
+.sp-bar.sp-v::after  { bottom:0; }
+.sp-label {
+    transform:translate(-50%,-50%);
+    background:#ec4899; color:#fff;
+    font:600 9px/1 ui-sans-serif, system-ui, sans-serif;
+    padding:2px 4px; border-radius:3px; white-space:nowrap;
+}
+
+/* Scroll box around each canvas. Capped height so zooming in pans within the
+   box rather than growing the page; the canvas itself keeps its natural size.
+   align-items:flex-start stops the flex row from squashing a tall canvas. */
+.canvas-wrap {
+    max-height: 62vh;
+    min-height: 240px;
+    overscroll-behavior: contain;   /* don't chain scroll to the page at the edges */
+}
+/* auto margins centre the canvas while it fits and, unlike justify/align
+   centring, still let it scroll fully into view once it overflows — centred
+   flex content otherwise clips at the start edge and becomes unreachable. */
+.canvas-wrap > .id-canvas { margin: auto; }
+
+/* Panning affordances. `panning` is set while space is held or a pan drag is
+   in progress, and suppresses element hit-testing so a drag over a field pans
+   instead of moving it. */
+.canvas-wrap.pan-ready { cursor: grab; }
+.canvas-wrap.panning   { cursor: grabbing; user-select: none; }
+.canvas-wrap.panning .id-el,
+.canvas-wrap.pan-ready .id-el { pointer-events: none; }
+
+/* Starter-template thumbnails. Elements are drawn as blocks, not real text —
+   at ~150px wide the type would be illegible, and blocks read the layout
+   faster anyway. */
+.preset-thumb {
+    position:relative; background:#fff;
+    border:1px solid #e2e8f0; border-radius:4px; overflow:hidden;
+}
+.dark .preset-thumb { border-color:#475569; }
+.preset-thumb > i { position:absolute; display:block; border-radius:1px; }
+.pt-text  { opacity:.75; }
+.pt-photo { background:rgba(148,163,184,.45); border:1px dashed #94a3b8; }
+.pt-qr    { background:rgba(15,23,42,.28); }
+.pt-sig   { background:rgba(6,182,212,.30); border:1px dashed #22d3ee; }
+.preset-card:hover .preset-thumb { border-color:#727cf5; }
+
+/* Design grid overlay. Painted in a ::before so it sits above the background
+   image but below the elements, and never eats mouse events. Cell sizes are
+   set from JS in screen px (card px x SCALE) so the grid matches the ruler. */
+.id-canvas::before {
+    content:'';
+    position:absolute; inset:0;
+    pointer-events:none;
+    z-index:1;
+    display:none;
+    background-image:
+        linear-gradient(to right,  var(--grid-major) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-major) 1px, transparent 1px),
+        linear-gradient(to right,  var(--grid-minor) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid-minor) 1px, transparent 1px);
+    background-size:
+        var(--grid-major-size) var(--grid-major-size),
+        var(--grid-major-size) var(--grid-major-size),
+        var(--grid-minor-size) var(--grid-minor-size),
+        var(--grid-minor-size) var(--grid-minor-size);
+}
+.id-canvas.show-grid::before { display:block; }
+.id-canvas {
+    --grid-minor: rgba(15,23,42,.10);
+    --grid-major: rgba(15,23,42,.20);
+    --grid-minor-size: 20px;
+    --grid-major-size: 100px;
+}
+/* The card face stays white in dark mode, so keep the grid dark on both. */
 </style>
 @endpush

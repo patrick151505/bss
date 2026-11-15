@@ -10,7 +10,21 @@ class SettingController extends Controller
 {
     public function index()
     {
-        return view('settings.index', ['setting' => Setting::instance()]);
+        return view('settings.index', [
+            'setting'      => Setting::instance(),
+            'paperOptions' => \App\Support\Paper::options(),
+        ]);
+    }
+
+    /** Settings → Version & Updates: the current version and what changed in each release. */
+    public function updates()
+    {
+        $releases = collect(config('changelog'))->map(fn($r) => $r + [
+            'counts' => collect($r['changes'])->countBy('type')->all(),
+        ]);
+        $modules = $releases->flatMap(fn($r) => array_column($r['changes'], 'module'))->unique()->sort()->values();
+
+        return view('settings.updates', compact('releases', 'modules'));
     }
 
     public function update(Request $request)
@@ -30,6 +44,16 @@ class SettingController extends Controller
             'citizen_id_prefix'  => 'nullable|string|max:20|alpha_num',
             'citizen_id_digits'  => 'nullable|integer|min:1|max:10',
             'id_validity'        => 'nullable|in:6m,1y,2y',
+            // Print Paper pickers: template ("" = none) + version ("latest" or a version id)
+            'blotter_paper_tpl'   => 'nullable|integer|exists:eb_document_templates,id',
+            'blotter_paper_ver'   => ['nullable', 'regex:/^(latest|\d+)$/'],
+            'inventory_paper_tpl' => 'nullable|integer|exists:eb_document_templates,id',
+            'inventory_paper_ver' => ['nullable', 'regex:/^(latest|\d+)$/'],
+            'fees_paper_tpl'      => 'nullable|integer|exists:eb_document_templates,id',
+            'fees_paper_ver'      => ['nullable', 'regex:/^(latest|\d+)$/'],
+            // Optional income classification
+            'income_enabled'      => 'nullable|boolean',
+            'poverty_threshold'   => 'nullable|numeric|min:1|max:1000000',
         ]);
 
         $setting = Setting::instance();
@@ -39,6 +63,18 @@ class SettingController extends Controller
             'contact', 'email', 'captain_name', 'captain_position',
             'citizen_id_prefix', 'citizen_id_digits', 'id_validity',
         ]);
+        $data['income_enabled']    = $request->boolean('income_enabled');
+        $data['poverty_threshold'] = $request->filled('poverty_threshold') ? $request->input('poverty_threshold') : null;
+
+        // Print Paper: template + optional pinned version per printout.
+        foreach (['blotter', 'inventory', 'fees'] as $print) {
+            [$tplId, $verId] = \App\Support\Paper::parsePick(
+                $request->input("{$print}_paper_tpl"),
+                $request->input("{$print}_paper_ver")
+            );
+            $data["{$print}_paper_template_id"] = $tplId;
+            $data["{$print}_paper_version_id"]  = $verId;
+        }
 
         if ($request->hasFile('logo')) {
             $file = $request->file('logo');

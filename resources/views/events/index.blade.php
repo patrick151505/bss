@@ -78,12 +78,14 @@
                 <button id="btn-search" class="btn bg-primary text-white gap-1.5 text-sm">
                     <i class="mgc_search_line"></i> Search
                 </button>
-                <button id="btn-reset" class="btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white text-sm px-3">
+                <button id="btn-reset" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white text-sm px-3">
                     <i class="mgc_close_line"></i>
                 </button>
+                @can('events.create')
                 <a href="{{ route('events.create') }}" class="btn bg-success text-white gap-1.5 text-sm">
                     <i class="mgc_add_line"></i> New Event
                 </a>
+                @endcan
             </div>
         </div>
     </div>
@@ -247,7 +249,9 @@ function emptyState() {
     return `<div class="col-span-3 card py-16 text-center text-gray-400">
         <i class="mgc_calendar_line text-5xl mb-3 block opacity-30"></i>
         <p class="text-sm font-medium">No events found.</p>
+        @can('events.create')
         <a href="{{ route('events.create') }}" class="mt-3 inline-block text-xs text-primary hover:underline">+ Create your first event</a>
+        @endcan
     </div>`;
 }
 

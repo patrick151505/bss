@@ -116,6 +116,16 @@ $customHex    = $isCustom ? $savedColor : '#4361ee';
                class="form-checkbox">
         <label for="is_active" class="text-sm text-gray-700 dark:text-gray-300">Active</label>
     </div>
+
+    <div class="flex items-start gap-2">
+        <input type="checkbox" name="is_medicine" id="is_medicine" value="1"
+               {{ old('is_medicine', ($category->is_medicine ?? false) ? '1' : '0') === '1' ? 'checked' : '' }}
+               class="form-checkbox mt-0.5">
+        <label for="is_medicine" class="text-sm text-gray-700 dark:text-gray-300">
+            Use for medicine
+            <span class="block text-xs text-gray-400">Items in this category can be given as medicine at a Health check-up. Only these items appear in the Health medicine list.</span>
+        </label>
+    </div>
 </div>
 
 @push('inline-scripts')

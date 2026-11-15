@@ -27,9 +27,11 @@
         <h4 class="text-base font-bold text-gray-800 dark:text-gray-100">Blotter Records</h4>
         <p class="text-xs text-gray-400 mt-0.5">{{ number_format($blotters->total()) }} total {{ Str::plural('entry', $blotters->total()) }}</p>
     </div>
+    @can('blotter.create')
     <a href="{{ route('blotters.create') }}" class="btn bg-primary text-white">
         <i class="mgc_add_line me-1.5"></i> File Blotter
     </a>
+    @endcan
 </div>
 
 {{-- ── Stat Cards ── --}}
@@ -220,11 +222,13 @@
                                title="View">
                                 <i class="mgc_eye_line text-sm"></i>
                             </a>
+                            @can('blotter.edit')
                             <a href="{{ route('blotters.edit', $b) }}"
                                class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primary/10 transition"
                                title="Edit">
                                 <i class="mgc_edit_line text-sm"></i>
                             </a>
+                            @endcan
                         </div>
                     </td>
 
@@ -239,10 +243,12 @@
                             <p class="text-xs">Try adjusting your filters</p>
                             <a href="{{ route('blotters.index') }}" class="btn btn-sm bg-primary/10 text-primary mt-1">Clear Filters</a>
                             @else
+                            @can('blotter.create')
                             <p class="text-xs">File the first blotter entry to get started</p>
                             <a href="{{ route('blotters.create') }}" class="btn btn-sm bg-primary text-white mt-1">
                                 <i class="mgc_add_line me-1"></i> File Blotter
                             </a>
+                            @endcan
                             @endif
                         </div>
                     </td>

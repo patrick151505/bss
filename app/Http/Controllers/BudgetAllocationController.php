@@ -35,7 +35,7 @@ class BudgetAllocationController extends Controller
             : collect();
 
         // Column totals
-        $colTotals = ['PS' => 0, 'MOOE' => 0, 'CO' => 0];
+        $colTotals = ['PS' => 0, 'MOOE' => 0, 'FE' => 0, 'CO' => 0];
         foreach ($lineItems as $items) {
             foreach ($items as $item) {
                 $colTotals[$item->object_class] = ($colTotals[$item->object_class] ?? 0) + (float) $item->appropriation;

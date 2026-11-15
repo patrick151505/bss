@@ -18,8 +18,8 @@
             <div class="card overflow-hidden sm:rounded-md rounded-none">
                 <div class="p-6">
                     <a href="" class="flex justify-center mb-8">
-                        <img class="block dark:hidden" style="height:3.5rem;" src="/images/logo-dark.png" alt="">
-                        <img class="hidden dark:block" style="height:3.5rem;" src="/images/logo-light.png" alt="">
+                        <img class="block dark:hidden" style="height:3.5rem;" src="{{ asset('images/logo-dark.png') }}" alt="">
+                        <img class="hidden dark:block" style="height:3.5rem;" src="{{ asset('images/logo-light.png') }}" alt="">
                     </a>
 
                     <form method="POST" action="{{ route('login') }}">

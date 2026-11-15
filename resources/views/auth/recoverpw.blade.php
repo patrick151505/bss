@@ -17,8 +17,8 @@
             <div class="card overflow-hidden sm:rounded-md rounded-none">
                 <div class="p-6">
                     <a href="{{ route('any', 'index') }}" class="block mb-8">
-                        <img class="h-6 block dark:hidden" src="/images/logo-dark.png" alt="">
-                        <img class="h-6 hidden dark:block" src="/images/logo-light.png" alt="">
+                        <img class="h-6 block dark:hidden" src="{{ asset('images/logo-dark.png') }}" alt="">
+                        <img class="h-6 hidden dark:block" src="{{ asset('images/logo-light.png') }}" alt="">
                     </a>
 
                     <div class="mb-4">

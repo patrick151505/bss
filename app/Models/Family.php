@@ -11,6 +11,7 @@ class Family extends Model
 
     protected $fillable = [
         'householdId', 'citizenId', 'date_created', 'date_last_updated',
+        'monthly_income', 'income_class', 'income_updated_at', 'income_updated_by',
     ];
 
     protected $casts = [
@@ -18,6 +19,7 @@ class Family extends Model
         'date_last_updated' => 'datetime',
         'householdId'       => 'integer',
         'citizenId'         => 'integer',
+        'income_updated_at' => 'datetime',
     ];
 
     public function household()

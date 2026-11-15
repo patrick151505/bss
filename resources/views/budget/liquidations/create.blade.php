@@ -59,7 +59,8 @@
                             <button type="button" onclick="addLine()" class="btn btn-xs btn-light">+ Add Line</button>
                         </div>
 
-                        <table class="table table-sm mb-2" id="lines-table">
+                        <div class="overflow-x-auto">
+                        <table class="table table-sm mb-2 min-w-[560px]" id="lines-table">
                             <thead>
                                 <tr>
                                     <th>OR No.</th>
@@ -79,6 +80,7 @@
                                 </tr>
                             </tbody>
                         </table>
+                        </div>
                         <p class="text-xs text-gray-400">Total expenses + refund must equal ₱{{ number_format($cashAdvance->amount, 2) }} to close the liquidation.</p>
                     </div>
 

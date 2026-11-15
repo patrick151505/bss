@@ -103,7 +103,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
             <div id="classChart" style="height:200px"></div>
             <div class="space-y-2">
-                @php $classMeta = ['PS'=>['Personnel Services','text-primary'],'MOOE'=>['Operations (MOOE)','text-success'],'CO'=>['Capital Outlay','text-warning']]; @endphp
+                @php $classMeta = ['PS'=>['Personnel Services','text-primary'],'MOOE'=>['Operations (MOOE)','text-success'],'FE'=>['Financial Expenses','text-info'],'CO'=>['Capital Outlay','text-warning']]; @endphp
                 @foreach($byClass as $class => $c)
                     @php [$label, $color] = $classMeta[$class] ?? [$class, 'text-gray-500']; @endphp
                     <div class="flex items-center justify-between text-sm">
@@ -190,6 +190,7 @@
                         $classBadge = match($row->alloc->object_class) {
                             'PS'   => 'bg-primary/10 text-primary',
                             'MOOE' => 'bg-green-100 text-green-800',
+                            'FE'   => 'bg-amber-100 text-amber-800',
                             'CO'   => 'bg-yellow-100 text-yellow-800',
                             default=> 'bg-gray-100 text-gray-600',
                         };
@@ -377,7 +378,7 @@
 
 @section('script')
 {{-- ApexCharts, served locally (no internet needed) — same as the demographics page --}}
-<script src="/js/apexcharts.min.js"></script>
+<script src="{{ asset('js/apexcharts.min.js') }}"></script>
 <script>
 (function () {
     if (typeof ApexCharts === 'undefined') return;

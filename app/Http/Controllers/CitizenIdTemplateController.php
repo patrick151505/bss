@@ -17,7 +17,11 @@ class CitizenIdTemplateController extends Controller
         // Advanced CSS/JS runs unfiltered on the printed ID — restrict to Super Admin.
         $canAdvanced = auth()->user()?->hasRole('Super Admin') ?? false;
 
-        return view('citizens.ids.designer', compact('tpl', 'canAdvanced'));
+        // Starter layouts offered in the "Templates" picker. Plain by design —
+        // no backgrounds — so one can be applied and then edited freely.
+        $presets = require resource_path('views/citizens/ids/_presets.php');
+
+        return view('citizens.ids.designer', compact('tpl', 'canAdvanced', 'presets'));
     }
 
     /**

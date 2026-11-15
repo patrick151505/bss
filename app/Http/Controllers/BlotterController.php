@@ -54,33 +54,21 @@ class BlotterController extends Controller
                 : $request->type,
         ]);
 
+        $this->normalizeInput($request);
+
         $validated = $request->validate([
             'filed_date'        => 'required|date',
             'incident_date'     => 'required|date',
             'incident_time'     => 'nullable|date_format:H:i',
             'type'              => 'required|string|max:100',
             'incident_location' => 'nullable|string|max:255',
-            'complainants'      => 'required|array|min:1',
-            'complainants.*.name'    => 'required|string|max:255',
-            'complainants.*.address' => 'nullable|string|max:255',
-            'complainants.*.contact' => 'nullable|string|max:30',
-            'complainants.*.citizen_id' => 'nullable|integer',
-            'respondents'       => 'required|array|min:1',
-            'respondents.*.name'    => 'required|string|max:255',
-            'respondents.*.address' => 'nullable|string|max:255',
-            'respondents.*.contact' => 'nullable|string|max:30',
-            'respondents.*.citizen_id' => 'nullable|integer',
+            ...self::PARTY_RULES,
             'narrative'         => 'required|string',
             'witnesses'         => 'nullable|string',
             'attending_officer' => 'nullable|string|max:255',
             'remarks'           => 'nullable|string',
             'photos.*'          => 'nullable|image|max:4096',
-        ], [
-            'complainants.required'        => 'At least one complainant is required.',
-            'complainants.*.name.required' => 'Each complainant must have a name.',
-            'respondents.required'         => 'At least one respondent is required.',
-            'respondents.*.name.required'  => 'Each respondent must have a name.',
-        ]);
+        ], self::PARTY_MESSAGES);
 
         $complainants = $validated['complainants'];
         $respondents  = $validated['respondents'];
@@ -106,11 +94,11 @@ class BlotterController extends Controller
             'complainant_name'       => $complainants[0]['name'],
             'complainant_address'    => $complainants[0]['address'] ?? null,
             'complainant_contact'    => $complainants[0]['contact'] ?? null,
-            'complainant_citizen_id' => $complainants[0]['citizen_id'] ?: null,
+            'complainant_citizen_id' => ($complainants[0]['citizen_id'] ?? null) ?: null,
             'respondent_name'        => $respondents[0]['name'],
             'respondent_address'     => $respondents[0]['address'] ?? null,
             'respondent_contact'     => $respondents[0]['contact'] ?? null,
-            'respondent_citizen_id'  => $respondents[0]['citizen_id'] ?: null,
+            'respondent_citizen_id'  => ($respondents[0]['citizen_id'] ?? null) ?: null,
         ];
 
         $blotter = Blotter::create($data);
@@ -169,6 +157,26 @@ class BlotterController extends Controller
         $actions      = $blotter->actions;
 
         return view('blotter.show', compact('blotter', 'logs', 'actions', 'complainants', 'respondents'));
+    }
+
+    /**
+     * Standalone, paper-ready blotter report. Printing the regular show page
+     * dragged in the sidebar, buttons and dark theme; this renders only the
+     * record on white paper and opens the print dialog.
+     */
+    public function print(Request $request, Blotter $blotter)
+    {
+        $blotter->load(['parties', 'actions']);
+        $settings = \App\Models\Setting::instance();
+
+        return view('blotter.print', [
+            'paper'        => \App\Support\Paper::resolve($settings->blotter_paper_template_id, $settings->blotter_paper_version_id),
+            'blotter'      => $blotter,
+            'complainants' => $blotter->parties->where('role', 'complainant')->values(),
+            'respondents'  => $blotter->parties->where('role', 'respondent')->values(),
+            'actions'      => $blotter->actions->sortBy([['scheduled_date', 'asc'], ['scheduled_time', 'asc']])->values(),
+            'settings'     => $settings,
+        ]);
     }
 
     public function storeAction(Request $request, Blotter $blotter)
@@ -312,43 +320,40 @@ class BlotterController extends Controller
                 : $request->type,
         ]);
 
-        $data = $request->validate([
+        // The edit form sends complainants[] / respondents[] (same as create).
+        // This used to validate the old single complainant_name /
+        // respondent_name fields, which the form no longer sends — so every
+        // save failed with "… name field is required".
+        $this->normalizeInput($request);
+
+        $validated = $request->validate([
             'filed_date'          => 'required|date',
             'incident_date'       => 'required|date',
             'incident_time'       => 'nullable|date_format:H:i',
             'type'                => 'required|string|max:100',
             'incident_location'   => 'nullable|string|max:255',
-            'complainant_citizen_id' => 'nullable|exists:eb_citizen,id',
-            'complainant_name'    => 'required|string|max:255',
-            'complainant_address' => 'nullable|string|max:255',
-            'complainant_contact' => 'nullable|string|max:30',
-            'respondent_citizen_id'  => 'nullable|exists:eb_citizen,id',
-            'respondent_name'     => 'required|string|max:255',
-            'respondent_address'  => 'nullable|string|max:255',
-            'respondent_contact'  => 'nullable|string|max:30',
+            ...self::PARTY_RULES,
             'narrative'           => 'required|string',
             'witnesses'           => 'nullable|string',
             'attending_officer'   => 'nullable|string|max:255',
             'remarks'             => 'nullable|string',
-        ]);
+        ], self::PARTY_MESSAGES);
 
+        $complainants = $validated['complainants'];
+        $respondents  = $validated['respondents'];
+
+        $data = collect($validated)->except(['complainants', 'respondents'])->all();
         $data['updated_by'] = auth()->id();
 
-        // Sync multi-party lists
-        $complainants = $request->input('complainants', []);
-        $respondents  = $request->input('respondents', []);
-        if (!empty($complainants[0]['name'])) {
-            $data['complainant_name']       = $complainants[0]['name'];
-            $data['complainant_address']    = $complainants[0]['address'] ?? null;
-            $data['complainant_contact']    = $complainants[0]['contact'] ?? null;
-            $data['complainant_citizen_id'] = $complainants[0]['citizen_id'] ?: null;
-        }
-        if (!empty($respondents[0]['name'])) {
-            $data['respondent_name']       = $respondents[0]['name'];
-            $data['respondent_address']    = $respondents[0]['address'] ?? null;
-            $data['respondent_contact']    = $respondents[0]['contact'] ?? null;
-            $data['respondent_citizen_id'] = $respondents[0]['citizen_id'] ?: null;
-        }
+        // Legacy single columns — keep in sync with the first party.
+        $data['complainant_name']       = $complainants[0]['name'];
+        $data['complainant_address']    = $complainants[0]['address'] ?? null;
+        $data['complainant_contact']    = $complainants[0]['contact'] ?? null;
+        $data['complainant_citizen_id'] = ($complainants[0]['citizen_id'] ?? null) ?: null;
+        $data['respondent_name']        = $respondents[0]['name'];
+        $data['respondent_address']     = $respondents[0]['address'] ?? null;
+        $data['respondent_contact']     = $respondents[0]['contact'] ?? null;
+        $data['respondent_citizen_id']  = ($respondents[0]['citizen_id'] ?? null) ?: null;
 
         // Capture changes before saving
         $changes = [];
@@ -431,6 +436,51 @@ class BlotterController extends Controller
             ->with('success', "Blotter #{$no} has been deleted.");
     }
 
+    /** Party rules shared by create and edit (both forms post the same lists). */
+    private const PARTY_RULES = [
+        'complainants'              => 'required|array|min:1',
+        'complainants.*.name'       => 'required|string|max:255',
+        'complainants.*.address'    => 'nullable|string|max:255',
+        'complainants.*.contact'    => 'nullable|string|max:30',
+        'complainants.*.citizen_id' => 'nullable|integer',
+        'respondents'               => 'required|array|min:1',
+        'respondents.*.name'        => 'required|string|max:255',
+        'respondents.*.address'     => 'nullable|string|max:255',
+        'respondents.*.contact'     => 'nullable|string|max:30',
+        'respondents.*.citizen_id'  => 'nullable|integer',
+    ];
+
+    private const PARTY_MESSAGES = [
+        'complainants.required'        => 'At least one complainant is required.',
+        'complainants.*.name.required' => 'Each complainant must have a name.',
+        'respondents.required'         => 'At least one respondent is required.',
+        'respondents.*.name.required'  => 'Each respondent must have a name.',
+    ];
+
+    /**
+     * Tidy create/edit input before validation. Drops party rows left
+     * completely blank (an "add" click never filled in)
+     * and renumber from 0. Removing the first row in the form leaves keys like
+     * [1], [2]; the code below reads the first party as [0].
+     */
+    private function normalizeInput(Request $request): void
+    {
+        // Times come back as HH:MM:SS when a stored value is round-tripped
+        // through the form; validation (and the time input) use HH:MM.
+        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', (string) $request->input('incident_time'))) {
+            $request->merge(['incident_time' => substr($request->input('incident_time'), 0, 5)]);
+        }
+
+        foreach (['complainants', 'respondents'] as $key) {
+            $rows = collect($request->input($key, []))
+                ->filter(fn($p) => is_array($p) && collect([$p['name'] ?? '', $p['address'] ?? '', $p['contact'] ?? ''])
+                    ->contains(fn($v) => trim((string) $v) !== ''))
+                ->values()
+                ->all();
+            $request->merge([$key => $rows]);
+        }
+    }
+
     private function syncParties(Blotter $blotter, array $complainants, array $respondents): void
     {
         $blotter->parties()->delete();
@@ -442,7 +492,7 @@ class BlotterController extends Controller
             $rows[] = [
                 'blotter_id' => $blotter->id,
                 'role'       => 'complainant',
-                'citizen_id' => $p['citizen_id'] ?: null,
+                'citizen_id' => ($p['citizen_id'] ?? null) ?: null,
                 'name'       => $name,
                 'address'    => $p['address'] ?? null,
                 'contact'    => $p['contact']  ?? null,
@@ -457,7 +507,7 @@ class BlotterController extends Controller
             $rows[] = [
                 'blotter_id' => $blotter->id,
                 'role'       => 'respondent',
-                'citizen_id' => $p['citizen_id'] ?: null,
+                'citizen_id' => ($p['citizen_id'] ?? null) ?: null,
                 'name'       => $name,
                 'address'    => $p['address'] ?? null,
                 'contact'    => $p['contact']  ?? null,

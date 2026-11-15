@@ -145,7 +145,7 @@
     "src": "resources/fonts/MingCute.woff"
   },
   "resources/js/app.js": {
-    "file": "assets/app-04946ff8.js",
+    "file": "assets/app-362c3426.js",
     "imports": [
       "__commonjsHelpers-725317a4.js",
       "_jquery-e04f69d6.js"
@@ -159,7 +159,7 @@
     "src": "resources/js/citizens/show.js"
   },
   "resources/js/config.js": {
-    "file": "assets/config-b5923e3a.js",
+    "file": "assets/config-00c4f890.js",
     "isEntry": true,
     "src": "resources/js/config.js"
   },
@@ -383,7 +383,7 @@
     "src": "resources/js/summernote-init.js"
   },
   "resources/scss/app.scss": {
-    "file": "assets/app-2f886e43.css",
+    "file": "assets/app-2f1d4797.css",
     "isEntry": true,
     "src": "resources/scss/app.scss"
   },

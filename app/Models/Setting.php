@@ -23,6 +23,14 @@ class Setting extends Model
         'citizen_id_prefix',
         'citizen_id_digits',
         'id_validity',
+        'blotter_paper_template_id',
+        'blotter_paper_version_id',
+        'inventory_paper_template_id',
+        'inventory_paper_version_id',
+        'fees_paper_template_id',
+        'fees_paper_version_id',
+        'income_enabled',
+        'poverty_threshold',
     ];
 
     /** Per-request memoized single settings row (avoids repeat queries). */

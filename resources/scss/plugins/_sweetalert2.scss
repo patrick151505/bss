@@ -39,6 +39,34 @@
 	}
 }
 
+// The global reset sets `button { background-color: transparent }`, which
+// beats SweetAlert's inline `confirmButtonColor` and leaves the buttons
+// invisible. Restore them here so every dialog is usable by default,
+// without each call site having to patch colours in `didOpen`.
+.swal2-popup .swal2-actions {
+	button.swal2-styled {
+		@apply rounded px-5 py-2 text-white font-medium;
+
+		&.swal2-confirm {
+			background-color: #727cf5 !important;
+
+			&:hover { background-color: #5a65f0 !important; }
+		}
+
+		&.swal2-deny {
+			background-color: #fa5c7c !important;
+
+			&:hover { background-color: #f93c62 !important; }
+		}
+
+		&.swal2-cancel {
+			background-color: #6c757d !important;
+
+			&:hover { background-color: #5c636a !important; }
+		}
+	}
+}
+
 // Container
 .swal2-container {
 	&.swal2-shown {

@@ -71,10 +71,16 @@
 
             {{-- Step 1: Citizen Lookup --}}
             <div class="card p-5">
-                <h6 class="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2 mb-4">
-                    <span class="w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shrink-0">1</span>
-                    Find Citizen
-                </h6>
+                <div class="flex items-center justify-between gap-2 mb-4">
+                    <h6 class="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shrink-0">1</span>
+                        Find Citizen
+                    </h6>
+                    <button type="button" onclick="openWalkin()" class="btn btn-sm bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white gap-1"
+                            title="For people who are not registered residents">
+                        <i class="mgc_walk_line"></i> Walk-in
+                    </button>
+                </div>
 
                 {{-- Search input --}}
                 <div class="relative">
@@ -90,7 +96,7 @@
                     </div>
                 </div>
                 <p class="text-xs text-gray-400 mt-1.5">
-                    <i class="mgc_qrcode_line"></i> Click here once, then scan — citizen is auto-selected instantly.
+                    <i class="mgc_qrcode_line"></i> Scan a citizen's ID anytime on this page — no need to click here first.
                 </p>
 
                 {{-- Search results grid --}}
@@ -118,6 +124,16 @@
                     </button>
                 </div>
 
+                {{-- Shown when the selected citizen is on hold — the request is blocked --}}
+                <div id="citizen-hold-alert" class="hidden mt-2 p-3 rounded-lg bg-danger/10 border border-danger/40 flex items-start gap-2.5">
+                    <i class="mgc_lock_line text-danger text-xl shrink-0 mt-0.5"></i>
+                    <div class="min-w-0">
+                        <p class="text-sm font-bold text-danger">On Hold — cannot be issued documents</p>
+                        <p class="text-sm text-gray-800 dark:text-gray-200 mt-0.5 whitespace-pre-line" id="citizen-hold-reason"></p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The hold must be lifted from the citizen's profile before a request can be made.</p>
+                    </div>
+                </div>
+
                 {{-- Recent citizens quick-select grid --}}
                 @if($recentCitizens->isNotEmpty())
                 <div id="recent-grid" class="mt-4">
@@ -127,19 +143,18 @@
                     <div class="grid grid-cols-2 gap-2">
                         @foreach($recentCitizens as $rc)
                         @php
-                            $rcProfile = $rc->profile
-                                ? asset(str_replace('public/', 'storage/', $rc->profile))
-                                : null;
+                            $rcProfile = $rc->profile_url;
                             $rcInitial = strtoupper(substr($rc->fname ?? '?', 0, 1));
                             $rcFlags = [
                                 'voter'  => (bool) $rc->voters,
                                 'senior' => $rc->age !== null && $rc->age >= 60,
                                 'pwd'    => (bool) $rc->is_pwd,
                                 'solo'   => (bool) $rc->is_soloparents,
+                                'hold'   => $rc->activeHold?->reason,
                             ];
                         @endphp
                         <button type="button"
-                                onclick='selectCitizen({{ $rc->id }}, @json($rc->full_name), @json($rc->complete_address ?? ""), @json($rc->contact ?? ""), @json($rc->qrcode ?? ""), @json($rcProfile ?? ""), @json($rcFlags))'
+                                onclick='selectCitizen({{ $rc->id }}, @json($rc->full_name), @json($rc->full_address), @json($rc->contact ?? ""), @json($rc->qrcode ?? ""), @json($rcProfile ?? ""), @json($rcFlags))'
                                 class="recent-citizen-btn flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary/50 hover:bg-primary/5 transition text-left w-full group">
                             {{-- Avatar --}}
                             <div class="w-9 h-9 rounded-full shrink-0 overflow-hidden bg-primary/10 flex items-center justify-center">
@@ -153,10 +168,11 @@
                             {{-- Info --}}
                             <div class="flex-1 min-w-0">
                                 <p class="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate group-hover:text-primary">
+                                    @if($rc->activeHold)<i class="mgc_lock_line text-danger" title="On hold"></i>@endif
                                     {{ $rc->full_name }}
                                 </p>
                                 <p class="text-[10px] text-gray-400 truncate">
-                                    {{ $rc->complete_address ?? '—' }}
+                                    {{ $rc->full_address ?: '—' }}
                                 </p>
                             </div>
                         </button>
@@ -183,6 +199,7 @@
                             data-paid="{{ $t->is_paid ? '1' : '0' }}"
                             data-fee="{{ $t->fee }}"
                             data-approval="{{ $t->requires_approval ? '1' : '0' }}"
+                            data-color="{{ $t->badge_color }}"
                             data-fields="{{ $t->fields->toJson() }}"
                             {{ old('document_type_id', $selectedType?->id) == $t->id ? 'selected' : '' }}>
                         {{ $t->name }}{{ $t->is_paid ? ' — ₱' . number_format($t->fee, 2) : ' — FREE' }}
@@ -207,9 +224,9 @@
                 </div>
 
                 {{-- Selected document type summary (shown after a card is picked) --}}
-                <div id="selected-type-card" class="hidden p-3 rounded-lg border border-success/40 bg-success/5 flex items-start gap-3">
-                    <div class="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center shrink-0">
-                        <i class="mgc_document_2_line text-success"></i>
+                <div id="selected-type-card" class="hidden p-3 rounded-lg border bg-success/5 flex items-start gap-3">
+                    <div id="selected-type-icon" class="w-10 h-10 rounded-full flex items-center justify-center shrink-0">
+                        <i class="mgc_document_2_line"></i>
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-semibold text-gray-800 dark:text-gray-100" id="selected-type-name"></p>
@@ -238,6 +255,16 @@
                     <p class="text-sm text-info flex items-center gap-2">
                         <i class="mgc_shield_check_line"></i> This document requires approval before release.
                     </p>
+                </div>
+
+                {{-- Personal details the chosen document prints (walk-ins fill gaps here) --}}
+                <div id="person-section" class="hidden mt-4 border-t border-gray-100 dark:border-gray-700 pt-4">
+                    <h6 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1 flex items-center gap-2">
+                        <i class="mgc_user_3_line text-primary"></i> Details needed for this document
+                    </h6>
+                    <p id="person-note" class="text-xs text-gray-500 dark:text-gray-400 mb-3"></p>
+                    <div id="person-alert" class="hidden mb-3 p-3 rounded-lg text-sm"></div>
+                    <div id="person-fields" class="wi-grid"></div>
                 </div>
 
                 {{-- Dynamic Custom Fields --}}
@@ -379,8 +406,9 @@
                         <i class="mgc_qrcode_line"></i> Scanner Tip
                     </p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                        Click the search box, then scan the QR or barcode on the citizen's ID with a handheld scanner.
-                        The citizen is <strong>auto-selected instantly</strong> — no need to press anything.
+                        Scan the QR code on the citizen's ID with a handheld scanner at any time — you don't need to click
+                        the search box first. The citizen is <strong>auto-selected instantly</strong>, even while you are
+                        filling in another field.
                     </p>
                 </div>
             </div>
@@ -388,6 +416,67 @@
 
     </div>
 </form>
+
+{{-- Walk-in: find a saved walk-in or add a new one (outside the request form on purpose) --}}
+<style>
+    .wi-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .75rem; }
+    .wi-grid > * { grid-column: span 12 / span 12; }
+    @media (min-width: 640px) {
+        .wi-grid > .wi-6 { grid-column: span 6 / span 6; }
+        .wi-grid > .wi-4 { grid-column: span 4 / span 4; }
+        .wi-grid > .wi-2 { grid-column: span 2 / span 2; }
+    }
+</style>
+<div id="walkin-modal" class="hidden fixed inset-0 z-50 bg-black/50 items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="walkin-title" onclick="if(event.target===this)closeWalkin()">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-full max-w-xl flex flex-col" style="max-height: 92vh;">
+        <div class="flex justify-between items-center py-3 px-4 border-b dark:border-gray-700">
+            <h3 id="walkin-title" class="font-bold text-gray-800 dark:text-white flex items-center gap-2"><i class="mgc_walk_line"></i> Walk-in</h3>
+            <button type="button" onclick="closeWalkin()" aria-label="Close"><i class="mgc_close_line text-xl text-gray-500 dark:text-gray-400"></i></button>
+        </div>
+        <div class="p-4 space-y-4 overflow-y-auto">
+            <p class="text-xs text-gray-500 dark:text-gray-400">For people who are not registered residents. They're saved for their next visit, but are not counted as residents anywhere else.</p>
+
+            {{-- Returning walk-in --}}
+            <div>
+                <label class="form-label" for="walkin-search">Came before? Search by name or reference (WI-…)</label>
+                <input type="text" id="walkin-search" class="form-input w-full" placeholder="e.g. Dela Cruz or WI-00012" autocomplete="off">
+                <div id="walkin-results" class="mt-2 space-y-1.5"></div>
+            </div>
+
+            <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
+                <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">New walk-in</p>
+                <div class="wi-grid">
+                    <div class="wi-6"><label class="form-label" for="wi-fname">First name <span class="text-danger">*</span></label><input id="wi-fname" class="form-input w-full" maxlength="100"></div>
+                    <div class="wi-6"><label class="form-label" for="wi-lname">Last name <span class="text-danger">*</span></label><input id="wi-lname" class="form-input w-full" maxlength="100"></div>
+                    <div class="wi-4"><label class="form-label" for="wi-mname">Middle name</label><input id="wi-mname" class="form-input w-full" maxlength="100"></div>
+                    <div class="wi-2"><label class="form-label" for="wi-suffix">Suffix</label><input id="wi-suffix" class="form-input w-full" maxlength="20" placeholder="Jr."></div>
+                    <div class="wi-6"><label class="form-label" for="wi-bday">Birthday <span class="text-danger">*</span></label><input id="wi-bday" type="date" class="form-input w-full" max="{{ now()->toDateString() }}"></div>
+                    <div class="wi-6"><label class="form-label" for="wi-contact">Contact number</label><input id="wi-contact" class="form-input w-full" maxlength="20"></div>
+                    <div class="wi-6">
+                        <label class="form-label" for="wi-idtype">ID presented</label>
+                        <select id="wi-idtype" class="form-select w-full">
+                            <option value="">— None —</option>
+                            @foreach(['PhilSys National ID', "Driver's License", 'UMID', 'Passport', "Voter's ID", 'Postal ID', 'PRC ID', 'Senior Citizen ID', 'PWD ID', 'School ID', 'Other'] as $idt)
+                                <option>{{ $idt }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="wi-6"><label class="form-label" for="wi-idno">ID number</label><input id="wi-idno" class="form-input w-full" maxlength="60"></div>
+                    <label class="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+                        <input type="checkbox" id="wi-consent" class="form-checkbox mt-0.5">
+                        <span>The person agreed to the collection and use of their information for this request (Data Privacy Act).</span>
+                    </label>
+                </div>
+                <p id="wi-error" class="hidden mt-3 text-sm text-danger"></p>
+                <div id="wi-resident" class="hidden mt-3 p-3 rounded-lg bg-warning/10 border border-warning/30 text-sm text-gray-800 dark:text-gray-100"></div>
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 py-3 px-4 border-t dark:border-gray-700">
+            <button type="button" onclick="closeWalkin()" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
+            <button type="button" id="wi-save" onclick="saveWalkin()" class="btn bg-primary text-white"><i class="mgc_check_line"></i> Add walk-in</button>
+        </div>
+    </div>
+</div>
 
 {{-- Review & Confirm Modal --}}
 <div id="request-review-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onclick="if(event.target===this)closeRequestReview()">
@@ -492,14 +581,190 @@
 @endsection
 
 @section('script')
+@include('partials.scan-anywhere')
 <script>
 const SEARCH_URL   = '{{ route('citizens.search') }}';
 const HISTORY_BASE = '{{ url('citizens') }}';
 const RESOLVE_DEFAULTS_URL = '{{ route('documents.requests.resolve-defaults') }}';
+const WALKIN_SEARCH_URL = '{{ route('documents.requests.walkins.search') }}';
+const WALKIN_STORE_URL  = '{{ route('documents.requests.walkins.store') }}';
+const PERSON_CHECK_URL  = '{{ route('documents.requests.person-check') }}';
+const CITIZEN_EDIT_BASE = '{{ url('citizens') }}';
+let selectedWalkin = null;   // the walk-in payload when the requester is a walk-in
+
+// ── Walk-in pop-up ────────────────────────────────────────────────────
+function openWalkin() {
+    ['wi-fname', 'wi-lname', 'wi-mname', 'wi-suffix', 'wi-bday', 'wi-contact', 'wi-idno', 'walkin-search'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('wi-idtype').value = '';
+    document.getElementById('wi-consent').checked = false;
+    document.getElementById('walkin-results').innerHTML = '';
+    document.getElementById('wi-error').classList.add('hidden');
+    document.getElementById('wi-resident').classList.add('hidden');
+    const m = document.getElementById('walkin-modal');
+    m.classList.remove('hidden'); m.classList.add('flex');
+    setTimeout(() => document.getElementById('walkin-search').focus(), 50);
+}
+
+function closeWalkin() {
+    const m = document.getElementById('walkin-modal');
+    m.classList.add('hidden'); m.classList.remove('flex');
+}
+
+let walkinSearchTimer = null;
+document.getElementById('walkin-search').addEventListener('input', function () {
+    clearTimeout(walkinSearchTimer);
+    const q = this.value.trim();
+    const box = document.getElementById('walkin-results');
+    if (q.length < 2) { box.innerHTML = ''; return; }
+    walkinSearchTimer = setTimeout(() => {
+        fetch(WALKIN_SEARCH_URL + '?q=' + encodeURIComponent(q), { headers: { Accept: 'application/json' } })
+            .then(r => r.json())
+            .then(list => {
+                box.innerHTML = list.length ? list.map((w, i) => `
+                    <button type="button" data-i="${i}" class="walkin-pick w-full text-left flex items-center gap-3 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary/50 hover:bg-primary/5">
+                        <span class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0"><i class="mgc_walk_line"></i></span>
+                        <span class="flex-1 min-w-0">
+                            <span class="block text-sm font-medium text-gray-800 dark:text-gray-100 truncate">${escHtml(w.name)}</span>
+                            <span class="block text-xs text-gray-400">${escHtml(w.code)} · born ${escHtml(w.bday || '—')}${w.last_visit ? ' · last visit ' + escHtml(w.last_visit) : ''}</span>
+                        </span>
+                    </button>`).join('')
+                    : '<p class="text-xs text-gray-400">No saved walk-in matches. Add them below.</p>';
+                box.querySelectorAll('.walkin-pick').forEach(b => b.addEventListener('click', () => { selectWalkin(list[b.dataset.i]); closeWalkin(); }));
+            });
+    }, 250);
+});
+
+async function saveWalkin() {
+    const val = id => document.getElementById(id).value.trim();
+    const err = document.getElementById('wi-error');
+    const resident = document.getElementById('wi-resident');
+    err.classList.add('hidden'); resident.classList.add('hidden');
+    const btn = document.getElementById('wi-save');
+    btn.disabled = true;
+    const res = await fetch(WALKIN_STORE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', Accept: 'application/json' },
+        body: JSON.stringify({
+            fname: val('wi-fname'), mname: val('wi-mname'), lname: val('wi-lname'), suffix: val('wi-suffix'),
+            bday: val('wi-bday'), contact: val('wi-contact'),
+            walkin_id_type: val('wi-idtype'), walkin_id_number: val('wi-idno'),
+            consent: document.getElementById('wi-consent').checked ? 1 : 0,
+        }),
+    }).then(async r => ({ status: r.status, data: await r.json() }))
+      .catch(() => ({ status: 0, data: { message: 'Could not reach the server. Try again.' } }));
+    btn.disabled = false;
+
+    const d = res.data;
+    if (res.status === 200 && d.success) { selectWalkin(d.walkin); closeWalkin(); return; }
+    if (res.status === 409 && d.duplicate === 'walkin') {           // came before — reuse
+        selectWalkin(d.walkin); closeWalkin();
+        Swal.fire({ icon: 'info', title: 'Returning walk-in', text: d.message, timer: 2500, showConfirmButton: false });
+        return;
+    }
+    if (res.status === 409 && d.duplicate === 'resident') {         // actually a registered resident
+        resident.innerHTML = `${escHtml(d.message)}<button type="button" id="wi-use-resident" class="btn btn-sm bg-primary text-white mt-2">Use registered record</button>`;
+        resident.classList.remove('hidden');
+        document.getElementById('wi-use-resident').onclick = () => {
+            const c = d.citizen;
+            selectCitizen(c.id, c.name, c.address || '', c.contact || '', c.qrcode || '', c.profile || '', { voter: c.voter, senior: c.senior, pwd: c.pwd, solo: c.solo, hold: c.hold });
+            closeWalkin();
+        };
+        return;
+    }
+    err.textContent = d.message && !d.errors ? d.message : Object.values(d.errors || {}).flat().join(' ') || 'Could not add the walk-in.';
+    err.classList.remove('hidden');
+}
+
+function selectWalkin(w) {
+    selectCitizen(w.id, w.name, w.address || '', w.contact || '', '', w.profile || '',
+        { voter: false, senior: w.senior, pwd: false, solo: false, hold: w.hold || null });
+    selectedWalkin = w;                                       // selectCitizen() clears it — set after
+    const tags = document.getElementById('card-tags');
+    tags.innerHTML = `<span class="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700"><i class="mgc_walk_line"></i> Walk-in · ${escHtml(w.code)}</span>`
+        + (w.last_visit ? `<span class="text-[11px] text-gray-400 self-center">last visit ${escHtml(w.last_visit)}</span>` : '');
+    checkPersonDetails();
+}
+
+// ── Details the chosen document needs from the chosen person ─────────
+let personCheckSeq = 0;
+async function checkPersonDetails() {
+    const section = document.getElementById('person-section');
+    const typeId  = document.getElementById('document_type_id').value;
+    if (!selectedId || !typeId) { section.classList.add('hidden'); document.getElementById('person-fields').innerHTML = ''; return; }
+
+    const mine = ++personCheckSeq;
+    const res = await fetch(PERSON_CHECK_URL + '?' + new URLSearchParams({ citizen_id: selectedId, document_type_id: typeId }), { headers: { Accept: 'application/json' } })
+        .then(r => r.json()).catch(() => null);
+    if (!res || mine !== personCheckSeq) return;
+
+    const fieldsBox = document.getElementById('person-fields');
+    const alert = document.getElementById('person-alert');
+    const note  = document.getElementById('person-note');
+    fieldsBox.innerHTML = '';
+    alert.className = 'hidden mb-3 p-3 rounded-lg text-sm';
+
+    if (res.walkin && !res.allowed) {
+        alert.className = 'mb-3 p-3 rounded-lg text-sm bg-danger/10 border border-danger/30 text-danger';
+        alert.textContent = 'This document type is not available for walk-ins. The person needs to be registered as a resident first.';
+        note.textContent = '';
+        section.classList.remove('hidden');
+        return;
+    }
+
+    if (!res.walkin) {
+        // Registered citizen: only warn about gaps — their record is edited from the profile.
+        if (!res.missing.length) { section.classList.add('hidden'); return; }
+        const labels = res.fields.filter(f => f.missing).map(f => f.label).join(', ');
+        alert.className = 'mb-3 p-3 rounded-lg text-sm bg-warning/10 border border-warning/30 text-gray-800 dark:text-gray-100';
+        alert.innerHTML = `<i class="mgc_alert_line text-warning"></i> This citizen's record has no <strong>${escHtml(labels)}</strong>, which this document prints — it will show blank.
+            <a href="${CITIZEN_EDIT_BASE}/${selectedId}/edit" target="_blank" class="text-primary hover:underline">Update the profile</a>`;
+        note.textContent = '';
+        section.classList.remove('hidden');
+        return;
+    }
+
+    // Walk-in: show what this document prints; fill the gaps (saved for next time).
+    note.textContent = res.fields.length
+        ? (res.missing.length ? 'Fill in the highlighted details — they are saved for the walk-in\'s next visit.' : 'All details this document needs are on file. You can correct them here.')
+        : 'This document only prints the name and birthday.';
+    if (res.qr) {
+        alert.className = 'mb-3 p-3 rounded-lg text-sm bg-warning/10 border border-warning/30 text-gray-800 dark:text-gray-100';
+        alert.innerHTML = '<i class="mgc_qrcode_line text-warning"></i> This document prints a QR code. Walk-ins have none, so it will be left blank.';
+    }
+    res.fields.forEach(f => {
+        const name = `person[${f.key}]`, v = f.value ?? '';
+        const ring = f.missing ? ' border-warning' : '';
+        let input;
+        if (f.input === 'select') {
+            input = `<select name="${name}" class="form-select${ring}" ${f.missing ? 'required' : ''}><option value="">— Select —</option>
+                ${f.options.map(o => `<option value="${o.value}" ${String(v) === String(o.value) ? 'selected' : ''}>${escHtml(o.label)}</option>`).join('')}</select>`;
+        } else {
+            input = `<input type="${f.input}" name="${name}" value="${escHtml(v)}" class="form-input${ring}" ${f.missing ? 'required' : ''}>`;
+        }
+        fieldsBox.insertAdjacentHTML('beforeend', `<div class="wi-6">
+            <label class="form-label text-sm">${escHtml(f.label)} ${f.missing ? '<span class="text-danger">*</span>' : ''}</label>${input}</div>`);
+    });
+    section.classList.remove('hidden');
+}
 const oldValues    = @json(old());
 
 let searchTimer   = null;
 let selectedId    = '{{ old('citizen_id') }}';
+let selectedHold  = null; // hold reason of the selected citizen, or null
+
+// A citizen on hold cannot be issued documents: turn the card red, show the
+// reason, and remember it so submission is blocked.
+function showHold(reason) {
+    selectedHold = reason || null;
+    const card  = document.getElementById('citizen-card');
+    const alert = document.getElementById('citizen-hold-alert');
+    card.classList.toggle('border-success/40', !selectedHold);
+    card.classList.toggle('bg-success/5', !selectedHold);
+    card.classList.toggle('border-danger/40', !!selectedHold);
+    card.classList.toggle('bg-danger/5', !!selectedHold);
+    alert.classList.toggle('hidden', !selectedHold);
+    document.getElementById('citizen-hold-reason').textContent = selectedHold || '';
+}
 
 // ── Citizen search ────────────────────────────────────────────────────
 const searchInput = document.getElementById('citizen-search');
@@ -525,15 +790,27 @@ function doSearch(q, autoSelect) {
     const signal = searchAbort.signal;
 
     if (autoSelect) {
-        // QR/scanner path: exact qrcode match preferred, fallback to first result.
-        // No dropdown shown — citizen is selected instantly.
+        // QR/scanner path: select instantly, but only on an exact QR match — never
+        // guess. No exact match falls through to the normal results grid below.
         fetch(SEARCH_URL + '?q=' + encodeURIComponent(q), { signal })
             .then(r => r.json())
             .then(results => {
-                if (!results.length) return; // no match, do nothing
-                const hit = results.find(c => c.qrcode === q) ?? results[0];
-                dropdown.classList.add('hidden');
-                selectCitizen(hit.id, hit.name, hit.address, hit.contact, hit.qrcode, hit.profile ?? '', { voter: hit.voter, senior: hit.senior, pwd: hit.pwd, solo: hit.solo });
+                const hit = results.find(c => c.qrcode === q);
+                if (hit) {
+                    dropdown.classList.add('hidden');
+                    selectCitizen(hit.id, hit.name, hit.address, hit.contact, hit.qrcode, hit.profile ?? '', { voter: hit.voter, senior: hit.senior, pwd: hit.pwd, solo: hit.solo, hold: hit.hold ?? null });
+                    document.getElementById('citizen-card').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                    return;
+                }
+                if (!results.length) {
+                    document.getElementById('search-results-grid').innerHTML =
+                        '<p class="col-span-2 text-xs text-danger py-1"><i class="mgc_alert_line"></i> No citizen found for this code. Check that the ID belongs to an active citizen, or search by name.</p>';
+                    document.getElementById('search-results-label').textContent = 'Scan result';
+                    dropdown.classList.remove('hidden');
+                    searchInput.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                    return;
+                }
+                doSearch(q, false);                       // partial matches: let staff pick
             })
             .catch(err => { if (err.name !== 'AbortError') console.error(err); });
         return;
@@ -568,13 +845,13 @@ function doSearch(q, autoSelect) {
                     : `<span class="text-sm font-bold text-primary">${initial}</span>`;
                 return `
                 <button type="button"
-                        onclick='selectCitizen(${c.id}, ${JSON.stringify(c.name)}, ${JSON.stringify(c.address)}, ${JSON.stringify(c.contact)}, ${JSON.stringify(c.qrcode)}, ${JSON.stringify(c.profile ?? "")}, ${JSON.stringify({voter: !!c.voter, senior: !!c.senior, pwd: !!c.pwd, solo: !!c.solo})})'
+                        onclick='selectCitizen(${c.id}, ${JSON.stringify(c.name)}, ${JSON.stringify(c.address)}, ${JSON.stringify(c.contact)}, ${JSON.stringify(c.qrcode)}, ${JSON.stringify(c.profile ?? "")}, ${JSON.stringify({voter: !!c.voter, senior: !!c.senior, pwd: !!c.pwd, solo: !!c.solo, hold: c.hold ?? null})})'
                         class="flex items-center gap-2.5 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary/50 hover:bg-primary/5 transition text-left w-full group">
                     <div class="w-9 h-9 rounded-full shrink-0 overflow-hidden bg-primary/10 flex items-center justify-center">
                         ${avatar}
                     </div>
                     <div class="flex-1 min-w-0">
-                        <p class="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate group-hover:text-primary">${escHtml(c.name)}</p>
+                        <p class="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate group-hover:text-primary">${c.hold ? '<i class="mgc_lock_line text-danger" title="On hold"></i> ' : ''}${escHtml(c.name)}</p>
                         <p class="text-[10px] text-gray-400 truncate">${escHtml(c.address) || '—'}</p>
                     </div>
                     ${c.qrcode ? '<i class="mgc_qrcode_line text-gray-300 text-xs shrink-0"></i>' : ''}
@@ -590,16 +867,17 @@ searchInput.addEventListener('keydown', function (e) {
     const gap = now - lastKeyTime;
     lastKeyTime = now;
 
+    // A scan's first character arrives after a pause, so it looks like typing and
+    // never reaches scannerBuffer. Always search the box's full value instead.
     if (e.key === 'Enter') {
         e.preventDefault();
-        if (scannerBuffer.length >= 2) {
-            const q = scannerBuffer.trim();
-            clearTimeout(scannerTimer);
-            scannerBuffer = '';
-            scannerActive = false;
-            clearTimeout(searchTimer);
-            doSearch(q, true);
-        }
+        const q = searchInput.value.trim();
+        const wasScan = scannerBuffer.length >= 2;
+        clearTimeout(scannerTimer);
+        scannerBuffer = '';
+        scannerActive = false;
+        clearTimeout(searchTimer);
+        if (q.length >= 2) doSearch(q, wasScan || isQrLike(q));
         return;
     }
 
@@ -610,7 +888,7 @@ searchInput.addEventListener('keydown', function (e) {
         clearTimeout(scannerTimer);
         // Some scanners don't send Enter; fire after 150ms silence
         scannerTimer = setTimeout(() => {
-            const q = scannerBuffer.trim();
+            const q = searchInput.value.trim();
             scannerBuffer = '';
             scannerActive = false;
             if (q.length >= 2) doSearch(q, true);
@@ -632,8 +910,20 @@ searchInput.addEventListener('input', function () {
     const q = this.value.trim();
     if (q.length < 2) { dropdown.classList.add('hidden'); return; }
     // QR/barcode heuristic: long string with no spaces → auto-select, no dropdown
-    const isQrLike = q.length > 12 && !q.includes(' ');
-    searchTimer = setTimeout(() => doSearch(q, isQrLike), isQrLike ? 150 : 300);
+    const qrLike = isQrLike(q);
+    searchTimer = setTimeout(() => doSearch(q, qrLike), qrLike ? 150 : 300);
+});
+
+function isQrLike(q) {
+    return q.length > 12 && !q.includes(' ');
+}
+
+// ── Scan anywhere on the page ─────────────────────────────────────────
+// A scan made while the search box doesn't have focus still selects the citizen
+// (see partials/scan-anywhere). The search box keeps its own handling above.
+listenForScans({
+    skip: searchInput,
+    onScan: code => { searchInput.value = code; doSearch(code, true); },
 });
 
 document.addEventListener('click', function (e) {
@@ -664,6 +954,7 @@ function renderCitizenTags(flags) {
 
 function selectCitizen(id, name, address, contact, qrcode, profileUrl, flags) {
     selectedId = id;
+    selectedWalkin = null;
     document.getElementById('citizen_id').value = id;
     searchInput.value = '';
     dropdown.classList.add('hidden');
@@ -673,6 +964,7 @@ function selectCitizen(id, name, address, contact, qrcode, profileUrl, flags) {
     document.getElementById('card-address').textContent = address || '—';
     document.getElementById('card-contact').textContent = contact ? ('📞 ' + contact) : '';
     renderCitizenTags(flags || {});
+    showHold(flags && flags.hold);
 
     // Show profile photo if available
     const avatar = document.getElementById('card-avatar');
@@ -700,13 +992,43 @@ function selectCitizen(id, name, address, contact, qrcode, profileUrl, flags) {
     // (covers the case where a document type was already selected first).
     const typeSelect = document.getElementById('document_type_id');
     if (typeSelect.value) resolveCustomFieldDefaults(typeSelect.value);
+    checkPersonDetails();
 }
+
+@if(!empty($selectedCitizen))
+@php
+    $preFlags = [
+        'voter'  => (bool) $selectedCitizen->voters,
+        'senior' => $selectedCitizen->age !== null && $selectedCitizen->age >= 60,
+        'pwd'    => (bool) $selectedCitizen->is_pwd,
+        'solo'   => (bool) $selectedCitizen->is_soloparents,
+        'hold'   => $selectedCitizen->activeHold?->reason,
+    ];
+    $preProfile = ($selectedCitizen->profile_url ?? '');
+@endphp
+{{-- Deep-linked from the citizen list: preselect that person. --}}
+document.addEventListener('DOMContentLoaded', () => {
+    selectCitizen(
+        {{ $selectedCitizen->id }},
+        @json($selectedCitizen->full_name),
+        @json($selectedCitizen->full_address),
+        @json($selectedCitizen->contact ?? ''),
+        @json($selectedCitizen->qrcode ?? ''),
+        @json($preProfile),
+        @json($preFlags)
+    );
+});
+@endif
 
 function clearCitizen() {
     selectedId = '';
+    selectedWalkin = null;
+    document.getElementById('person-section').classList.add('hidden');
+    document.getElementById('person-fields').innerHTML = '';
     document.getElementById('citizen_id').value = '';
     searchInput.value = '';
     document.getElementById('citizen-card').classList.add('hidden');
+    showHold(null);
     const grid = document.getElementById('recent-grid');
     if (grid) grid.classList.remove('hidden');
     document.querySelectorAll('.recent-citizen-btn').forEach(btn => {
@@ -791,6 +1113,22 @@ function renderTypeCards() {
     const pager   = document.getElementById('type-cards-pagination');
     const options = Array.from(select.options).filter(o => o.value !== '');
 
+    // No selectable types: either none exist yet, or the user holds no
+    // issue_document.* permission for any of them. Say so instead of leaving
+    // a blank panel under the "Document Type" heading.
+    if (options.length === 0) {
+        grid.innerHTML = `
+            <div class="sm:col-span-3 p-6 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 text-center">
+                <i class="mgc_document_2_line text-4xl text-gray-300 dark:text-gray-600 block mb-2"></i>
+                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">No document types available to you.</p>
+                <p class="text-xs text-gray-400 mt-1">
+                    Ask an administrator to grant you access to a document type on the Roles page.
+                </p>
+            </div>`;
+        pager.classList.add('hidden');
+        return;
+    }
+
     const totalPages = Math.max(1, Math.ceil(options.length / TYPE_CARDS_PER_PAGE));
     typeCardsPageIndex = Math.min(Math.max(typeCardsPageIndex, 0), totalPages - 1);
 
@@ -804,13 +1142,23 @@ function renderTypeCards() {
         const isChecked = opt.value === select.value;
         const feeLabel  = isPaid ? '₱ ' + fee.toLocaleString('en-PH', { minimumFractionDigits: 2 }) : 'FREE';
         const feeClass  = isPaid ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success';
+        // Each type's own color: left stripe + icon always, full outline when selected.
+        const color     = /^#[0-9a-f]{6}$/i.test(opt.dataset.color || '') ? opt.dataset.color : '#727cf5';
+        const cardStyle = `border-inline-start: 6px solid ${color};` + (isChecked ? ` border-color: ${color}; background-color: ${color}14;` : '');
 
         return `
             <button type="button"
                     onclick="selectTypeCard('${opt.value}')"
-                    class="type-card text-left p-3 rounded-lg border-2 transition ${isChecked ? 'border-primary bg-primary/5' : 'border-gray-200 dark:border-gray-700 hover:border-primary/40'}"
+                    class="type-card text-left p-3 rounded-lg border-2 transition ${isChecked ? '' : 'border-gray-200 dark:border-gray-700 hover:shadow-md'}"
+                    style="${cardStyle}"
                     data-type-value="${opt.value}">
-                <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">${escHtml(opt.text.split(' — ')[0])}</p>
+                <p class="text-sm font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style="background-color: ${color}26; color: ${color};">
+                        <i class="mgc_document_2_line text-sm"></i>
+                    </span>
+                    <span class="min-w-0">${escHtml(opt.text.split(' — ')[0])}</span>
+                    ${isChecked ? `<i class="mgc_check_circle_fill ms-auto text-base" style="color: ${color};"></i>` : ''}
+                </p>
                 <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
                     <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded ${feeClass}">${feeLabel}</span>
                     ${approval ? '<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-info/10 text-info">Needs approval</span>' : ''}
@@ -851,6 +1199,16 @@ function showSelectedTypeSummary() {
     const feeClass = isPaid ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success';
 
     document.getElementById('selected-type-name').textContent = opt.text.split(' — ')[0];
+
+    // Tint the summary with the type's own color.
+    const color = /^#[0-9a-f]{6}$/i.test(opt.dataset.color || '') ? opt.dataset.color : '#727cf5';
+    const card  = document.getElementById('selected-type-card');
+    card.style.borderColor     = color + '66';
+    card.style.backgroundColor = color + '0d';
+    card.style.borderInlineStart = '6px solid ' + color;
+    const icon = document.getElementById('selected-type-icon');
+    icon.style.backgroundColor = color + '33';
+    icon.style.color           = color;
     document.getElementById('selected-type-badges').innerHTML = `
         <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded ${feeClass}">${feeLabel}</span>
         ${approval ? '<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-info/10 text-info">Needs approval</span>' : ''}
@@ -877,6 +1235,8 @@ function loadTypeDetails(select) {
     const fee      = parseFloat(opt.dataset.fee || 0);
     const approval = opt.dataset.approval === '1';
     const fields   = JSON.parse(opt.dataset.fields || '[]');
+
+    checkPersonDetails();   // what this document needs from the selected person
 
     document.getElementById('fee-info').classList.toggle('hidden', !isPaid);
     document.getElementById('free-info').classList.toggle('hidden', isPaid || !opt.value);
@@ -1096,6 +1456,18 @@ function openRequestReview() {
             },
         });
         searchInput.focus();
+        return;
+    }
+
+    if (selectedHold) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Citizen is on hold',
+            text: 'This citizen cannot be issued documents. Reason: ' + selectedHold,
+            didOpen: () => {
+                document.querySelector('.swal2-confirm')?.style.setProperty('background-color', '#727cf5', 'important');
+            },
+        });
         return;
     }
 
@@ -1349,7 +1721,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(r => r.json())
             .then(results => {
                 const c = results.find(r => String(r.id) === String(oldCitizenId));
-                if (c) selectCitizen(c.id, c.name, c.address, c.contact, c.qrcode, c.profile ?? '', { voter: c.voter, senior: c.senior, pwd: c.pwd, solo: c.solo });
+                if (c) selectCitizen(c.id, c.name, c.address, c.contact, c.qrcode, c.profile ?? '', { voter: c.voter, senior: c.senior, pwd: c.pwd, solo: c.solo, hold: c.hold ?? null });
             });
     }
 

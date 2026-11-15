@@ -405,7 +405,7 @@
 @endsection
 
 @push('inline-scripts')
-<script src="/js/apexcharts.min.js"></script>
+<script src="{{ asset('js/apexcharts.min.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 

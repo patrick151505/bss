@@ -62,7 +62,7 @@
 
 {{-- Summary strip --}}
 <div class="flex gap-4 mb-6 flex-wrap">
-    @foreach(['PS' => 'Personal Services', 'MOOE' => 'MOOE', 'CO' => 'Capital Outlay'] as $cls => $lbl)
+    @foreach(['PS' => 'Personal Services', 'MOOE' => 'MOOE', 'FE' => 'Financial Expenses', 'CO' => 'Capital Outlay'] as $cls => $lbl)
     <div class="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg px-4 py-3 min-w-[160px]">
         <div class="text-xs text-gray-400 mb-0.5">{{ $lbl }}</div>
         <div class="font-bold tabular-nums text-gray-800 dark:text-gray-100">₱{{ number_format($colTotals[$cls], 2) }}</div>
@@ -144,6 +144,7 @@
             $badgeClass = match($item->object_class) {
                 'PS'   => 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
                 'MOOE' => 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                'FE'   => 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
                 'CO'   => 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
                 default => 'bg-gray-100 text-gray-600',
             };

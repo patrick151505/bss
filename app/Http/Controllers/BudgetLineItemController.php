@@ -6,6 +6,7 @@ use App\Models\BudgetLineItem;
 use App\Models\BudgetLog;
 use App\Models\BudgetProgram;
 use App\Models\FiscalYear;
+use App\Services\BudgetTemplateApplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -17,15 +18,24 @@ class BudgetLineItemController extends Controller
         $fy          = FiscalYear::find($request->fy) ?? FiscalYear::active() ?? $fiscalYears->first();
         $programs    = BudgetProgram::active()->get();
 
+        // Only funded accounts appear here. The full menu of accounts —
+        // including the ones listed but not funded this year — lives on the
+        // BBPF02 entry screen; an account earns a place in the budget proper
+        // once it is given an amount.
         $lineItems = $fy
             ? BudgetLineItem::where('fiscal_year_id', $fy->id)
+                ->funded()
                 ->with(['transactionLines.transaction'])
                 ->orderBy('program_id')->orderBy('object_class')->orderBy('sort_order')
                 ->get()
                 ->groupBy('program_id')
             : collect();
 
-        return view('budget.line-items.index', compact('fiscalYears', 'fy', 'programs', 'lineItems'));
+        $unfundedCount = $fy
+            ? BudgetLineItem::where('fiscal_year_id', $fy->id)->unfunded()->count()
+            : 0;
+
+        return view('budget.line-items.index', compact('fiscalYears', 'fy', 'programs', 'lineItems', 'unfundedCount'));
     }
 
     /** AJAX: return all line items for a program */
@@ -49,7 +59,7 @@ class BudgetLineItemController extends Controller
         $data = $request->validate([
             'fiscal_year_id' => 'required|exists:eb_fiscal_years,id',
             'program_id'     => 'required|exists:eb_budget_programs,id',
-            'object_class'   => 'required|in:PS,MOOE,CO',
+            'object_class'   => 'required|in:PS,MOOE,FE,CO',
             'object_code'    => 'nullable|string|max:20',
             'name'           => 'required|string|max:255',
             'appropriation'  => 'required|numeric|min:0',
@@ -84,7 +94,7 @@ class BudgetLineItemController extends Controller
     {
         $data = $request->validate([
             'name'          => 'required|string|max:255',
-            'object_class'  => 'required|in:PS,MOOE,CO',
+            'object_class'  => 'required|in:PS,MOOE,FE,CO',
             'object_code'   => 'nullable|string|max:20',
             'appropriation' => 'required|numeric|min:0',
         ]);
@@ -123,47 +133,87 @@ class BudgetLineItemController extends Controller
         return response()->json(['id' => $id, 'message' => "Line item \"{$name}\" deleted."]);
     }
 
-    public function seedDefaults(Request $request)
+    /**
+     * Copy the standard BBPF02 account list into this fiscal year. Accounts
+     * arrive with a blank appropriation — the treasurer types amounts only on
+     * the rows they fund, and unfunded rows stay listed on the form.
+     */
+    public function seedDefaults(Request $request, BudgetTemplateApplier $applier)
     {
         $data = $request->validate([
             'fiscal_year_id' => 'required|exists:eb_fiscal_years,id',
-            'program_id'     => 'required|exists:eb_budget_programs,id',
-            'object_class'   => 'required|in:PS,MOOE,CO',
+            'program_id'     => 'nullable|exists:eb_budget_programs,id',
         ]);
 
-        $defaults = BudgetLineItem::DEFAULTS[$data['object_class']] ?? [];
-        $added    = 0;
-        $newItems = [];
+        $result = $applier->apply($data['fiscal_year_id'], null, $data['program_id'] ?? null);
 
-        DB::transaction(function () use ($data, $defaults, &$added, &$newItems) {
-            foreach ($defaults as $idx => $entry) {
-                [$name, $code] = $entry;
-                $already = BudgetLineItem::where([
-                    'fiscal_year_id' => $data['fiscal_year_id'],
-                    'program_id'     => $data['program_id'],
-                    'object_class'   => $data['object_class'],
-                    'name'           => $name,
-                ])->exists();
+        if ($result['created'] === 0) {
+            return response()->json([
+                'items'   => [],
+                'message' => $result['skipped'] > 0
+                    ? 'All template accounts are already listed.'
+                    : 'No budget template is configured.',
+            ]);
+        }
 
-                if (!$already) {
-                    $item = BudgetLineItem::create([
-                        'fiscal_year_id' => $data['fiscal_year_id'],
-                        'program_id'     => $data['program_id'],
-                        'object_class'   => $data['object_class'],
-                        'object_code'    => $code,
-                        'name'           => $name,
-                        'appropriation'  => 0,
-                        'sort_order'     => $idx + 1,
-                    ]);
-                    $newItems[] = $item;
-                    $added++;
+        $items = BudgetLineItem::where('fiscal_year_id', $data['fiscal_year_id'])
+            ->when($data['program_id'] ?? null, fn ($q, $p) => $q->where('program_id', $p))
+            ->orderBy('sort_order')
+            ->get();
+
+        BudgetLog::record('created', 'budget_line_item', 0, "Applied budget template: {$result['created']} accounts listed.");
+
+        return response()->json([
+            'items'   => $items,
+            'message' => "{$result['created']} accounts listed from the template.",
+        ]);
+    }
+
+    /**
+     * Bulk-save the Proposed Amount column from the BBPF02 entry grid.
+     * A blank amount stores null — "listed but not funded" — which the form
+     * keeps and prints, and which is distinct from a deliberate 0.00.
+     */
+    public function saveAmounts(Request $request)
+    {
+        $data = $request->validate([
+            'amounts'               => 'required|array',
+            'amounts.*.id'          => 'required|integer|exists:eb_budget_line_items,id',
+            'amounts.*.amount'      => 'nullable|numeric|min:0',
+        ]);
+
+        $changed = 0;
+
+        DB::transaction(function () use ($data, &$changed) {
+            $items = BudgetLineItem::whereIn('id', array_column($data['amounts'], 'id'))
+                ->get()
+                ->keyBy('id');
+
+            foreach ($data['amounts'] as $row) {
+                $item = $items->get($row['id']);
+
+                if (! $item) {
+                    continue;
                 }
+
+                $new = $row['amount'] === null || $row['amount'] === ''
+                    ? null
+                    : round((float) $row['amount'], 2);
+
+                $old = $item->appropriation === null ? null : round((float) $item->appropriation, 2);
+
+                if ($new === $old) {
+                    continue;
+                }
+
+                $item->update(['appropriation' => $new]);
+                $changed++;
             }
         });
 
         return response()->json([
-            'items'   => $newItems,
-            'message' => $added > 0 ? "{$added} default line items added." : "All defaults already exist.",
+            'message' => $changed > 0 ? "{$changed} amount(s) saved." : 'No changes.',
+            'changed' => $changed,
         ]);
     }
 }

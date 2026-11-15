@@ -92,11 +92,13 @@
                             </td>
                             <td class="px-5 py-3 text-right whitespace-nowrap">
                                 <div class="flex justify-end gap-1">
+                                    @can('users.edit')
                                     <button onclick="editUser({{ $user->id }}, {{ json_encode($user->name) }}, {{ json_encode($user->email) }}, {{ json_encode($role?->name ?? '') }}, {{ json_encode($user->landing_route ?? '') }})"
                                             class="p-1.5 rounded text-gray-400 hover:text-primary hover:bg-primary/10 transition" title="Edit">
                                         <i class="mgc_edit_line text-base"></i>
                                     </button>
-                                    @if($user->id !== auth()->id())
+                                    @endcan
+                                    @if($user->id !== auth()->id() && auth()->user()->can('users.edit'))
                                     <form action="{{ route('users.toggle', $user) }}" method="POST">
                                         @csrf @method('PATCH')
                                         <button type="submit"
@@ -124,6 +126,9 @@
     </div>
 
     {{-- ── Right: Create / Edit Form ── --}}
+    {{-- Only rendered for users who may actually create or edit an account;
+         the listing alone needs just users.view. --}}
+    @canany(['users.create', 'users.edit'])
     <div class="col-span-12 lg:col-span-4 flex flex-col gap-6">
         <div class="card" id="user-form-card">
             <div class="card-header flex items-center justify-between">
@@ -209,6 +214,7 @@
             </p>
         </div>
     </div>
+    @endcanany
 
 </div>
 
@@ -230,8 +236,11 @@ const ROLE_PERMISSIONS = @json($rolePermissions);
  * If the currently selected page becomes unavailable, fall back to Default.
  */
 function filterLandingOptions() {
-    const role    = document.getElementById('inp-user-role').value;
+    const roleEl  = document.getElementById('inp-user-role');
     const landing = document.getElementById('inp-user-landing');
+    if (!roleEl || !landing) return;   // form not rendered (view-only user)
+
+    const role    = roleEl.value;
     const granted = ROLE_PERMISSIONS[role] ?? [];
 
     let selectedHidden = false;
@@ -254,8 +263,13 @@ function filterLandingOptions() {
         : 'Select a role first — pages requiring permissions will appear once a role is chosen.';
 }
 
-document.getElementById('inp-user-role').addEventListener('change', filterLandingOptions);
-document.addEventListener('DOMContentLoaded', filterLandingOptions);
+// The form is only rendered for users who can create/edit accounts, so bind
+// optionally — a view-only user has no form and would otherwise hit a
+// TypeError that stops the rest of this script.
+document.getElementById('inp-user-role')?.addEventListener('change', filterLandingOptions);
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('inp-user-role')) filterLandingOptions();
+});
 
 function editUser(id, name, email, role, landingRoute) {
     editingUserId = id;

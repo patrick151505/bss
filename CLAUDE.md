@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Always:** every code change that users can see must also be logged in `config/changelog.php`
+> (Settings → Updates) in the same task — see [Version & change log](#version--change-log--required-on-every-code-change).
+
 ## Project Overview
 
 **Eb-Konrix** is a Laravel 10 barangay (Philippine village government) management system. Modules: citizens, households, blotter (incident logs), events/attendance, inventory, budget management, document/certificate generation, and citizen ID cards.
@@ -143,9 +146,25 @@ For deeper nesting (edit/show pages), use `breadcrumbs` array instead of `sub_ti
 <button class="btn bg-primary text-white">Primary</button>
 <button class="btn bg-success/25 text-success hover:bg-success hover:text-white">Success soft</button>
 <button class="btn bg-danger/25 text-danger hover:bg-danger hover:text-white">Danger soft</button>
-<a href="..." class="btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white"><i class="mgc_arrow_left_line"></i> Back</a>
+<a href="..." class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white"><i class="mgc_arrow_left_line"></i> Back</a>
 <button class="btn btn-sm bg-primary text-white"><i class="mgc_edit_line"></i></button>
 ```
+
+**Dark mode — never use a bare `text-slate-900` / `text-gray-900`.** The neutral
+soft button (`bg-dark/25`) renders near-black text on a dark background, making
+the label invisible. Always pair it with a dark variant:
+
+```blade
+{{-- Wrong: unreadable in dark mode --}}
+<button class="btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white">Edit</button>
+
+{{-- Right --}}
+<button class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Edit</button>
+```
+
+The same applies to any dark-on-light utility used on a surface that flips with
+the theme — `text-gray-800`, `text-slate-700` and so on all need a
+`dark:text-*` counterpart.
 
 ### Flash messages / alerts
 
@@ -279,6 +298,8 @@ All routes require `auth` middleware. Main entry points:
 | Households | `/citizens/household` |
 | Citizen IDs | `/citizens/ids` |
 | Blotter | `/blotter` |
+| Ordinances & Resolutions | `/legislation` |
+| Health check-ups | `/health` |
 | Events | `/events` |
 | Inventory | `/inventory` |
 | Budget | `/budget/*` |
@@ -298,3 +319,42 @@ Standard checklist:
 4. Routes in `routes/web.php` under `middleware(['auth'])`
 5. Blade views in `resources/views/{module}/` extending `layouts.vertical`
 6. Log modifications via `ActivityLog` model for audit trail
+7. Add the change to `config/changelog.php` (shown on Settings → Updates)
+
+## Version & change log — REQUIRED on every code change
+
+The system version is the newest entry in `config/changelog.php` (`config('app.version')`), shown to
+users on Settings → Updates (`/settings/updates`). **Every task that changes what a user can see or do
+must update `config/changelog.php` in the same task, before reporting the work as done.** Do this
+without being asked.
+
+**What to log**
+- `new` — a feature, page, button, report, permission or setting that did not exist before.
+- `improved` — an existing feature that works or looks better (redesign, extra filter, faster, clearer).
+- `fixed` — something that was broken or wrong and now works (include data fixes users will notice).
+- Do **not** log changes users cannot notice: refactors, tests, code style, comments, internal renames.
+
+**Which version to add it to**
+- If the top entry's `date` is **today**, add the change to that entry.
+- Otherwise start a **new entry at the top**: bump the minor number (`3.0` → `3.1` → `3.2` …), set
+  `date` to today (`Y-m-d`, Asia/Manila), and write a short `title` and `summary`.
+- Bump the major number (`4.0`) only when the user asks for it.
+- When adding to an existing entry, update its `title`/`summary` if the new change is a headline item.
+
+**How to write each change**
+```php
+['type' => 'new', 'module' => 'Health', 'text' => 'Medicines given at a check-up come out of Inventory stock.'],
+```
+- `module` — use an existing name where it fits (Citizens, Households, Documents, Blotter, Ordinances,
+  Health, Events, Inventory, Budget, Roles, Settings, Login, System); keep the list short.
+- `text` — one plain sentence for barangay staff: what they can now do or what changed, not how it
+  was coded. No class names, file paths, routes or jargon.
+- One entry per visible change. If the same feature is extended within the same version, edit its
+  existing line instead of adding a near-duplicate.
+- Keep the change list grouped by module (entries for the same module next to each other).
+
+**Before finishing a task**
+1. `config/changelog.php` updated as above (it is a PHP file — keep it valid; check with
+   `php artisan tinker --execute="echo config('app.version');"`).
+2. `FEATURES.md` updated if a module's features, roles or status changed.
+3. In the summary to the user, mention the version the change was logged under (e.g. "Logged in v3.1").

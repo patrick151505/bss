@@ -15,16 +15,25 @@ class DocumentDashboardController extends Controller
         // ── Date range (today / week / month / custom). Default: this month.
         [$from, $to, $range] = $this->resolveRange($request);
 
-        // Base query scoped to the range (by created_at).
+        // Request activity is counted by request date (created_at)…
         $scoped = fn () => DocumentRequest::whereBetween('created_at', [$from, $to]);
+        // …money by release date — that is when it is actually received —
+        // using the same "collected" rule as the Requests page.
+        $collected = fn () => DocumentRequest::collectable()->whereBetween('released_at', [$from, $to]);
+        $sumCollected = 'COALESCE(SUM(' . DocumentRequest::COLLECTED_SQL . '), 0)';
 
         // ── KPI cards ──────────────────────────────────────────────────
         $byStatus = $scoped()->selectRaw('status, COUNT(*) c')->groupBy('status')->pluck('c', 'status');
         $kpis = [
             'total'    => (int) $byStatus->sum(),
             'released' => (int) ($byStatus['released'] ?? 0),
+            'voided'   => (int) ($byStatus['voided'] ?? 0),
+            'pending'  => (int) ($byStatus['pending'] ?? 0)
+                        + (int) ($byStatus['approved'] ?? 0)
+                        + (int) ($byStatus['ready_for_release'] ?? 0),
             'prints'   => (int) $scoped()->sum('print_count'),
-            'fees'     => (float) $scoped()->where('fee_paid', true)->sum('fee'),
+            'fees'     => (float) $collected()->selectRaw("$sumCollected AS v")->value('v'),
+            'paid_count' => (int) $collected()->count(),
         ];
 
         // ── Status pie ─────────────────────────────────────────────────
@@ -44,9 +53,8 @@ class DocumentDashboardController extends Controller
         }
 
         // ── Fees collected over time (by release date) ─────────────────
-        $dailyFees = DocumentRequest::where('fee_paid', true)
-            ->whereBetween('released_at', [$from, $to])
-            ->selectRaw('DATE(released_at) d, SUM(fee) amt')
+        $dailyFees = $collected()
+            ->selectRaw("DATE(released_at) d, $sumCollected amt")
             ->groupBy('d')->orderBy('d')->pluck('amt', 'd');
         $revenueTimeline = [];
         for ($day = $from->copy(); $day <= $to; $day->addDay()) {
@@ -67,8 +75,8 @@ class DocumentDashboardController extends Controller
 
         // ── Highest-earning document types (paid) ──────────────────────
         $topEarning = $this->rankByType(
-            $scoped()->where('fee_paid', true)->selectRaw('document_type_id, SUM(fee) v')->groupBy('document_type_id')
-                ->havingRaw('SUM(fee) > 0')->orderByDesc('v')->limit(10)->get()
+            $collected()->selectRaw("document_type_id, $sumCollected v")->groupBy('document_type_id')
+                ->havingRaw('v > 0')->orderByDesc('v')->limit(10)->get()
         );
 
         // ── Top purposes ───────────────────────────────────────────────
@@ -97,10 +105,12 @@ class DocumentDashboardController extends Controller
     // Resolve a labeled document-type ranking collection into label/value pairs.
     private function rankByType($rows)
     {
-        $names = DocumentType::whereIn('id', $rows->pluck('document_type_id'))->pluck('name', 'id');
+        $types = DocumentType::whereIn('id', $rows->pluck('document_type_id'))->get(['id', 'name', 'color'])->keyBy('id');
         return $rows->map(fn ($r) => [
-            'label' => $names[$r->document_type_id] ?? '—',
+            'label' => $types[$r->document_type_id]->name ?? '—',
             'value' => (float) $r->v,
+            // Each bar is drawn in its document type's own color.
+            'color' => $types[$r->document_type_id]?->badge_color,
         ]);
     }
 

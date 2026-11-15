@@ -45,6 +45,7 @@ class InventoryController extends Controller
             'icon'        => $request->icon  ?: 'mgc_box_line',
             'color'       => $request->color ?: 'primary',
             'is_active'   => $request->boolean('is_active', true),
+            'is_medicine' => $request->boolean('is_medicine'),
         ]);
 
         return redirect()->route('inventory.categories.index')->with('success', 'Category created.');
@@ -70,6 +71,7 @@ class InventoryController extends Controller
             'icon'        => $request->icon  ?: 'mgc_box_line',
             'color'       => $request->color ?: 'primary',
             'is_active'   => $request->boolean('is_active', true),
+            'is_medicine' => $request->boolean('is_medicine'),
         ]);
 
         return redirect()->route('inventory.categories.index')->with('success', 'Category updated.');
@@ -77,6 +79,10 @@ class InventoryController extends Controller
 
     public function categoriesDestroy(InventoryCategory $category)
     {
+        $count = InventoryItem::where('category_id', $category->id)->count();
+        if ($count > 0) {
+            return back()->with('error', "\"{$category->name}\" still has {$count} item(s). Move them to another category first.");
+        }
         $category->delete();
         return back()->with('success', 'Category deleted.');
     }
@@ -117,6 +123,10 @@ class InventoryController extends Controller
             'image'               => 'nullable|image|max:2048',
             'unit'                => 'required|string|max:50',
             'low_stock_threshold' => 'required|integer|min:0',
+            'schedule_color'       => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'schedule_buffer_days' => 'nullable|integer|min:0|max:365',
+        ], [
+            'schedule_color.regex' => 'Pick a valid calendar color.',
         ]);
 
         $imagePath = $request->hasFile('image')
@@ -133,6 +143,10 @@ class InventoryController extends Controller
             'stock'               => 0,
             'low_stock_threshold' => $request->low_stock_threshold,
             'requires_approval'   => $request->boolean('requires_approval'),
+            'is_rentable'         => $request->boolean('is_rentable'),
+            'is_schedulable'      => $request->boolean('is_schedulable'),
+            'schedule_color'       => $request->filled('schedule_color') ? strtolower($request->schedule_color) : null,
+            'schedule_buffer_days' => $request->filled('schedule_buffer_days') ? (int) $request->schedule_buffer_days : 3,
             'is_active'           => $request->boolean('is_active', true),
         ]);
 
@@ -141,6 +155,10 @@ class InventoryController extends Controller
 
     public function itemsEdit(InventoryItem $item)
     {
+        // The manage page holds both the details form (edit) and stock-in /
+        // adjustment (stock); either permission opens it.
+        abort_unless(auth()->user()->canAny(['inventory_items.edit', 'inventory_items.stock']), 403);
+
         $categories = InventoryCategory::active()->orderBy('name')->get();
         $stockIns   = $item->stockIns()->with('createdBy')->latest()->get();
         return view('inventory.items.edit', compact('item', 'categories', 'stockIns'));
@@ -155,6 +173,10 @@ class InventoryController extends Controller
             'image'               => 'nullable|image|max:2048',
             'unit'                => 'required|string|max:50',
             'low_stock_threshold' => 'required|integer|min:0',
+            'schedule_color'       => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'schedule_buffer_days' => 'nullable|integer|min:0|max:365',
+        ], [
+            'schedule_color.regex' => 'Pick a valid calendar color.',
         ]);
 
         $data = [
@@ -165,6 +187,10 @@ class InventoryController extends Controller
             'description'         => $request->description,
             'low_stock_threshold' => $request->low_stock_threshold,
             'requires_approval'   => $request->boolean('requires_approval'),
+            'is_rentable'         => $request->boolean('is_rentable'),
+            'is_schedulable'      => $request->boolean('is_schedulable'),
+            'schedule_color'       => $request->filled('schedule_color') ? strtolower($request->schedule_color) : null,
+            'schedule_buffer_days' => $request->filled('schedule_buffer_days') ? (int) $request->schedule_buffer_days : 3,
             'is_active'           => $request->boolean('is_active', true),
         ];
 
@@ -176,6 +202,32 @@ class InventoryController extends Controller
         $item->update($data);
 
         return redirect()->route('inventory.items.edit', $item)->with('success', 'Item updated.');
+    }
+
+    /**
+     * Delete an item that was never used. Items that appear in a release, rental or
+     * reservation keep their history — deactivate them instead (untick Active).
+     */
+    public function itemsDestroy(InventoryItem $item)
+    {
+        $uses = [
+            'release'     => $item->releaseItems()->count(),
+            'rental'      => \App\Models\InventoryRentalItem::where('item_id', $item->id)->count(),
+            'reservation' => \App\Models\InventorySchedule::where('item_id', $item->id)->count(),
+        ];
+        $used = collect($uses)->filter()->map(fn($n, $what) => $n . ' ' . $what . ($n > 1 ? 's' : ''));
+        if ($used->isNotEmpty()) {
+            return back()->with('error', "\"{$item->name}\" can't be deleted — it is used in " . $used->implode(', ')
+                . '. Untick "Active" on the item instead to hide it.');
+        }
+
+        DB::transaction(function () use ($item) {
+            $item->stockIns()->delete();
+            if ($item->image) Storage::disk('public')->delete($item->image);
+            $item->delete();
+        });
+
+        return redirect()->route('inventory.items.index')->with('success', "Item \"{$item->name}\" deleted.");
     }
 
     public function itemsDeleteImage(InventoryItem $item)
@@ -257,8 +309,7 @@ class InventoryController extends Controller
         }
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->whereHas('citizen', fn($q) => $q->where('fname', 'like', "%$search%")
-                ->orWhere('lname', 'like', "%$search%"));
+            $query->whereHas('citizen', fn($q) => $q->searchName($search));
         }
 
         $releases = $query->paginate(20)->appends($request->query());
@@ -276,7 +327,7 @@ class InventoryController extends Controller
     public function releasesCreate(Request $request)
     {
         $items = InventoryItem::active()->with('category')->orderBy('name')->get();
-        $recentCitizens = Citizen::where('is_active', 1)
+        $recentCitizens = Citizen::with('addressZone')->where('is_active', 1)
             ->orderByDesc('date_last_updated')->limit(6)->get();
         $selectedCitizen = $request->filled('citizen')
             ? Citizen::find($request->citizen)
@@ -390,10 +441,12 @@ class InventoryController extends Controller
         return back()->with('success', 'Release rejected.');
     }
 
-    public function releasesPrint(InventoryRelease $release)
+    public function releasesPrint(Request $request, InventoryRelease $release)
     {
         $release->load(['citizen', 'releasedBy', 'approvedBy', 'items.item.category']);
-        $settings = \App\Models\Setting::instance();
-        return view('inventory.releases.print', compact('release', 'settings'));
+        $settings     = \App\Models\Setting::instance();
+        // Letterhead paper chosen in Settings → Print Paper (null = plain header).
+        $paper        = \App\Support\Paper::resolve($settings->inventory_paper_template_id, $settings->inventory_paper_version_id);
+        return view('inventory.releases.print', compact('release', 'settings', 'paper'));
     }
 }

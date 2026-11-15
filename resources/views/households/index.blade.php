@@ -7,6 +7,64 @@
     'demo'          => $demo ?? '',
 ])
 
+@section('css')
+<style>
+/* ── Household detail drawer (mobile only) ─────────────────────────────────
+   Below lg the detail panel becomes a right-hand drawer instead of stacking
+   under the list, where it was off-screen and appeared not to open at all.
+   Driven by a class on #detail-wrap so the desktop markup is untouched. */
+@media (max-width: 1023.98px) {
+    #detail-wrap.drawer-open,
+    #detail-wrap.drawer-closing {
+        position: fixed;
+        inset-block: 0;
+        inset-inline-end: 0;
+        inset-inline-start: auto;
+        width: 90%;
+        max-width: 460px;
+        z-index: 60;                      /* above the page, below SweetAlert */
+        background: #fff;                 /* matches .card (bg-white) */
+        display: flex;
+        flex-direction: column;
+        transform: translateX(0);
+        transition: transform .28s ease;
+        box-shadow: -8px 0 24px rgb(0 0 0 / .18);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 12px;
+        padding-top: calc(12px + env(safe-area-inset-top, 0px));
+        padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+    /* This theme flags dark mode with [data-mode="dark"] on <html>, not .dark */
+    [data-mode="dark"] #detail-wrap.drawer-open,
+    [data-mode="dark"] #detail-wrap.drawer-closing { background: #1f2937; }
+
+    /* Slide out before the element is hidden again. */
+    #detail-wrap.drawer-closing { transform: translateX(100%); }
+    [dir="rtl"] #detail-wrap.drawer-closing { transform: translateX(-100%); }
+
+    /* The card inside should fill the drawer rather than keep its own height cap. */
+    #detail-wrap.drawer-open #family-list { max-height: none; }
+
+    /* Backdrop behind the drawer. */
+    #detail-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 55;
+        background: rgb(17 24 39 / .5);
+        backdrop-filter: blur(2px);
+    }
+    /* Close button is only meaningful in drawer mode. */
+    #detail-drawer-close { display: inline-flex; }
+}
+/* Desktop keeps the sticky column and has no drawer chrome. */
+@media (min-width: 1024px) {
+    #detail-drawer-close { display: none; }
+    #detail-backdrop     { display: none; }
+}
+</style>
+@endsection
+
 @section('content')
 
 {{-- ── KPI Row ─────────────────────────────────────────────────────────────── --}}
@@ -84,12 +142,14 @@
                         <button type="submit" class="btn bg-primary text-white gap-1.5 text-sm">
                             <i class="mgc_search_line"></i> Search
                         </button>
-                        <button type="button" id="btn-reset-filter" class="btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white text-sm px-3">
+                        <button type="button" id="btn-reset-filter" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white text-sm px-3">
                             <i class="mgc_close_line"></i>
                         </button>
+                        @can('households.create')
                         <button type="button" id="btn-add-household" class="btn bg-success text-white gap-1.5 text-sm">
                             <i class="mgc_add_line"></i> New Household
                         </button>
+                        @endcan
                     </div>
                 </form>
             </div>
@@ -105,11 +165,17 @@
         </div>
     </div>
 
-    {{-- ══ RIGHT: Detail panel (sticky) ══════════════════════════════════════ --}}
-    <div class="lg:sticky lg:top-4">
+    {{-- ══ RIGHT: Detail panel ═══════════════════════════════════════════════
+         Desktop: a sticky column beside the list.
+         Mobile:  a right-hand drawer (90% wide, full height) — stacked below
+                  the list it was off-screen, so clicking "view" looked dead.
+         The drawer classes live in #detail-wrap and are toggled by
+         openDetailDrawer() / closeDetailDrawer(). --}}
+    <div id="detail-wrap" class="lg:sticky lg:top-4">
 
-        {{-- Empty state placeholder --}}
-        <div id="panel-placeholder" class="card p-10 text-center text-gray-400">
+        {{-- Empty state placeholder — desktop only; on mobile the drawer is
+             simply not open yet, so a placeholder would just be noise. --}}
+        <div id="panel-placeholder" class="hidden lg:block card p-10 text-center text-gray-400">
             <i class="mgc_home_3_line text-5xl mb-3 block opacity-30"></i>
             <p class="text-sm font-medium">Select a household</p>
             <p class="text-xs mt-1 opacity-70">Click any household card to view its families and members</p>
@@ -163,12 +229,16 @@
 
             {{-- Action buttons --}}
             <div class="px-5 py-2.5 border-b border-gray-100 dark:border-gray-700 flex gap-2">
+                @can('households.create')
                 <button id="btn-add-family" class="btn btn-sm bg-primary text-white gap-1.5 text-xs">
                     <i class="mgc_add_line"></i> Add Family
                 </button>
-                <button id="btn-edit-household" class="btn btn-sm bg-dark/25 text-slate-900 hover:bg-dark hover:text-white gap-1.5 text-xs">
+                @endcan
+                @can('households.edit')
+                <button id="btn-edit-household" class="btn btn-sm bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white gap-1.5 text-xs">
                     <i class="mgc_edit_line"></i> Edit Address
                 </button>
+                @endcan
             </div>
 
             {{-- Family + member tree --}}
@@ -341,11 +411,11 @@
 
         {{-- Modal footer --}}
         <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-between shrink-0" id="modal-hh-footer">
-            <button type="button" id="btn-step-back" class="btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white gap-1.5 hidden">
+            <button type="button" id="btn-step-back" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white gap-1.5 hidden">
                 <i class="mgc_arrow_left_line"></i> Back
             </button>
             <div class="ml-auto flex gap-2">
-                <button type="button" class="modal-hh-close btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white">Cancel</button>
+                <button type="button" class="modal-hh-close btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
                 <button type="button" id="btn-step-next" class="btn bg-primary text-white gap-1.5" disabled>
                     Next <i class="mgc_arrow_right_line"></i>
                 </button>
@@ -425,7 +495,7 @@
             </div>
             <div id="edit-hh-error" class="hidden p-3 rounded-xl bg-danger/10 border border-danger/30 text-sm text-danger"></div>
             <div class="flex justify-end gap-2 pt-1">
-                <button type="button" class="modal-edit-hh-close btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white">Cancel</button>
+                <button type="button" class="modal-edit-hh-close btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
                 <button type="submit" id="edit-hh-submit" class="btn bg-primary text-white gap-2">
                     <i class="mgc_check_line"></i> Save Changes
                 </button>
@@ -485,7 +555,7 @@
                 <p class="text-xs text-danger mt-1 hidden" id="relation-error">Please select a relation.</p>
             </div>
             <div class="flex justify-end gap-2">
-                <button id="btn-close-relation-2" class="btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white">Cancel</button>
+                <button id="btn-close-relation-2" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
                 <button id="btn-confirm-relation" class="btn bg-primary text-white gap-2">
                     <i class="mgc_check_line"></i> Add Member
                 </button>
@@ -493,6 +563,43 @@
         </div>
     </div>
 </div>
+
+{{-- Family income (optional — only when Income Classification is on) --}}
+@if(\App\Support\IncomeClass::visibleTo(auth()->user()))
+<div id="income-modal" class="hidden fixed inset-0 z-50 bg-black/50 items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="inc-title">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-full max-w-md">
+        <div class="flex justify-between items-center py-3 px-4 border-b dark:border-gray-700">
+            <h3 id="inc-title" class="font-bold text-gray-800 dark:text-white">Family income — <span id="inc-name" class="font-normal"></span></h3>
+            <button type="button" onclick="closeIncomeModal()" aria-label="Close"><i class="mgc_close_line text-xl text-gray-500 dark:text-gray-400"></i></button>
+        </div>
+        <div class="p-4 space-y-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Optional. Leave both empty if the family's income is not known.</p>
+            <div>
+                <label class="form-label" for="inc-amount">Monthly family income</label>
+                <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₱</span>
+                    <input type="number" id="inc-amount" min="0" step="0.01" class="form-input w-full" style="padding-left: 1.75rem;" placeholder="e.g. 18000" oninput="previewIncome()">
+                </div>
+                <p id="inc-hint" class="text-xs text-gray-400 mt-1"></p>
+            </div>
+            <p class="text-center text-xs text-gray-400">— or, if the exact amount is not known —</p>
+            <div>
+                <label class="form-label" for="inc-class">Estimated class</label>
+                <select id="inc-class" class="form-select w-full" onchange="previewIncome()"></select>
+            </div>
+            <p id="inc-preview" class="text-sm"></p>
+            <p id="inc-error" class="hidden text-xs text-danger"></p>
+        </div>
+        <div class="flex justify-between gap-2 py-3 px-4 border-t dark:border-gray-700">
+            <button type="button" onclick="clearIncome()" class="btn bg-danger/25 text-danger hover:bg-danger hover:text-white">Clear</button>
+            <div class="flex gap-2">
+                <button type="button" onclick="closeIncomeModal()" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
+                <button type="button" id="inc-save" onclick="saveIncome()" class="btn bg-primary text-white">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
 
 @endsection
 
@@ -512,8 +619,19 @@ const ROUTES = {
     setHead:        '{{ route('households.set-household-head') }}',
     filterCitizens: '{{ route('households.filter-citizens') }}',
     citizenAddress: '{{ route('households.citizen-address') }}',
+    familyIncome:   '{{ route('households.family-income') }}',
 };
 const CSRF = '{{ csrf_token() }}';
+
+// Much of this page's UI is built in JS template strings, so the permission
+// state has to be readable from JS. The server still enforces these — these
+// flags only keep the UI from offering actions that would 403.
+const CAN = {
+    create: @json(auth()->user()?->can('households.create') ?? false),
+    edit:   @json(auth()->user()?->can('households.edit') ?? false),
+    // Income Classification is switched on and this user may see/edit income.
+    income: @json(\App\Support\IncomeClass::visibleTo(auth()->user())),
+};
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let currentPage        = 1;
@@ -673,6 +791,9 @@ function viewHousehold(id, cardEl) {
     const panel = document.getElementById('detail-panel');
     panel.classList.remove('hidden');
 
+    // On phones this slides the panel in from the right; a no-op on desktop.
+    openDetailDrawer();
+
     // Loading state
     document.getElementById('panel-hh-id').textContent      = '…';
     document.getElementById('panel-address').textContent    = '…';
@@ -712,13 +833,124 @@ function viewHousehold(id, cardEl) {
                     : `<div class="p-8 text-center text-gray-400">
                            <i class="mgc_group_2_line text-4xl mb-2 block opacity-40"></i>
                            <p class="text-sm">No families yet.</p>
-                           <button onclick="document.getElementById('btn-add-family').click()"
-                               class="mt-2 text-xs text-primary hover:underline">+ Add first family</button>
+                           ${CAN.create ? `<button onclick="document.getElementById('btn-add-family')?.click()"
+                               class="mt-2 text-xs text-primary hover:underline">+ Add first family</button>` : ''}
                        </div>`;
         });
 }
 
+// ─── Family income (optional) ─────────────────────────────────────────────────
+const INCOME_TONES = {
+    success: ['bg-green-100 text-green-800', 'bg-green-400'],
+    warning: ['bg-yellow-100 text-yellow-800', 'bg-yellow-400'],
+    danger:  ['bg-red-100 text-red-800', 'bg-red-400'],
+    info:    ['bg-sky-100 text-sky-800', 'bg-sky-500'],
+};
+const familyById = {};
+let incomeFamilyId = null;
+const peso = n => '₱' + Number(n).toLocaleString('en-PH', { maximumFractionDigits: 0 });
+const incomePill = (label, tone) => {
+    const [cls, dot] = INCOME_TONES[tone] || INCOME_TONES.info;
+    return `<span class="inline-flex items-center gap-1.5 py-0.5 px-2 rounded-full text-xs font-medium ${cls} shrink-0"><span class="w-1.5 h-1.5 inline-block ${dot} rounded-full"></span>${label}</span>`;
+};
+
+function incomeRow(f) {
+    if (!CAN.income || !f.income) return '';
+    const i = f.income;
+    const badge = i.key ? incomePill(i.label, i.tone)
+        : i.needs_threshold ? '<span class="text-warning">Set the poverty threshold in Settings</span>'
+        : '<span class="text-gray-400">Not assessed</span>';
+    const detail = i.amount !== null
+        ? `${peso(i.amount)}/month · ${i.size} member${i.size === 1 ? '' : 's'} · ${peso(i.per_person)}/person`
+        : (i.picked ? 'Estimated' : '');
+    return `<div class="flex items-center gap-2 px-2 py-1.5 mb-2 rounded-lg bg-gray-50 dark:bg-gray-700/40 text-xs">
+        <i class="mgc_wallet_4_line text-gray-400"></i>
+        <span class="text-gray-500 dark:text-gray-400 shrink-0">Income:</span> ${badge}
+        <span class="text-gray-400 truncate">${detail}</span>
+        <button type="button" onclick="openIncomeModal(${f.family_id})" class="ms-auto text-primary hover:underline shrink-0">${i.assessed ? 'Edit' : 'Add'}</button>
+    </div>`;
+}
+
+function openIncomeModal(familyId) {
+    const f = familyById[familyId];
+    if (!f || !f.income) return;
+    incomeFamilyId = familyId;
+    const i = f.income;
+    document.getElementById('inc-name').textContent = f.head_name;
+    document.getElementById('inc-amount').value = i.amount ?? '';
+    document.getElementById('inc-hint').textContent =
+        `Total income of all ${i.size} family member${i.size === 1 ? '' : 's'} per month.`;
+    document.getElementById('inc-class').innerHTML = '<option value="">— Not estimated —</option>' +
+        i.options.map(o => `<option value="${o.key}" ${i.picked === o.key ? 'selected' : ''}>${o.label}${o.range
+            ? ' (' + (o.range.max === null ? peso(o.range.min) + ' and up' : peso(o.range.min) + ' – ' + peso(o.range.max)) + ')' : ''}</option>`).join('');
+    document.getElementById('inc-error').classList.add('hidden');
+    previewIncome();
+    const m = document.getElementById('income-modal');
+    m.classList.remove('hidden'); m.classList.add('flex');
+    setTimeout(() => document.getElementById('inc-amount').focus(), 50);
+}
+
+function closeIncomeModal() {
+    const m = document.getElementById('income-modal');
+    m.classList.add('hidden'); m.classList.remove('flex');
+}
+
+// Live preview of the class for the typed amount (same rule as the server).
+function previewIncome() {
+    const f = familyById[incomeFamilyId];
+    const amount = document.getElementById('inc-amount').value;
+    const select = document.getElementById('inc-class');
+    select.disabled = amount !== '';                       // an exact amount takes priority
+    const out = document.getElementById('inc-preview');
+    if (amount !== '') {
+        const hit = f.income.options.find(o => o.range && Number(amount) >= o.range.min && (o.range.max === null || Number(amount) < o.range.max));
+        out.innerHTML = hit ? 'Class: ' + incomePill(hit.label, hit.tone)
+            : '<span class="text-warning text-xs">The class appears once the poverty threshold is set in Settings.</span>';
+    } else {
+        out.innerHTML = select.value ? '' : '<span class="text-xs text-gray-400">Will show as “Not assessed”.</span>';
+    }
+}
+
+function clearIncome() {
+    document.getElementById('inc-amount').value = '';
+    document.getElementById('inc-class').value = '';
+    previewIncome();
+}
+
+async function saveIncome() {
+    const btn = document.getElementById('inc-save');
+    const err = document.getElementById('inc-error');
+    btn.disabled = true;
+    const amount = document.getElementById('inc-amount').value;
+    const res = await fetch(ROUTES.familyIncome, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
+        body: JSON.stringify({
+            family_id: incomeFamilyId,
+            monthly_income: amount === '' ? null : amount,
+            income_class: amount === '' ? (document.getElementById('inc-class').value || null) : null,
+        }),
+    }).then(r => r.json()).catch(() => ({ success: false, message: 'Could not save. Check the connection and try again.' }));
+    btn.disabled = false;
+
+    if (!res.success) {
+        err.textContent = res.message || Object.values(res.errors || {}).flat()[0] || 'Could not save.';
+        err.classList.remove('hidden');
+        return;
+    }
+    closeIncomeModal();
+    Swal.fire({ icon: 'success', title: 'Income saved', timer: 1500, showConfirmButton: false });
+    const card = document.querySelector('.hh-card.ring-2');
+    if (currentHouseholdId && card) viewHousehold(currentHouseholdId, card);
+}
+
+document.addEventListener('keydown', e => {
+    const m = document.getElementById('income-modal');
+    if (e.key === 'Escape' && m && !m.classList.contains('hidden')) closeIncomeModal();
+});
+
 function renderFamilyBlock(f) {
+    familyById[f.family_id] = f;
     const isHHHead  = f.is_household_head;
     const headBg    = isHHHead ? 'bg-warning/10 border border-warning/20' : 'bg-gray-50 dark:bg-gray-700/50';
     const headIcon  = isHHHead
@@ -744,10 +976,10 @@ function renderFamilyBlock(f) {
                         <p class="text-sm font-medium text-gray-700 dark:text-gray-200 truncate leading-snug">${m.name}</p>
                         <p class="text-xs text-gray-400 leading-snug">${m.relation} &middot; ${m.gender} &middot; Age ${m.age ?? '—'}</p>
                     </div>
-                    <button onclick="removeMember(${m.id}, '${m.name.replace(/'/g,"\\'")}', ${f.family_id})"
+                    ${CAN.edit ? `<button onclick="removeMember(${m.id}, '${m.name.replace(/'/g,"\\'")}', ${f.family_id})"
                         class="opacity-0 group-hover/m:opacity-100 transition-opacity btn btn-sm bg-danger/25 text-danger hover:bg-danger hover:text-white shrink-0 p-1">
                         <i class="mgc_delete_2_line text-xs"></i>
-                    </button>
+                    </button>` : ''}
                 </div>
             </div>`;
         }).join('')
@@ -763,16 +995,16 @@ function renderFamilyBlock(f) {
         <div class="flex items-center justify-between mb-2">
             <span class="text-xs font-mono text-gray-400">${f.family_id_format}</span>
             <div class="flex items-center gap-1">
-                ${!isHHHead
+                ${!isHHHead && CAN.edit
                     ? `<button onclick="setHouseholdHead(${f.family_id}, ${f.citizen_id}, '${f.head_name.replace(/'/g,"\\'")}' )"
                           class="btn btn-sm bg-warning/25 text-warning hover:bg-warning hover:text-white text-xs flex items-center gap-1">
                           <i class="mgc_star_line"></i> Set HH Head
                       </button>`
                     : ''}
-                <button onclick="removeFamilyHead(${f.family_id}, ${f.citizen_id}, '${f.head_name.replace(/'/g,"\\'")}', ${f.member_count})"
+                ${CAN.edit ? `<button onclick="removeFamilyHead(${f.family_id}, ${f.citizen_id}, '${f.head_name.replace(/'/g,"\\'")}', ${f.member_count})"
                     class="btn btn-sm bg-danger/25 text-danger hover:bg-danger hover:text-white text-xs flex items-center gap-1">
                     <i class="mgc_delete_2_line"></i> Remove
-                </button>
+                </button>` : ''}
             </div>
         </div>
 
@@ -787,21 +1019,26 @@ function renderFamilyBlock(f) {
             ${headIcon}
         </div>
 
+        ${incomeRow(f)}
+
         {{-- Members tree --}}
         <div class="space-y-0 mb-2">
             ${membersHtml}
         </div>
 
         {{-- Add member --}}
-        <button onclick="openCitizenPicker('member', ${f.family_id})"
+        ${CAN.create ? `<button onclick="openCitizenPicker('member', ${f.family_id})"
             class="w-full flex items-center justify-center gap-1 text-xs text-primary border border-dashed border-primary/30 rounded-lg py-1.5 hover:bg-primary/5 transition-colors mt-1">
             <i class="mgc_add_line"></i> Add Member
-        </button>
+        </button>` : ''}
     </div>`;
 }
 
 // ─── Wizard: New Household ────────────────────────────────────────────────────
-document.getElementById('btn-add-household').addEventListener('click', openWizard);
+// These buttons are only rendered when the user holds the matching permission,
+// so every listener below is bound optionally — otherwise a missing button
+// would throw and take down the rest of the page's scripts.
+document.getElementById('btn-add-household')?.addEventListener('click', openWizard);
 
 function openWizard() {
     wizardStep        = 1;
@@ -1030,7 +1267,7 @@ function selectCitizenForWizard(id, name, photoUrl, alreadyAssigned) {
     // Enable next
     document.getElementById('btn-step-next').disabled = false;
 
-    // Auto-fill address from citizen
+    // Auto-fill address from citizen, then confirm and move on.
     fetch(ROUTES.citizenAddress + '?citizenId=' + id)
         .then(r => r.json()).then(res => {
             if (!res.success) return;
@@ -1051,7 +1288,49 @@ function selectCitizenForWizard(id, name, photoUrl, alreadyAssigned) {
                 }
                 document.getElementById('step1-details').textContent = addrSel.options[addrSel.selectedIndex]?.text ?? '';
             }, 50);
-        });
+        })
+        // A failed address lookup should not block the wizard — the address
+        // can still be filled in by hand on step 2.
+        .catch(() => {})
+        .finally(() => confirmHeadAndContinue(name, photoUrl));
+}
+
+/**
+ * Picking a name is almost always followed by "Next", so confirm the choice
+ * and advance in one step. Cancelling clears the selection and stays put.
+ */
+function confirmHeadAndContinue(name, photoUrl) {
+    Swal.fire({
+        title: 'Set as Household Head?',
+        html: `<b>${name}</b> will be the head of this household.`,
+        imageUrl: photoUrl || undefined,
+        imageWidth: 72,
+        imageHeight: 72,
+        imageAlt: name,
+        icon: photoUrl ? undefined : 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, continue',
+        cancelButtonText: 'Pick someone else',
+        reverseButtons: true,
+        customClass: { image: 'rounded-full object-cover' },
+        didOpen: () => {
+            document.querySelector('.swal2-confirm').style.setProperty('background-color', '#727cf5', 'important');
+        },
+    }).then(result => {
+        if (result.isConfirmed) {
+            if (wizardStep === 1) setWizardStep(2);
+            return;
+        }
+
+        // Deselect, but keep the search term and results so another name can
+        // be picked straight away.
+        wizardCitizenId    = null;
+        wizardCitizenName  = '';
+        wizardCitizenPhoto = null;
+        document.getElementById('hh-citizen-id').value = '';
+        document.getElementById('step1-selected').classList.add('hidden');
+        document.getElementById('btn-step-next').disabled = true;
+    });
 }
 
 document.getElementById('btn-change-head').addEventListener('click', () => {
@@ -1074,7 +1353,7 @@ document.getElementById('hh-address').addEventListener('change', function () {
 });
 
 // ─── Edit household (simple modal) ───────────────────────────────────────────
-document.getElementById('btn-edit-household').addEventListener('click', () => {
+document.getElementById('btn-edit-household')?.addEventListener('click', () => {
     if (!currentHouseholdId) return;
     fetch(ROUTES.get + '?id=' + currentHouseholdId)
         .then(r => r.json()).then(res => {
@@ -1191,7 +1470,7 @@ document.getElementById('edit-hh-form').addEventListener('submit', function (e) 
 });
 
 // ─── Add family head ──────────────────────────────────────────────────────────
-document.getElementById('btn-add-family').addEventListener('click', () => {
+document.getElementById('btn-add-family')?.addEventListener('click', () => {
     if (!currentHouseholdId) return;
     openCitizenPicker('family-head');
 });
@@ -1348,10 +1627,73 @@ function setHouseholdHead(familyId, citizenId, name) {
 
 // ─── Close panel ─────────────────────────────────────────────────────────────
 document.getElementById('btn-close-panel').addEventListener('click', () => {
+    closeDetailDrawer();
     document.getElementById('detail-panel').classList.add('hidden');
     document.getElementById('panel-placeholder').classList.remove('hidden');
     document.querySelectorAll('.hh-card').forEach(c => c.classList.remove('ring-2','ring-primary'));
     currentHouseholdId = null;
+});
+
+// ─── Detail drawer (mobile) ───────────────────────────────────────────────────
+// Below lg the detail panel slides in from the right instead of stacking under
+// the list, where it rendered off-screen and looked like nothing happened.
+const DRAWER_BREAKPOINT = 1024;   // must match the lg: media query in the page styles
+
+function isDrawerMode() {
+    return window.innerWidth < DRAWER_BREAKPOINT;
+}
+
+function openDetailDrawer() {
+    if (!isDrawerMode()) return;
+
+    const wrap = document.getElementById('detail-wrap');
+    wrap.classList.remove('drawer-closing');
+    wrap.classList.add('drawer-open');
+
+    if (!document.getElementById('detail-backdrop')) {
+        const bd = document.createElement('div');
+        bd.id = 'detail-backdrop';
+        bd.addEventListener('click', () => {
+            closeDetailDrawer();
+            document.getElementById('detail-panel').classList.add('hidden');
+            document.querySelectorAll('.hh-card').forEach(c => c.classList.remove('ring-2','ring-primary'));
+            currentHouseholdId = null;
+        });
+        document.body.appendChild(bd);
+    }
+    // Stop the list behind the drawer from scrolling.
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDetailDrawer() {
+    const wrap = document.getElementById('detail-wrap');
+    if (!wrap.classList.contains('drawer-open')) return;
+
+    // Animate out, then drop the positioning classes.
+    wrap.classList.add('drawer-closing');
+    wrap.classList.remove('drawer-open');
+    setTimeout(() => wrap.classList.remove('drawer-closing'), 280);
+
+    document.getElementById('detail-backdrop')?.remove();
+    document.body.style.overflow = '';
+}
+
+// Esc closes the drawer, as with the other modals on this page.
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('detail-wrap')?.classList.contains('drawer-open')) {
+        closeDetailDrawer();
+    }
+});
+
+// Crossing the breakpoint while open would leave the drawer classes stuck on
+// the desktop column, so drop them on resize.
+window.addEventListener('resize', () => {
+    if (!isDrawerMode()) {
+        const wrap = document.getElementById('detail-wrap');
+        wrap.classList.remove('drawer-open', 'drawer-closing');
+        document.getElementById('detail-backdrop')?.remove();
+        document.body.style.overflow = '';
+    }
 });
 
 // ─── Filter ───────────────────────────────────────────────────────────────────
@@ -1453,7 +1795,7 @@ function emptyState(msg) {
     return `<div class="card py-14 text-center text-gray-400">
         <i class="mgc_home_3_line text-5xl mb-3 block opacity-30"></i>
         <p class="text-sm font-medium">${msg}</p>
-        <button onclick="openWizard()" class="mt-3 text-xs text-primary hover:underline">+ Create your first household</button>
+        ${CAN.create ? `<button onclick="openWizard()" class="mt-3 text-xs text-primary hover:underline">+ Create your first household</button>` : ''}
     </div>`;
 }
 </script>

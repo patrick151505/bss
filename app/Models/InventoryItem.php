@@ -11,7 +11,16 @@ class InventoryItem extends Model
 
     protected $fillable = [
         'category_id', 'name', 'sku', 'image', 'unit', 'description',
-        'stock', 'low_stock_threshold', 'requires_approval', 'is_active',
+        'stock', 'low_stock_threshold', 'requires_approval', 'is_rentable', 'is_schedulable',
+        'schedule_color', 'schedule_buffer_days', 'is_active',
+    ];
+
+    protected $casts = [
+        'requires_approval' => 'boolean',
+        'is_rentable'       => 'boolean',
+        'is_schedulable'    => 'boolean',
+        'schedule_buffer_days' => 'integer',
+        'is_active'         => 'boolean',
     ];
 
     public function category()
@@ -32,6 +41,18 @@ class InventoryItem extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /** Items lent out and expected back, rather than consumed. */
+    public function scopeRentable(Builder $query): Builder
+    {
+        return $query->where('is_rentable', true);
+    }
+
+    /** Items reserved by date and time on the Schedule calendar (ambulance, hall…). */
+    public function scopeSchedulable(Builder $query): Builder
+    {
+        return $query->where('is_schedulable', true);
     }
 
     public function isLowStock(): bool

@@ -71,9 +71,10 @@ class CitizenIdTemplate extends Model
             }
 
             // text / field: style the text box
+            // line-height must equal the designer's .id-el (1.15) or
+            // multi-line text sits at a different height when printed.
             $fs   = (float) ($el['fontSize'] ?? 6);
-            $lh   = $fs <= 6 ? 1.15 : 1.1;
-            $style .= "font-size:{$fs}px;line-height:{$lh};";
+            $style .= "font-size:{$fs}px;line-height:1.15;";
             $style .= 'text-align:' . ($el['align'] ?? 'left') . ';';
             if (! empty($el['bold']))      $style .= 'font-weight:bold;';
             if (! empty($el['italic']))    $style .= 'font-style:italic;';

@@ -50,6 +50,10 @@
             <div class="min-w-0 flex-1">
                 <p class="text-xs text-gray-500 dark:text-gray-400">Total Requests</p>
                 <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($kpis['total']) }}</h3>
+                <p class="text-[11px] text-gray-400 truncate">
+                    {{ number_format($kpis['pending']) }} awaiting
+                    @if($kpis['voided']) · <span class="text-danger">{{ number_format($kpis['voided']) }} voided</span>@endif
+                </p>
             </div>
         </div>
     </div>
@@ -59,6 +63,7 @@
             <div class="min-w-0 flex-1">
                 <p class="text-xs text-gray-500 dark:text-gray-400">Released</p>
                 <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($kpis['released']) }}</h3>
+                <p class="text-[11px] text-gray-400 truncate">{{ $kpis['total'] ? round($kpis['released'] / $kpis['total'] * 100) : 0 }}% of requests</p>
             </div>
         </div>
     </div>
@@ -68,6 +73,7 @@
             <div class="min-w-0 flex-1">
                 <p class="text-xs text-gray-500 dark:text-gray-400">Total Prints</p>
                 <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($kpis['prints']) }}</h3>
+                <p class="text-[11px] text-gray-400 truncate">incl. reprints</p>
             </div>
         </div>
     </div>
@@ -77,6 +83,9 @@
             <div class="min-w-0 flex-1">
                 <p class="text-xs text-gray-500 dark:text-gray-400">Fees Collected</p>
                 <h3 class="text-xl font-bold text-gray-800 dark:text-gray-100">₱ {{ number_format($kpis['fees'], 2) }}</h3>
+                <p class="text-[11px] text-gray-400 truncate" title="Money actually received, by release date. Voided documents excluded.">
+                    from {{ number_format($kpis['paid_count']) }} paid release{{ $kpis['paid_count'] === 1 ? '' : 's' }}
+                </p>
             </div>
         </div>
     </div>
@@ -176,7 +185,7 @@
 @endsection
 
 @section('script')
-<script src="/js/apexcharts.min.js"></script>
+<script src="{{ asset('js/apexcharts.min.js') }}"></script>
 <script>
 (function () {
     const dark = document.documentElement.getAttribute('data-mode') === 'dark';
@@ -218,6 +227,7 @@
         'Ready for release': '#eab308', // yellow-500
         'Released':          '#22c55e', // green-500
         'Rejected':          '#ef4444', // red-500
+        'Voided':            '#991b1b', // red-800 — darker than Rejected
     };
     if (statusData.length) {
         new ApexCharts(document.getElementById('chart-status'), {
@@ -240,8 +250,11 @@
             series: [{ name: isMoney ? 'Amount' : 'Count', data: data.map(d => d.value) }],
             xaxis: { categories: data.map(d => d.label), labels: { style: { colors: labelColor } } },
             yaxis: { labels: { style: { colors: labelColor }, maxWidth: 160 } },
-            colors: [color],
-            plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '60%' } },
+            // Document-type rankings carry each type's own color; draw every
+            // bar in it so a type looks the same across all charts.
+            colors: data.some(d => d.color) ? data.map(d => d.color || color) : [color],
+            legend: { show: false },
+            plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '60%', distributed: data.some(d => d.color) } },
             grid: { borderColor: gridColor },
             dataLabels: { enabled: false },
             tooltip: { y: { formatter: v => isMoney ? ('₱ ' + Number(v).toLocaleString(undefined, {minimumFractionDigits: 2})) : (v + '') } },

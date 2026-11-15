@@ -222,6 +222,48 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                         — use <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">&#123;&#123; doc_number &#125;&#125;</code> in the template.
                     </p>
                 </div>
+
+                {{-- Color code — unique per type; used on the dashboard charts and lists --}}
+                @php $currentColor = strtolower(old('color', $defaultColor)); @endphp
+                <div>
+                    <label class="form-label text-sm">Color <span class="text-danger">*</span></label>
+                    <input type="hidden" name="color" id="type-color" value="{{ $currentColor }}">
+
+                    <div class="flex flex-wrap gap-2" id="color-swatches">
+                        @foreach(\App\Models\DocumentType::PALETTE as $swatch)
+                            @php $takenBy = $usedColors[$swatch] ?? null; @endphp
+                            <button type="button"
+                                class="color-swatch relative w-7 h-7 rounded-full transition {{ $takenBy ? 'opacity-30 cursor-not-allowed' : 'hover:scale-110' }} {{ $swatch === $currentColor ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-offset-gray-800' : '' }}"
+                                style="background-color: {{ $swatch }};"
+                                data-color="{{ $swatch }}"
+                                @if($takenBy) disabled title="Used by {{ $takenBy }}" @else title="{{ $swatch }}" @endif
+                                onclick="selectTypeColor('{{ $swatch }}')">
+                                @if($takenBy)
+                                    {{-- diagonal strike for colors already taken --}}
+                                    <span class="absolute inset-0 flex items-center justify-center">
+                                        <span class="block w-8 h-0.5 bg-white/90 rotate-45 rounded"></span>
+                                    </span>
+                                @endif
+                                <i class="mgc_check_line absolute inset-0 items-center justify-center text-white text-sm swatch-check {{ $swatch === $currentColor ? 'flex' : 'hidden' }}"></i>
+                            </button>
+                        @endforeach
+                    </div>
+
+                    <div class="flex items-center gap-2 mt-3">
+                        <input type="color" id="type-color-custom" value="{{ $currentColor }}"
+                            class="w-9 h-9 rounded cursor-pointer border border-gray-300 dark:border-gray-600 bg-transparent p-0.5"
+                            title="Pick a custom color" oninput="selectTypeColor(this.value)">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">or custom:</span>
+                        <code id="type-color-hex" class="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-1.5 py-0.5 rounded">{{ $currentColor }}</code>
+                        <span class="ms-auto inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full text-white" id="type-color-preview"
+                              style="background-color: {{ $currentColor }};">
+                            <i class="mgc_document_2_line"></i> <span id="type-color-preview-name">{{ old('name', $type->name) ?: 'Preview' }}</span>
+                        </span>
+                    </div>
+                    <p id="type-color-taken" class="hidden text-xs text-danger mt-1"></p>
+                    @error('color')<p class="text-xs text-danger mt-1">{{ $message }}</p>@enderror
+                    <p class="text-xs text-gray-400 mt-1">Each document type has its own color so it's easy to spot on the dashboard and in lists. Crossed-out colors are already used.</p>
+                </div>
                 <div>
                     <label class="form-label text-sm">Description</label>
                     <textarea name="description" rows="2" class="form-input"
@@ -243,6 +285,22 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                     <label for="allow_body_edit" class="text-sm text-gray-600 dark:text-gray-300">
                         Allow editing the certificate body when issuing
                         <span class="block text-xs text-gray-400">Staff can tweak the wording per request. Leave off to keep the template fixed.</span>
+                    </label>
+                </div>
+                <div class="flex items-start gap-3">
+                    <input type="checkbox" name="allow_walkin" id="allow_walkin" value="1"
+                           class="form-checkbox mt-0.5" {{ old('allow_walkin', $type->allow_walkin ?? true) ? 'checked' : '' }}>
+                    <label for="allow_walkin" class="text-sm text-gray-600 dark:text-gray-300">
+                        Allow walk-ins (not registered residents)
+                        @php
+                            $walkinNeeds = ($type?->exists)
+                                ? array_map(fn($k) => \App\Support\PersonFields::FIELDS[$k]['label'], \App\Support\PersonFields::required($type->loadMissing('fields')))
+                                : [];
+                        @endphp
+                        <span class="block text-xs text-gray-400">
+                            Walk-ins are asked for name, birthday{{ $walkinNeeds ? ', ' . strtolower(implode(', ', $walkinNeeds)) : '' }} —
+                            based on what this certificate prints. Turn off for documents that require registered residency.
+                        </span>
                     </label>
                 </div>
             </div>
@@ -753,7 +811,7 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
 
             </div>
             <div class="flex justify-end py-3 px-4 border-t dark:border-gray-700">
-                <button data-fc-dismiss="modal" class="btn bg-dark/25 text-slate-900 hover:bg-dark hover:text-white">Close</button>
+                <button data-fc-dismiss="modal" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Close</button>
             </div>
         </div>
     </div>
@@ -1068,6 +1126,60 @@ function updatePrefixPreview() {
     const raw = document.getElementById('prefix').value.trim().toUpperCase();
     document.getElementById('prefix-preview').textContent = (raw ? raw + '-' : 'BRG-') + '00001';
 }
+
+// ── Type color ──────────────────────────────────────────────────────────
+// Colors other types already use (color => type name). The server enforces
+// uniqueness too; this just warns early for custom picks.
+const USED_TYPE_COLORS = @json($usedColors);
+
+function selectTypeColor(hex) {
+    hex = String(hex).toLowerCase();
+    const takenBy = USED_TYPE_COLORS[hex];
+    const warn = document.getElementById('type-color-taken');
+    warn.textContent = takenBy ? 'This color is already used by “' + takenBy + '” — pick another.' : '';
+    warn.classList.toggle('hidden', !takenBy);
+
+    document.getElementById('type-color').value = hex;
+    document.getElementById('type-color-custom').value = hex;
+    document.getElementById('type-color-hex').textContent = hex;
+    document.getElementById('type-color-preview').style.backgroundColor = hex;
+
+    document.querySelectorAll('.color-swatch').forEach(s => {
+        const on = s.dataset.color === hex;
+        s.classList.toggle('ring-2', on);
+        s.classList.toggle('ring-offset-2', on);
+        s.classList.toggle('ring-gray-400', on);
+        s.classList.toggle('dark:ring-offset-gray-800', on);
+        const check = s.querySelector('.swatch-check');
+        check?.classList.toggle('hidden', !on);
+        check?.classList.toggle('flex', on);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    selectTypeColor(document.getElementById('type-color').value);
+    // Keep the preview chip's label in sync with the name field.
+    const nameInput = document.querySelector('input[name="name"]');
+    nameInput?.addEventListener('input', () => {
+        document.getElementById('type-color-preview-name').textContent = nameInput.value.trim() || 'Preview';
+    });
+    // Block submitting a color another type already uses.
+    document.getElementById('type-color').form?.addEventListener('submit', e => {
+        const hex = document.getElementById('type-color').value;
+        if (USED_TYPE_COLORS[hex]) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'warning',
+                title: 'Color already used',
+                text: 'This color is used by “' + USED_TYPE_COLORS[hex] + '”. Pick a different color so each document type is easy to recognise.',
+                didOpen: () => {
+                    document.querySelector('.swal2-confirm')?.style.setProperty('background-color', '#727cf5', 'important');
+                },
+            });
+            document.getElementById('color-swatches').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+});
 
 function openPrintPreview() {
     const html = $sn ? $sn('#template_body').summernote('code') : document.getElementById('template_body').value;

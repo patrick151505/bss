@@ -25,7 +25,7 @@ class DocumentTypeController extends Controller
         $templates = \App\Models\DocumentTemplate::active()
             ->with(['currentVersion', 'versions' => fn($q) => $q->orderByDesc('version')])
             ->orderBy('name')->get();
-        return view('documents.types.edit', ['type' => new DocumentType(), 'templates' => $templates]);
+        return view('documents.types.edit', ['type' => new DocumentType(), 'templates' => $templates] + $this->colorOptions(null));
     }
 
     // Ready-made certificate template snippets staff can copy into the editor.
@@ -303,20 +303,25 @@ HTML,
 
     public function store(Request $request)
     {
-        // Normalize before validation so the unique check runs on the stored form.
+        // Normalize before validation so the unique checks run on the stored form.
         if ($request->filled('prefix')) {
             $request->merge(['prefix' => strtoupper(trim($request->input('prefix')))]);
+        }
+        if ($request->filled('color')) {
+            $request->merge(['color' => strtolower(trim($request->input('color')))]);
         }
 
         $data = $request->validate([
             'name'                 => 'required|string|max:255',
             'short_name'           => 'nullable|string|max:100',
             'prefix'               => ['required', 'string', 'max:20', 'regex:/^[A-Za-z0-9\-]+$/', 'unique:eb_document_types,prefix'],
+            'color'                => ['required', 'regex:/^#[0-9a-f]{6}$/', 'unique:eb_document_types,color'],
             'description'          => 'nullable|string',
             'is_paid'              => 'boolean',
             'fee'                  => 'nullable|numeric|min:0',
             'requires_approval'    => 'boolean',
             'allow_body_edit'      => 'boolean',
+            'allow_walkin'         => 'boolean',
             'template_body'        => 'nullable|string',
             'is_active'            => 'boolean',
             'document_template_id'         => 'nullable|exists:eb_document_templates,id',
@@ -325,11 +330,15 @@ HTML,
             'prefix.required' => 'A control number prefix is required.',
             'prefix.unique'   => 'That prefix is already used by another document type.',
             'prefix.regex'    => 'Prefix may only contain letters, numbers, and dashes.',
+            'color.required'  => 'Pick a color for this document type.',
+            'color.regex'     => 'Color must be a hex value like #727cf5.',
+            'color.unique'    => 'That color is already used by another document type — pick a different one.',
         ]);
 
         $data['is_paid']           = $request->boolean('is_paid');
         $data['requires_approval'] = $request->boolean('requires_approval');
         $data['allow_body_edit']   = $request->boolean('allow_body_edit');
+        $data['allow_walkin']      = $request->boolean('allow_walkin');
         $data['is_active']         = $request->boolean('is_active');
         $data['fee']               = $data['is_paid'] ? ($data['fee'] ?? 0) : 0;
 
@@ -347,25 +356,30 @@ HTML,
         $templates = \App\Models\DocumentTemplate::active()
             ->with(['currentVersion', 'versions' => fn($q) => $q->orderByDesc('version')])
             ->orderBy('name')->get();
-        return view('documents.types.edit', ['type' => $documentType, 'templates' => $templates]);
+        return view('documents.types.edit', ['type' => $documentType, 'templates' => $templates] + $this->colorOptions($documentType));
     }
 
     public function update(Request $request, DocumentType $documentType)
     {
-        // Normalize before validation so the unique check runs on the stored form.
+        // Normalize before validation so the unique checks run on the stored form.
         if ($request->filled('prefix')) {
             $request->merge(['prefix' => strtoupper(trim($request->input('prefix')))]);
+        }
+        if ($request->filled('color')) {
+            $request->merge(['color' => strtolower(trim($request->input('color')))]);
         }
 
         $data = $request->validate([
             'name'                 => 'required|string|max:255',
             'short_name'           => 'nullable|string|max:100',
             'prefix'               => ['required', 'string', 'max:20', 'regex:/^[A-Za-z0-9\-]+$/', 'unique:eb_document_types,prefix,' . $documentType->id],
+            'color'                => ['required', 'regex:/^#[0-9a-f]{6}$/', 'unique:eb_document_types,color,' . $documentType->id],
             'description'          => 'nullable|string',
             'is_paid'              => 'boolean',
             'fee'                  => 'nullable|numeric|min:0',
             'requires_approval'    => 'boolean',
             'allow_body_edit'      => 'boolean',
+            'allow_walkin'         => 'boolean',
             'template_body'        => 'nullable|string',
             'is_active'            => 'boolean',
             'document_template_id'         => 'nullable|exists:eb_document_templates,id',
@@ -374,11 +388,15 @@ HTML,
             'prefix.required' => 'A control number prefix is required.',
             'prefix.unique'   => 'That prefix is already used by another document type.',
             'prefix.regex'    => 'Prefix may only contain letters, numbers, and dashes.',
+            'color.required'  => 'Pick a color for this document type.',
+            'color.regex'     => 'Color must be a hex value like #727cf5.',
+            'color.unique'    => 'That color is already used by another document type — pick a different one.',
         ]);
 
         $data['is_paid']           = $request->boolean('is_paid');
         $data['requires_approval'] = $request->boolean('requires_approval');
         $data['allow_body_edit']   = $request->boolean('allow_body_edit');
+        $data['allow_walkin']      = $request->boolean('allow_walkin');
         $data['is_active']         = $request->boolean('is_active');
         $data['fee']               = $data['is_paid'] ? ($data['fee'] ?? 0) : 0;
         $documentType->update($data);
@@ -411,6 +429,25 @@ HTML,
 
         return redirect()->route('documents.types.index')
             ->with('success', 'Document type deleted.');
+    }
+
+    /**
+     * Colors already taken by OTHER types (color => type name), and the color
+     * to preselect: the type's own, or the first free preset for a new type.
+     */
+    private function colorOptions(?DocumentType $type): array
+    {
+        $usedColors = DocumentType::query()
+            ->when($type?->id, fn($q) => $q->where('id', '!=', $type->id))
+            ->whereNotNull('color')
+            ->pluck('name', 'color')
+            ->mapWithKeys(fn($name, $color) => [strtolower($color) => $name])
+            ->all();
+
+        return [
+            'usedColors'   => $usedColors,
+            'defaultColor' => $type?->color ?: DocumentType::nextAvailableColor($type?->id),
+        ];
     }
 
     private function syncFields(DocumentType $type, Request $request): void

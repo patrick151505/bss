@@ -2,6 +2,35 @@
 <html lang="en" data-mode="dark" data-sidenav-view="{{ $sidenav ?? 'default' }}">
 
 <head>
+    {{-- Apply the saved theme BEFORE the first paint.
+
+         config.js does the same thing, but it is bundled and runs at the end of
+         the body — by then the browser has already painted using the hardcoded
+         data-mode="dark" above, which is the dark flash on a light-mode reload.
+         This block is deliberately inline, blocking, and first in <head>: it
+         must run before any CSS is applied. Keep the storage key and attribute
+         names in sync with resources/js/config.js. --}}
+    <script>
+    (function () {
+        try {
+            var saved = localStorage.getItem('__CONFIG__');
+            if (!saved) return;
+            var cfg = JSON.parse(saved);
+            var html = document.documentElement;
+            if (cfg.theme)            html.setAttribute('data-mode', cfg.theme);
+            if (cfg.direction)        html.setAttribute('dir', cfg.direction);
+            if (cfg.topbar && cfg.topbar.color) html.setAttribute('data-topbar-color', cfg.topbar.color);
+            if (cfg.menu   && cfg.menu.color)   html.setAttribute('data-menu-color',   cfg.menu.color);
+            if (cfg.layout) {
+                if (cfg.layout.width)    html.setAttribute('data-layout-width',    cfg.layout.width);
+                if (cfg.layout.position) html.setAttribute('data-layout-position', cfg.layout.position);
+            }
+        } catch (e) {
+            /* Corrupt or unavailable storage: fall through to the markup default. */
+        }
+    })();
+    </script>
+
     @include('layouts.shared/title-meta', ['title' => $title])
     @yield('css')
     @include('layouts.shared/head-css')
@@ -17,7 +46,9 @@
 
             @include('layouts.shared/topbar')
 
-            <main class="flex-grow p-6">
+            {{-- p-6 (24px) each side is too much of a 390px phone; drop to 16px
+                 below sm so content keeps a sane gutter without being squeezed. --}}
+            <main class="flex-grow min-w-0 p-4 sm:p-6">
 
                 @include('layouts.shared/page-title', [
                     'title'         => $title,

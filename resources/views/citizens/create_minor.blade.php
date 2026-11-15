@@ -182,6 +182,7 @@
 
                     <div>
                         <label class="form-label">Approval Status</label>
+                        @can('citizens.approve')
                         <select name="approval_status" class="form-select">
                             @foreach($approvalStatuses as $as)
                                 <option value="{{ $as->id }}" {{ old('approval_status', 2) == $as->id ? 'selected' : '' }}>
@@ -189,6 +190,10 @@
                                 </option>
                             @endforeach
                         </select>
+                        @else
+                        <input type="text" class="form-input" value="{{ 'Pending' }}" disabled>
+                        <p class="text-xs text-gray-400 mt-1">Set by staff who can approve records.</p>
+                        @endcan
                     </div>
 
                     <div class="lg:col-span-3">

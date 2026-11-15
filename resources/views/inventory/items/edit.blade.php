@@ -39,6 +39,7 @@
 
         {{-- Item Details accordion --}}
         @php $hasErrors = $errors->any(); @endphp
+        @can('inventory_items.edit')
         <div class="card" id="accordion-details">
             <button type="button"
                     class="w-full flex items-center justify-between px-5 py-4 text-left"
@@ -58,6 +59,7 @@
                 </form>
             </div>
         </div>
+        @endcan
 
         {{-- Stock History --}}
         <div class="card">
@@ -159,6 +161,7 @@
             @endif
         </div>
 
+        @can('inventory_items.stock')
         {{-- Add Stock (always open) --}}
         <div class="card p-6">
             <h3 class="font-semibold text-gray-700 dark:text-gray-200 mb-4 text-sm uppercase tracking-wide flex items-center gap-2">
@@ -233,11 +236,25 @@
                 </form>
             </div>
         </div>
+        @endcan
+
+        @can('inventory_items.delete')
+        <form action="{{ route('inventory.items.destroy', $item) }}" method="POST" id="delete-item-{{ $item->id }}">
+            @csrf @method('DELETE')
+            <button type="button" onclick="swalDeleteItem({{ $item->id }}, @js($item->name))"
+                    class="btn bg-danger/25 text-danger hover:bg-danger hover:text-white w-full gap-2">
+                <i class="mgc_delete_line"></i> Delete Item
+            </button>
+            <p class="text-xs text-gray-400 mt-1.5 text-center">Only items never used in a release, rental or reservation can be deleted.</p>
+        </form>
+        @endcan
 
     </div>
 </div>
 
 @endsection
+
+@can('inventory_items.delete') @include('inventory.items._delete-script') @endcan
 
 @push('inline-scripts')
 <script>

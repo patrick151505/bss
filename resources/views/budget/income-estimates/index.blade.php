@@ -283,7 +283,7 @@
                         <input type="text" name="source_label" id="edit_source_label" class="form-input w-full" required>
                     </div>
                 </div>
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                         <label class="text-gray-800 text-sm font-medium inline-block mb-2">{{ $fyYear - 2 }} Actual (₱)</label>
                         <input type="number" name="two_years_ago_actual" id="edit_two_years_ago" class="form-input w-full" step="0.01" min="0" placeholder="0.00">

@@ -265,6 +265,75 @@
                 </div>
             </div>
 
+            {{-- Print Paper — reuse Documents → Paper Templates on other printouts --}}
+            <div class="card">
+                <div class="card-header">
+                    <div class="flex items-center justify-between">
+                        <h5 class="card-title"><i class="mgc_paper_line me-2 text-primary"></i>Print Paper</h5>
+                        <a href="{{ route('documents.templates.index') }}" class="text-xs text-primary hover:underline">Paper Templates</a>
+                    </div>
+                </div>
+                <div class="p-6 space-y-4">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        Select a template and pin the version to use for each printout. <strong>Latest</strong> follows the
+                        template whenever a new version is saved; a specific version stays fixed.
+                    </p>
+                    <div class="grid md:grid-cols-2 xl:grid-cols-3 grid-cols-1 gap-6">
+                        @foreach(['blotter' => 'Blotter Report', 'inventory' => 'Inventory Release Slip', 'fees' => 'Document Fee Summary'] as $print => $label)
+                            @include('settings.partials.paper-picker', ['print' => $print, 'label' => $label])
+                        @endforeach
+                    </div>
+                    @if($paperOptions->isEmpty())
+                        <p class="text-xs text-warning">No paper templates yet — create one under Documents → Paper Templates.</p>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Income Classification — optional, off by default --}}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title"><i class="mgc_wallet_4_line me-2 text-primary"></i>Income Classification <span class="text-xs font-normal text-gray-400">(optional)</span></h5>
+                </div>
+                <div class="p-6 space-y-4">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="hidden" name="income_enabled" value="0">
+                        <input type="checkbox" name="income_enabled" value="1" class="form-checkbox mt-0.5"
+                            {{ old('income_enabled', $setting->income_enabled) ? 'checked' : '' }}>
+                        <div>
+                            <p class="text-sm font-medium text-gray-800 dark:text-gray-100">Turn on income classification</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                Lets staff record a family's monthly income (never required) and groups families from Poor to Rich.
+                                When off, income does not appear anywhere in the system.
+                            </p>
+                        </div>
+                    </label>
+
+                    <div class="grid md:grid-cols-2 grid-cols-1 gap-4">
+                        <div>
+                            <label class="form-label">Poverty threshold (per person, per month)</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₱</span>
+                                <input type="number" name="poverty_threshold" step="0.01" min="1"
+                                    value="{{ old('poverty_threshold', $setting->poverty_threshold) }}"
+                                    class="form-input @error('poverty_threshold') border-danger @enderror" style="padding-left: 1.75rem;" placeholder="e.g. 3000">
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">Use the latest official PSA figure for your region. Update it when PSA releases a new one — every family is re-classified automatically.</p>
+                            @error('poverty_threshold') <p class="text-danger text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                            <p class="font-medium text-gray-700 dark:text-gray-200 mb-1">How families are grouped</p>
+                            <p class="mb-1">Monthly family income ÷ number of family members, compared with the threshold:</p>
+                            <ul class="space-y-0.5">
+                                @foreach(\App\Support\IncomeClass::BANDS as $band)
+                                    <li>{{ $band['label'] }}: {{ $band['max'] === null ? $band['min'] . '× or more' : ($band['min'] ? $band['min'] . '× to under ' . $band['max'] . '×' : 'under ' . $band['max'] . '×') }}</li>
+                                @endforeach
+                            </ul>
+                            <p class="mt-1">Based on the PIDS income clusters. Only staff with the <em>Family income</em> permission can see or edit income.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         {{-- ── Right Column ── --}}
@@ -390,6 +459,28 @@
 @endsection
 
 @section('script')
+<script>
+// ── Print Paper pickers ─────────────────────────────────────────────────
+// Choosing a template opens its "Pin a version" list. Only the open list's
+// radios are enabled (so only they are submitted); if none of them is
+// chosen yet, "Latest" is selected.
+document.querySelectorAll('.paper-picker').forEach(picker => {
+    const sync = () => {
+        const chosen = picker.querySelector('.paper-tpl-radio:checked')?.value ?? '';
+        picker.querySelectorAll('.paper-versions').forEach(block => {
+            const open = block.dataset.tpl === chosen;
+            block.classList.toggle('hidden', !open);
+            block.querySelectorAll('input[type=radio]').forEach(r => { r.disabled = !open; if (!open) r.checked = false; });
+            if (open && !block.querySelector('input[type=radio]:checked')) {
+                block.querySelector('.paper-ver-latest').checked = true;
+            }
+        });
+    };
+    picker.querySelectorAll('.paper-tpl-radio').forEach(r => r.addEventListener('change', sync));
+    sync();
+});
+</script>
+
 <script>
 window.addEventListener('DOMContentLoaded', () => {
     // Logo preview helper

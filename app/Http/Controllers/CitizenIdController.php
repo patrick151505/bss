@@ -16,12 +16,7 @@ class CitizenIdController extends Controller
             ->orderByDesc('created_at');
 
         if ($s = $request->search) {
-            $query->whereHas('citizen', function ($q) use ($s) {
-                $q->where('fname', 'like', "%$s%")
-                  ->orWhere('lname', 'like', "%$s%")
-                  ->orWhere('mname', 'like', "%$s%")
-                  ->orWhere('qrcode', $s);
-            });
+            $query->whereHas('citizen', fn($q) => $q->searchName($s));
         }
 
         if ($addr = $request->address) {

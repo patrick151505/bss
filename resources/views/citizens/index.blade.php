@@ -1,97 +1,149 @@
-@extends('layouts.vertical', ['title' => 'Citizens', 'sub_title' => 'Citizen Management', 'mode' => $mode ?? '', 'demo' => $demo ?? ''])
+@extends('layouts.vertical', [
+    'title'         => 'Citizens',
+    'sub_title'     => 'Citizen Management',
+    'sub_title_url' => route('citizens.index'),
+    'tagline'       => 'Search, filter and manage resident records.',
+    'mode'          => $mode ?? '',
+    'demo'          => $demo ?? '',
+])
 
 @push('skeleton')
 @include('partials._skeleton_table', ['rows' => 10, 'cols' => 6])
 @endpush
 
+@section('css')
+{{-- noUiSlider's base stylesheet is REQUIRED: it supplies the absolute
+     positioning and transforms that place the handles along the track. Without
+     it both handles collapse to the far left. The rules below only restyle it
+     to match the theme. --}}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.css">
+<style>
+/* Age-range slider — theme overrides on top of the base stylesheet above. */
+/* Slimmer than the library default (18px) — the handles overhang the track,
+   which is why the wrapper around #age-slider carries vertical padding. */
+#age-slider {
+    height: 4px;
+    border: 0;
+    border-radius: 9999px;
+    background: #e5e7eb;
+    box-shadow: none;
+    margin: 6px 0 10px;
+}
+.dark #age-slider { background: #374151; }
+
+#age-slider .noUi-connect { background: #3073F1; }          /* matches `primary` */
+#age-slider .noUi-connects { border-radius: 9999px; }
+
+/* The base sheet positions horizontal handles with `left` (it sets
+   right:auto), so the offset must be set on `left` — half the handle width,
+   to centre it on the handle's origin. top centres it on the 4px track. */
+#age-slider .noUi-handle {
+    width: 16px; height: 16px;
+    left: -8px; right: auto;
+    top: -6px;
+    border: 2px solid #3073F1;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgb(0 0 0 / .2);
+    cursor: grab;
+}
+#age-slider .noUi-handle:active { cursor: grabbing; }
+#age-slider .noUi-handle:focus  { outline: none; box-shadow: 0 0 0 3px rgb(48 115 241 / .25); }
+.dark #age-slider .noUi-handle  { background: #1f2937; }
+
+/* nouislider draws decorative grips inside each handle; remove them at this size. */
+#age-slider .noUi-handle::before,
+#age-slider .noUi-handle::after { display: none; }
+
+/* Give the handles room so they are comfortable on touch. */
+#age-slider .noUi-touch-area { transform: scale(2.2); border-radius: 50%; }
+
+/* The base sheet ships a light border + inset shadow on the target and a
+   "not-allowed" cursor; neither suits this control. */
+#age-slider.noUi-target { border: 0; box-shadow: none; cursor: default; }
+</style>
+@endsection
+
 @section('content')
 <div class="grid grid-cols-12 gap-6">
     <div class="col-span-12">
 
-        {{-- Page Header --}}
-        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <h4 class="text-slate-900 dark:text-slate-100 text-lg font-semibold">Citizen Records</h4>
-            <div class="flex items-center gap-2">
-                @can('citizens.export')
-                <button type="button" id="open-export-modal"
-                    class="btn border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">
-                    <i class="mgc_file_download_line me-1"></i> Export
-                </button>
-                @endcan
-                <a href="{{ route('citizens.create') }}" class="btn bg-primary text-white">
-                    <i class="mgc_add_line me-1"></i> Add Citizen
-                </a>
-                <a href="{{ route('citizens.create-minor') }}" class="btn bg-amber-500 text-white">
-                    <i class="mgc_user_2_line me-1"></i> Register Minor
-                </a>
-            </div>
+        {{-- Flash messages --}}
+        @if(session('success'))
+        <div class="mb-4 p-4 rounded-lg bg-success/10 border border-success/30 flex gap-3">
+            <i class="mgc_check_circle_line text-success text-xl mt-0.5 shrink-0"></i>
+            <p class="text-sm text-success font-medium">{{ session('success') }}</p>
         </div>
+        @endif
+        @if(session('error'))
+        <div class="mb-4 p-4 rounded-lg bg-danger/10 border border-danger/30 flex gap-3">
+            <i class="mgc_alert_line text-danger text-xl mt-0.5 shrink-0"></i>
+            <p class="text-sm text-danger font-medium">{{ session('error') }}</p>
+        </div>
+        @endif
+        @if($errors->any())
+        <div class="mb-4 p-4 rounded-lg bg-danger/10 border border-danger/30">
+            <ul class="list-disc list-inside text-sm text-danger/80 space-y-0.5">
+                @foreach($errors->all() as $err)<li>{{ $err }}</li>@endforeach
+            </ul>
+        </div>
+        @endif
 
-        {{-- Stats Cards --}}
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
-
-            <div class="card p-5 flex flex-col items-center gap-2 text-center">
-                <div class="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center">
-                    <i class="mgc_group_line text-2xl text-primary"></i>
-                </div>
-                <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($stats['total']) }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Total Citizens</p>
-            </div>
-
-            <div class="card p-5 flex flex-col items-center gap-2 text-center">
-                <div class="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                    <i class="mgc_male_line text-2xl text-blue-500"></i>
-                </div>
-                <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($stats['male']) }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Male</p>
-            </div>
-
-            <div class="card p-5 flex flex-col items-center gap-2 text-center">
-                <div class="w-12 h-12 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">
-                    <i class="mgc_female_line text-2xl text-pink-500"></i>
-                </div>
-                <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($stats['female']) }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Female</p>
-            </div>
-
-            <div class="card p-5 flex flex-col items-center gap-2 text-center">
-                <div class="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                    <i class="mgc_check_circle_line text-2xl text-green-500"></i>
-                </div>
-                <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($stats['voters']) }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Voters</p>
-            </div>
-
-            <div class="card p-5 flex flex-col items-center gap-2 text-center">
-                <div class="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                    <i class="mgc_wheelchair_line text-2xl text-purple-500"></i>
-                </div>
-                <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($stats['pwd']) }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">PWD</p>
-            </div>
-
-            <div class="card p-5 flex flex-col items-center gap-2 text-center">
-                <div class="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                    <i class="mgc_time_line text-2xl text-amber-500"></i>
-                </div>
-                <p class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ number_format($stats['senior']) }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Senior (60+)</p>
-            </div>
-
+        {{-- Action buttons. The page heading comes from the layout's `tagline`,
+             so there is no <h4> here — it would duplicate the title.
+             whitespace-nowrap keeps each label on one line; the row wraps as a
+             whole instead of each button breaking its own text. --}}
+        <div class="flex flex-wrap items-center gap-2 mb-4">
+            @can('citizens.export')
+            <button type="button" id="open-export-modal"
+                class="btn whitespace-nowrap px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">
+                <i class="mgc_file_download_line me-1"></i> Export
+            </button>
+            @endcan
+            @can('citizens.create')
+            <a href="{{ route('citizens.create') }}"
+               class="btn whitespace-nowrap px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm bg-primary text-white">
+                <i class="mgc_add_line me-1"></i> Add Citizen
+            </a>
+            <a href="{{ route('citizens.create-minor') }}"
+               class="btn whitespace-nowrap px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm bg-amber-500 text-white">
+                <i class="mgc_user_2_line me-1"></i> Register Minor
+            </a>
+            @endcan
         </div>
 
         {{-- Advanced Filter Card --}}
+        @php
+            // Search has its own always-visible box, and voters is applied by
+            // default — neither should make the advanced panel look "active"
+            // or force it open.
+            $activeFilters = collect($filters ?? [])
+                ->reject(fn($v, $k) => $k === 'search')
+                ->reject(fn($v, $k) => $k === 'voters' && ! request()->has('voters'))
+                ->filter(fn($v) => $v !== '' && $v !== null && $v !== [])
+                ->count();
+        @endphp
         <div class="card mb-4">
-            <div class="card-header cursor-pointer" id="filter-toggle">
-                <div class="flex justify-between items-center">
-                    <h5 class="card-title">
-                        <i class="mgc_filter_line me-2"></i> Advanced Filter
-                        @php
-                            $activeFilters = collect($filters ?? [])->filter(fn($v) => $v !== '' && $v !== null && $v !== [])->count();
-                        @endphp
-                        <span id="filter-active-badge" class="ms-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary rounded-full {{ $activeFilters > 0 ? '' : 'hidden' }}">{{ $activeFilters }}</span>
-                    </h5>
-                    <i class="mgc_down_line text-lg transition-transform duration-200" id="filter-chevron"></i>
+            {{-- Search stays visible whether or not the advanced panel is open --}}
+            <div class="p-4 border-b dark:border-gray-700">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="relative flex-1 min-w-[220px]">
+                        <input type="text" id="quick-search" value="{{ $filters['search'] ?? '' }}"
+                            class="form-input ps-9 w-full"
+                            placeholder="Search name, contact, email… or scan an ID" autocomplete="off">
+                        <i class="mgc_search_line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                    <span class="hidden md:inline-flex items-center gap-1 text-xs text-gray-400 shrink-0" title="Scan a Barangay ID with a handheld scanner anytime on this page to see that citizen's activity">
+                        <i class="mgc_qrcode_line"></i> Scan an ID, or click a row → All Transactions, to see all activity
+                    </span>
+                    <button type="button" id="quick-search-btn" class="btn bg-primary text-white shrink-0">
+                        <i class="mgc_search_line"></i> Search
+                    </button>
+                    <button type="button" id="filter-toggle" class="btn bg-dark/10 text-slate-700 dark:text-slate-300 hover:bg-dark/20 shrink-0">
+                        <i class="mgc_filter_line"></i> Advanced Filter
+                        <span id="filter-active-badge" class="ms-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary rounded-full {{ $activeFilters > 0 ? '' : 'hidden' }}">{{ $activeFilters }}</span>
+                        <i class="mgc_down_line transition-transform duration-200" id="filter-chevron"></i>
+                    </button>
                 </div>
             </div>
 
@@ -99,16 +151,8 @@
                 <form method="GET" action="{{ route('citizens.index') }}" id="filter-form">
                     <div class="grid lg:grid-cols-4 md:grid-cols-2 grid-cols-1 gap-4 p-6">
 
-                        {{-- Search --}}
-                        <div class="lg:col-span-2">
-                            <label class="text-gray-800 dark:text-gray-200 text-sm font-medium inline-block mb-2">Search</label>
-                            <div class="relative">
-                                <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
-                                    class="form-input ps-9"
-                                    placeholder="Name, contact, email...">
-                                <i class="mgc_search_line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                            </div>
-                        </div>
+                        {{-- Search — mirrored from the always-visible box above --}}
+                        <input type="hidden" name="search" id="search-field" value="{{ $filters['search'] ?? '' }}">
 
                         {{-- Gender --}}
                         <div>
@@ -159,20 +203,30 @@
                             </select>
                         </div>
 
-                        {{-- Age Range --}}
+                        {{-- Age Range — dual-handle slider.
+                             The hidden inputs are what actually submit, so the
+                             server contract (age_min / age_max) is unchanged.
+                             Left empty when the range is untouched, so "0–100"
+                             is not mistaken for a real filter. --}}
                         <div>
-                            <label class="text-gray-800 dark:text-gray-200 text-sm font-medium inline-block mb-2">Age Range</label>
-                            <div class="flex gap-2 items-center">
-                                <input type="number" name="age_min" value="{{ $filters['age_min'] ?? '' }}"
-                                    class="form-input w-full" placeholder="Min" min="0" max="150">
-                                <span class="text-gray-400 text-sm">–</span>
-                                <input type="number" name="age_max" value="{{ $filters['age_max'] ?? '' }}"
-                                    class="form-input w-full" placeholder="Max" min="0" max="150">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-gray-800 dark:text-gray-200 text-sm font-medium">Age Range</label>
+                                <span id="age-range-label" class="text-xs font-medium text-gray-400">All ages</span>
+                            </div>
+
+                            <input type="hidden" name="age_min" id="age-min" value="{{ $filters['age_min'] ?? '' }}">
+                            <input type="hidden" name="age_max" id="age-max" value="{{ $filters['age_max'] ?? '' }}">
+
+                            <div class="px-1 pt-3">
+                                <div id="age-slider"></div>
                             </div>
                         </div>
 
                         {{-- Household Search --}}
-                        <div class="lg:col-span-2">
+                        {{-- One column like every other field: spanning two
+                             pushed the following fields out of step and left
+                             "Household Assignment" stranded on its own row. --}}
+                        <div>
                             <label class="text-gray-800 dark:text-gray-200 text-sm font-medium inline-block mb-2">Household</label>
                             <div class="relative">
                                 <input type="text" name="household_search" id="hh-filter-input"
@@ -225,17 +279,14 @@
                         @endif
 
                         {{-- Flags Row --}}
-                        <div class="lg:col-span-4 flex flex-wrap gap-6 pt-2">
+                        {{-- Nested grid on the same 4-column track as the panel
+                             above, so these selects line up with Gender / Civil
+                             Status / etc. A flex row sized them to their content
+                             and left the column edges ragged. --}}
+                        <div class="lg:col-span-4 grid lg:grid-cols-4 md:grid-cols-2 grid-cols-1 gap-4">
 
-                            {{-- Active Status --}}
-                            <div>
-                                <label class="text-gray-800 dark:text-gray-200 text-sm font-medium inline-block mb-2">Status</label>
-                                <select name="is_active" class="form-select">
-                                    <option value="">All</option>
-                                    <option value="1" {{ ($filters['is_active'] ?? '1') == '1' ? 'selected' : '' }}>Active</option>
-                                    <option value="0" {{ ($filters['is_active'] ?? '') == '0' ? 'selected' : '' }}>Inactive</option>
-                                </select>
-                            </div>
+                            {{-- Active/Inactive filter removed: the list always
+                                 shows active citizens only. --}}
 
                             {{-- Voter --}}
                             <div>
@@ -277,6 +328,20 @@
                                 </select>
                             </div>
 
+                            {{-- Income class (optional — only when Income Classification is on) --}}
+                            @if(\App\Support\IncomeClass::visibleTo(auth()->user()))
+                            <div>
+                                <label class="text-gray-800 dark:text-gray-200 text-sm font-medium inline-block mb-2">Family Income Class</label>
+                                <select name="income_class" class="form-select">
+                                    <option value="">All</option>
+                                    @foreach(\App\Support\IncomeClass::BANDS as $key => $band)
+                                        <option value="{{ $key }}" {{ ($filters['income_class'] ?? '') === $key ? 'selected' : '' }}>{{ $band['label'] }}</option>
+                                    @endforeach
+                                    <option value="none" {{ ($filters['income_class'] ?? '') === 'none' ? 'selected' : '' }}>Not assessed</option>
+                                </select>
+                            </div>
+                            @endif
+
                         </div>
 
                         {{-- Filter Actions --}}
@@ -301,7 +366,18 @@
                         <h5 class="card-title">Citizen List</h5>
                     </div>
                     <div class="flex items-center gap-2">
-                        <select id="per-page-select" class="form-select text-sm py-1.5">
+                        {{-- Table / Grid toggle — choice is remembered per browser --}}
+                        <div class="inline-flex shrink-0 rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden" role="group" aria-label="View">
+                            <button type="button" data-view="table" title="Table view"
+                                class="view-toggle px-2.5 py-1.5 text-gray-500 dark:text-gray-400 hover:text-primary transition">
+                                <i class="mgc_table_2_line text-base"></i>
+                            </button>
+                            <button type="button" data-view="grid" title="Grid view"
+                                class="view-toggle px-2.5 py-1.5 border-s border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-primary transition">
+                                <i class="mgc_grid_line text-base"></i>
+                            </button>
+                        </div>
+                        <select id="per-page-select" class="form-select w-auto text-sm py-1.5">
                             @foreach([15, 25, 50, 100] as $pp)
                                 <option value="{{ $pp }}" {{ request('per_page', 15) == $pp ? 'selected' : '' }}>{{ $pp }} / page</option>
                             @endforeach
@@ -329,11 +405,66 @@
     </div>
 </div>
 
-{{-- Delete Confirmation Form (hidden) --}}
+{{-- Archive (set inactive) form — posts to citizens.destroy, which
+     deactivates rather than deleting. --}}
 <form id="delete-form" method="POST" action="" class="hidden">
     @csrf
     @method('DELETE')
+    <input type="hidden" name="reason" id="archive-reason">
 </form>
+
+{{-- Selected-citizen action bar. Docks at the bottom so every action is
+     reachable without scrolling the wide table sideways. --}}
+<div id="action-bar"
+     class="fixed inset-x-0 bottom-0 z-40 translate-y-full opacity-0 transition-all duration-200 pointer-events-none">
+    <div class="mx-auto max-w-5xl m-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl">
+        <div class="flex flex-wrap items-center gap-3 p-3">
+
+            {{-- Who is selected --}}
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+                <div id="ab-avatar" class="w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-semibold shrink-0 overflow-hidden"></div>
+                <div class="min-w-0">
+                    <p id="ab-name" class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate"></p>
+                    <p id="ab-code" class="text-xs font-mono text-gray-400 truncate"></p>
+                </div>
+            </div>
+
+            {{-- Actions --}}
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" id="ab-activity" class="btn btn-sm bg-info/25 text-info hover:bg-info hover:text-white">
+                    <i class="mgc_history_line"></i> All Transactions
+                </button>
+                <a id="ab-view" href="#" class="btn btn-sm bg-primary text-white">
+                    <i class="mgc_eye_line"></i> View
+                </a>
+                @can('citizens.edit')
+                <a id="ab-edit" href="#" class="btn btn-sm bg-dark/10 text-slate-700 dark:text-slate-200 hover:bg-dark/20">
+                    <i class="mgc_edit_line"></i> Edit
+                </a>
+                @endcan
+                @can('citizen_ids.view')
+                <a id="ab-id" href="#" class="btn btn-sm bg-dark/10 text-slate-700 dark:text-slate-200 hover:bg-dark/20">
+                    <i class="mgc_IDcard_line"></i> Barangay ID
+                </a>
+                @endcan
+                @can('documents.create')
+                <a id="ab-doc" href="#" class="btn btn-sm bg-dark/10 text-slate-700 dark:text-slate-200 hover:bg-dark/20">
+                    <i class="mgc_document_line"></i> New Document
+                </a>
+                @endcan
+                @can('citizens.archive')
+                {{-- btn-delete is what the confirmation handler listens for. --}}
+                <button type="button" id="ab-delete" class="btn-delete btn btn-sm bg-warning/25 text-warning hover:bg-warning hover:text-white">
+                    <i class="mgc_archive_line"></i> Set Inactive
+                </button>
+                @endcan
+                <button type="button" id="ab-close" class="p-1.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" title="Close">
+                    <i class="mgc_close_line text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {{-- ── Export Modal ── --}}
 @php
@@ -515,9 +646,215 @@ $exportFieldGroups = [
 </div>
 @endcan
 
+{{-- Citizen activity pop-up: opens when a Barangay ID is scanned anywhere on this page --}}
+<div id="activity-modal" class="hidden fixed inset-0 z-50 bg-black/50 items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="act-name">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-full max-w-3xl flex flex-col" style="max-height: 90vh;">
+        {{-- Header --}}
+        <div class="flex items-start gap-4 p-5 border-b dark:border-gray-700">
+            <div id="act-avatar" class="w-16 h-16 rounded-full overflow-hidden bg-primary/10 text-primary flex items-center justify-center text-xl font-bold shrink-0"></div>
+            <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                    <h3 id="act-name" class="text-lg font-bold text-gray-800 dark:text-white"></h3>
+                    <span id="act-code" class="text-sm text-gray-500 dark:text-gray-400"></span>
+                </div>
+                <div id="act-badges" class="flex flex-wrap gap-1.5 mt-1.5"></div>
+                <p id="act-meta" class="text-xs text-gray-500 dark:text-gray-400 mt-2"></p>
+            </div>
+            <button type="button" onclick="closeCitizenActivity()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="Close">
+                <i class="mgc_close_line text-xl"></i>
+            </button>
+        </div>
+
+        <div id="act-hold" class="hidden mx-5 mt-4 p-3 rounded-lg bg-danger/10 border border-danger/30 flex gap-2">
+            <i class="mgc_lock_line text-danger text-lg shrink-0"></i>
+            <p class="text-sm text-danger"><strong>On hold</strong> — cannot be issued documents. <span id="act-hold-reason"></span></p>
+        </div>
+
+        {{-- Category tabs --}}
+        <div id="act-tabs" class="flex flex-wrap gap-2 px-5 pt-4"></div>
+
+        {{-- Timeline --}}
+        <div id="act-list" class="flex-1 overflow-y-auto px-5 py-3"></div>
+
+        {{-- Footer --}}
+        <div class="flex flex-wrap justify-end gap-2 py-3 px-5 border-t dark:border-gray-700">
+            <button type="button" onclick="closeCitizenActivity()" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Close</button>
+            <a id="act-request" href="#" class="hidden btn bg-success/25 text-success hover:bg-success hover:text-white"><i class="mgc_file_new_line"></i> New document request</a>
+            <a id="act-profile" href="#" class="btn bg-primary text-white"><i class="mgc_user_3_line"></i> Open full profile</a>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('script')
+@include('partials.scan-anywhere')
+<script>
+// ── Citizen activity pop-up (opened by scanning an ID, or the history button on a row) ──
+const ACTIVITY_URL = @json(route('citizens.activity'));
+const ACT_CATS = {
+    documents: { label: 'Documents', icon: 'mgc_file_line' },
+    blotter:   { label: 'Blotter',   icon: 'mgc_alert_line' },
+    events:    { label: 'Events',    icon: 'mgc_calendar_line' },
+    health:    { label: 'Health',    icon: 'mgc_heartbeat_line' },
+    inventory: { label: 'Inventory', icon: 'mgc_box_3_line' },
+    records:   { label: 'Record',    icon: 'mgc_history_line' },
+};
+const ACT_TONES = {
+    success: ['bg-green-100 text-green-800', 'bg-green-400'],
+    warning: ['bg-yellow-100 text-yellow-800', 'bg-yellow-400'],
+    danger:  ['bg-red-100 text-red-800', 'bg-red-400'],
+    info:    ['bg-sky-100 text-sky-800', 'bg-sky-500'],
+    gray:    ['bg-gray-100 text-gray-800', 'bg-gray-400'],
+};
+let actData = null, actTab = 'all', actSeq = 0;
+
+const actEsc  = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const actPill = (text, tone) => {
+    const [cls, dot] = ACT_TONES[tone] || ACT_TONES.gray;
+    return `<span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium ${cls}"><span class="w-1.5 h-1.5 inline-block ${dot} rounded-full"></span>${actEsc(text)}</span>`;
+};
+
+function showActivityModal() {
+    const m = document.getElementById('activity-modal');
+    m.classList.remove('hidden');
+    m.classList.add('flex');
+}
+
+function closeCitizenActivity() {
+    const m = document.getElementById('activity-modal');
+    m.classList.add('hidden');
+    m.classList.remove('flex');
+}
+
+async function openCitizenActivity(params) {
+    const mine = ++actSeq;                                  // only the latest scan may fill the pop-up
+    showActivityModal();
+    document.getElementById('act-name').textContent = 'Looking up…';
+    ['act-code', 'act-meta', 'act-badges', 'act-tabs'].forEach(id => document.getElementById(id).innerHTML = '');
+    document.getElementById('act-avatar').innerHTML = '<i class="mgc_loading_line animate-spin"></i>';
+    document.getElementById('act-hold').classList.add('hidden');
+    document.getElementById('act-request').classList.add('hidden');
+    document.getElementById('act-profile').classList.add('hidden');
+    document.getElementById('act-list').innerHTML = '<p class="text-center text-gray-400 py-10 text-sm">Loading activity…</p>';
+
+    let res;
+    try {
+        const r = await fetch(ACTIVITY_URL + '?' + new URLSearchParams(params), { headers: { Accept: 'application/json' } });
+        res = (r.ok || r.status === 404) ? await r.json()
+            : { found: false, error: true, message: `The server could not load this citizen (error ${r.status}). Please scan again.` };
+    } catch (e) {
+        res = { found: false, error: true, message: 'Could not reach the server. Check the connection and scan again.' };
+    }
+    if (mine !== actSeq) return;                            // a newer scan came in while this one was loading
+
+    if (!res.found) {
+        document.getElementById('act-name').textContent = res.error ? 'Could not load' : 'Citizen not found';
+        document.getElementById('act-avatar').innerHTML = '<i class="mgc_alert_line text-danger"></i>';
+        document.getElementById('act-list').innerHTML =
+            `<p class="text-center text-gray-500 dark:text-gray-400 py-10 text-sm">${actEsc(res.message || 'No citizen found for this code.')}${res.error ? '' : '<br>Check that the ID belongs to a registered citizen.'}</p>`;
+        return;
+    }
+
+    actData = res;
+    actTab  = 'all';
+    const c = res.citizen;
+
+    document.getElementById('act-avatar').innerHTML = c.photo
+        ? `<img src="${actEsc(c.photo)}" alt="" class="w-full h-full object-cover">`
+        : actEsc((c.name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase());
+    document.getElementById('act-name').textContent = c.name;
+    document.getElementById('act-code').textContent = c.code;
+
+    let badges = c.voter ? actPill('Voter', 'success') : actPill('Non-voter', 'gray');
+    if (c.senior)   badges += actPill('Senior', 'warning');
+    if (c.pwd)      badges += actPill('PWD', 'info');
+    if (c.solo)     badges += actPill('Solo parent', 'info');
+    if (c.archived) badges += actPill('Archived', 'gray');
+    if (c.hold)     badges += actPill('On hold', 'danger');
+    if (c.income)   badges += c.income.key ? actPill(c.income.label, c.income.tone) : actPill('Income not assessed', 'gray');
+    (c.tags || []).forEach(t => { badges += `<span class="inline-flex items-center py-1 px-2.5 rounded-full text-xs font-medium text-white" style="background:${actEsc(t.color || '#6c757d')}">${actEsc(t.name)}</span>`; });
+    document.getElementById('act-badges').innerHTML = badges;
+
+    document.getElementById('act-meta').innerHTML = [
+        [c.age != null ? `${c.age} yrs` : null, c.gender].filter(Boolean).join(' · '),
+        c.address ? `<i class="mgc_location_line"></i> ${actEsc(c.address)}` : null,
+        c.contact ? `<i class="mgc_phone_line"></i> ${actEsc(c.contact)}` : null,
+        c.household ? `<i class="mgc_home_3_line"></i> ${actEsc(c.household)}` : null,
+        c.id_valid ? `<i class="mgc_IDcard_line"></i> ID valid until ${actEsc(c.id_valid)}` : null,
+    ].filter(Boolean).join('<span class="mx-1.5 text-gray-300">|</span>');
+
+    if (c.hold) {
+        document.getElementById('act-hold-reason').textContent = 'Reason: ' + c.hold;
+        document.getElementById('act-hold').classList.remove('hidden');
+    }
+
+    const profile = document.getElementById('act-profile');
+    profile.href = res.links.profile;
+    profile.classList.remove('hidden');
+    const req = document.getElementById('act-request');
+    if (res.links.request && !c.hold && !c.archived) {
+        req.href = res.links.request;
+        req.classList.remove('hidden');
+    }
+
+    renderActivityTabs();
+    renderActivityList();
+}
+
+function renderActivityTabs() {
+    const counts = actData.counts || {};
+    const total  = actData.items.length;
+    const tab = (key, label, n) => `<button type="button" onclick="setActivityTab('${key}')"
+        class="btn btn-sm gap-1 ${actTab === key ? 'bg-primary text-white' : 'bg-dark/10 text-slate-700 dark:text-slate-300 hover:bg-dark/20'}">${label} <span class="opacity-75">(${n})</span></button>`;
+    document.getElementById('act-tabs').innerHTML = tab('all', 'All', total) +
+        Object.keys(ACT_CATS).filter(k => counts[k] > 0).map(k => tab(k, ACT_CATS[k].label, counts[k])).join('');
+}
+
+function setActivityTab(key) {
+    actTab = key;
+    renderActivityTabs();
+    renderActivityList();
+}
+
+function renderActivityList() {
+    const items = actData.items.filter(i => actTab === 'all' || i.cat === actTab);
+    if (!items.length) {
+        document.getElementById('act-list').innerHTML = `<div class="text-center py-10 text-gray-400">
+            <i class="mgc_box_3_line text-4xl mb-2 block opacity-30"></i>No activity yet.</div>`;
+        return;
+    }
+    document.getElementById('act-list').innerHTML = items.map(i => {
+        const cat  = ACT_CATS[i.cat] || ACT_CATS.records;
+        const tag  = i.url ? 'a' : 'div';
+        const href = i.url ? ` href="${actEsc(i.url)}"` : '';
+        return `<${tag}${href} class="flex items-start gap-3 py-3 border-b last:border-0 dark:border-gray-700 ${i.url ? 'hover:bg-gray-50 dark:hover:bg-gray-700/40 rounded-lg px-2 -mx-2' : ''}">
+            <span class="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0"><i class="${i.icon || cat.icon}"></i></span>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-800 dark:text-gray-100">${actEsc(i.title)}</p>
+                ${i.sub ? `<p class="text-xs text-gray-500 dark:text-gray-400 truncate">${actEsc(i.sub)}</p>` : ''}
+                <p class="text-xs text-gray-400 mt-0.5">${actEsc(cat.label)}${i.date ? ' · ' + actEsc(i.date) : ''}</p>
+            </div>
+            ${i.label ? `<div class="shrink-0">${actPill(i.label, i.tone)}</div>` : ''}
+            ${i.url ? '<i class="mgc_right_line text-gray-300 shrink-0 mt-2"></i>' : ''}
+        </${tag}>`;
+    }).join('');
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !document.getElementById('activity-modal').classList.contains('hidden')) closeCitizenActivity();
+});
+document.getElementById('activity-modal').addEventListener('click', e => {
+    if (e.target.id === 'activity-modal') closeCitizenActivity();      // click outside the panel
+});
+
+// Scan a Barangay ID anywhere on this page → open that citizen's activity.
+listenForScans({ onScan: code => openCitizenActivity({ code }) });
+</script>
+{{-- noUiSlider powers the Age Range control. Loaded here rather than through
+     the Vite bundle because it is the only page that needs it, and this
+     section renders before the page script below runs. --}}
+<script src="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.js"></script>
 <script>
 window.addEventListener('DOMContentLoaded', () => {
 
@@ -527,16 +864,177 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('filter-chevron').classList.toggle('rotate-180');
     });
 
-    // ── Delete confirmation ────────────────────────────────
+    // ── Age range slider ───────────────────────────────────
+    // Two handles over 0–100. The hidden age_min / age_max inputs are what the
+    // form submits, so the server contract is unchanged. An untouched slider
+    // leaves them EMPTY rather than "0" and "100", so a full-width range is not
+    // counted as an active filter.
+    const AGE_FLOOR = 0, AGE_CEIL = 100;
+    const ageSlider = document.getElementById('age-slider');
+    const ageMinInp = document.getElementById('age-min');
+    const ageMaxInp = document.getElementById('age-max');
+    const ageLabel  = document.getElementById('age-range-label');
+
+    function writeAgeInputs(lo, hi) {
+        // Only record a bound when it is actually narrower than the full range.
+        ageMinInp.value = lo > AGE_FLOOR ? lo : '';
+        ageMaxInp.value = hi < AGE_CEIL  ? hi : '';
+        ageLabel.textContent =
+            (lo === AGE_FLOOR && hi === AGE_CEIL) ? 'All ages'
+            : (hi === AGE_CEIL) ? lo + '+ yrs'
+            : (lo === AGE_FLOOR) ? 'Under ' + (hi + 1) + ' yrs'
+            : lo + '–' + hi + ' yrs';
+    }
+
+    function resetAgeSlider() {
+        if (ageSlider && ageSlider.noUiSlider) {
+            ageSlider.noUiSlider.set([AGE_FLOOR, AGE_CEIL]);
+        } else {
+            ageMinInp.value = ageMaxInp.value = '';
+            if (ageLabel) ageLabel.textContent = 'All ages';
+        }
+    }
+    window.resetAgeSlider = resetAgeSlider;
+
+    function initAgeSlider() {
+        if (!ageSlider || typeof noUiSlider === 'undefined') return;
+
+        const startLo = ageMinInp.value === '' ? AGE_FLOOR : Math.max(AGE_FLOOR, parseInt(ageMinInp.value, 10));
+        const startHi = ageMaxInp.value === '' ? AGE_CEIL  : Math.min(AGE_CEIL,  parseInt(ageMaxInp.value, 10));
+
+        noUiSlider.create(ageSlider, {
+            start: [startLo, startHi],
+            connect: true,
+            step: 1,
+            range: { min: AGE_FLOOR, max: AGE_CEIL },
+            // Keep the handles from crossing over each other.
+            margin: 0,
+            format: {
+                to:   v => Math.round(v),
+                from: v => Number(v),
+            },
+        });
+
+        // 'update' fires while dragging — cheap, so the label tracks live.
+        ageSlider.noUiSlider.on('update', (values) => {
+            writeAgeInputs(Number(values[0]), Number(values[1]));
+        });
+        // Only re-query once the handle is released, not on every pixel.
+        ageSlider.noUiSlider.on('change', () => {
+            if (typeof updateActiveCount === 'function') updateActiveCount();
+        });
+
+        writeAgeInputs(startLo, startHi);
+    }
+
+    initAgeSlider();
+
+    // ── Row selection → floating action bar ───────────────
+    // The table is wider than the viewport, so the Action column can sit
+    // off-screen. Selecting a row brings its actions to a docked bar that is
+    // always visible.
+    const actionBar = document.getElementById('action-bar');
+    let selectedRow = null;
+
+    function hideActionBar() {
+        actionBar.classList.add('translate-y-full', 'opacity-0', 'pointer-events-none');
+        document.querySelectorAll('.row-selected').forEach(r => r.classList.remove('row-selected'));
+        selectedRow = null;
+    }
+
+    function showActionBar(row) {
+        const { id, name, code, photo } = row.dataset;
+
+        document.querySelectorAll('.row-selected').forEach(r => r.classList.remove('row-selected'));
+        row.classList.add('row-selected');
+        selectedRow = row;
+
+        document.getElementById('ab-name').textContent = name;
+        document.getElementById('ab-code').textContent = code;
+
+        const avatar = document.getElementById('ab-avatar');
+        avatar.innerHTML = photo
+            ? `<img src="${photo}" class="w-full h-full object-cover">`
+            : name.replace(',', '').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
+
+        document.getElementById('ab-view').href = URLS.citizens + '/' + id;
+        // Buttons the role can't use aren't rendered, so set links only on those that exist.
+        const setHref = (elId, href) => { const el = document.getElementById(elId); if (el) el.href = href; };
+        setHref('ab-edit', URLS.citizens + '/' + id + '/edit');
+        setHref('ab-id',   URLS.citizenIds + '?search=' + encodeURIComponent(name.split(',')[0]));
+        setHref('ab-doc',  URLS.newDocument + '?citizen=' + id);
+
+        // Absent for users without citizens.archive.
+        const del = document.getElementById('ab-delete');
+        if (del) {
+            del.dataset.id = id;
+            del.dataset.name = name;
+        }
+
+        actionBar.classList.remove('translate-y-full', 'opacity-0', 'pointer-events-none');
+    }
+
+    // Delegated so it survives the AJAX table swaps.
+    document.addEventListener('click', e => {
+        // Let the real controls in the sticky Action column do their job.
+        if (e.target.closest('a, button, input, select, label')) return;
+
+        // Table rows and grid cards both carry .citizen-row.
+        const row = e.target.closest('.citizen-row');
+        if (!row) return;
+
+        // Clicking the selected row again clears it.
+        if (row === selectedRow) { hideActionBar(); return; }
+        showActionBar(row);
+    });
+
+    document.getElementById('ab-close').addEventListener('click', hideActionBar);
+    document.getElementById('ab-activity').addEventListener('click', () => {
+        if (selectedRow) openCitizenActivity({ id: selectedRow.dataset.id });
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') hideActionBar(); });
+
+    // Built server-side so they work under a subdirectory install.
+    const URLS = {
+        citizens:    @json(url('citizens')),
+        citizenIds:  @json(url('citizens/ids')),
+        newDocument: @json(url('documents/requests/create')),
+    };
+
+    // ── Set inactive (archive) confirmation ────────────────
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('.btn-delete');
         if (!btn) return;
         const id   = btn.dataset.id;
         const name = btn.dataset.name;
-        if (confirm('Delete citizen "' + name + '"? This cannot be undone.')) {
-            document.getElementById('delete-form').setAttribute('action', '/citizens/' + id);
+
+        Swal.fire({
+            title: 'Set as Inactive?',
+            html: `<p class="text-sm">"<b>${name}</b>" will be moved to the Archive.
+                   You can restore them later.</p>`,
+            icon: 'warning',
+            input: 'textarea',
+            inputLabel: 'Reason (required)',
+            inputPlaceholder: 'e.g. Moved out of barangay, deceased, duplicate record…',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, set inactive',
+            cancelButtonText: 'Cancel',
+            reverseButtons: true,
+            inputValidator: value => {
+                if (!value || value.trim().length < 5) {
+                    return 'Please give a reason of at least 5 characters.';
+                }
+            },
+            didOpen: () => {
+                // Amber, not red — this archives rather than destroys.
+                document.querySelector('.swal2-confirm').style.setProperty('background-color', '#f5a623', 'important');
+            },
+        }).then(result => {
+            if (!result.isConfirmed) return;
+            document.getElementById('archive-reason').value = result.value.trim();
+            document.getElementById('delete-form').setAttribute('action', URLS.citizens + '/' + id);
             document.getElementById('delete-form').submit();
-        }
+        });
     });
 
     // ── AJAX filter engine ────────────────────────────────
@@ -550,6 +1048,31 @@ window.addEventListener('DOMContentLoaded', () => {
 
     let currentPage = 1;
 
+    // Sort state lives outside the filter form, so carry it separately.
+    const initialParams = new URLSearchParams(window.location.search);
+
+    // Table / grid view. The URL wins (shared links), then the last choice
+    // made in this browser, then table.
+    const VIEW_KEY = 'citizens.view';
+    const renderedView = initialParams.get('view') === 'grid' ? 'grid' : 'table';
+    let currentView = renderedView;
+    if (!initialParams.has('view')) {
+        try { if (localStorage.getItem(VIEW_KEY) === 'grid') currentView = 'grid'; } catch (e) {}
+    }
+    let currentSort = initialParams.get('sort') || '';
+    let currentDir  = initialParams.get('dir')  || 'desc';
+
+    // Voters defaults to "Voter" without the user asking, so track whether
+    // they have actually chosen a value before counting it as a filter.
+    let votersTouched = initialParams.has('voters');
+    const votersSelect = form.querySelector('[name="voters"]');
+    if (votersSelect) {
+        votersSelect.addEventListener('change', () => {
+            votersTouched = true;
+            updateActiveCount();
+        });
+    }
+
     function getParams() {
         const data = new FormData(form);
         const params = new URLSearchParams();
@@ -558,19 +1081,37 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         params.set('per_page', perPage.value);
         params.set('page', currentPage);
+        if (currentView === 'grid') params.set('view', 'grid');
+        if (currentSort) {
+            params.set('sort', currentSort);
+            params.set('dir', currentDir);
+        }
         return params;
     }
 
     function updateActiveCount() {
         const data = new FormData(form);
         let count = 0;
-        for (const [, v] of data.entries()) { if (v !== '') count++; }
+        for (const [k, v] of data.entries()) {
+            if (v === '') continue;
+            // Search has its own always-visible box outside this panel.
+            if (k === 'search') continue;
+            // Voters is pre-selected by default; it only counts as an active
+            // filter once the user picks something other than that default.
+            if (k === 'voters' && v === '1' && !votersTouched) continue;
+            count++;
+        }
         const badge = document.getElementById('filter-active-badge');
         if (badge) {
             badge.textContent = count;
             badge.classList.toggle('hidden', count === 0);
         }
     }
+
+    // Only the newest request may update the table. While typing, several
+    // searches can be in flight; without this a slow, older response could
+    // land last and overwrite the results for what is actually in the box.
+    let inflight = null;
 
     function fetchTable(resetPage) {
         if (resetPage) currentPage = 1;
@@ -579,22 +1120,35 @@ window.addEventListener('DOMContentLoaded', () => {
         const params = getParams();
         history.replaceState(null, '', AJAX_URL + '?' + params.toString());
 
+        if (inflight) inflight.abort();
+        const controller = new AbortController();
+        inflight = controller;
+
         fetch(AJAX_URL + '?' + params.toString(), {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            signal: controller.signal,
         })
         .then(r => r.json())
         .then(res => {
             wrap.innerHTML = res.html;
             overlay.classList.add('hidden');
             updateActiveCount();
-            // Intercept pagination links in swapped HTML
+            // Intercept pagination + sort links in the swapped HTML
             attachPaginationLinks();
+            attachSortLinks();
         })
-        .catch(() => overlay.classList.add('hidden'));
+        .catch(err => {
+            // A superseded request is aborted on purpose — the newer one
+            // owns the overlay, so leave it alone.
+            if (err.name !== 'AbortError') overlay.classList.add('hidden');
+        })
+        .finally(() => { if (inflight === controller) inflight = null; });
     }
 
     function attachPaginationLinks() {
-        wrap.querySelectorAll('a[href*="page="]').forEach(a => {
+        // Sort links also carry page=1, so skip them here — they have their
+        // own handler that preserves the chosen column and direction.
+        wrap.querySelectorAll('a[href*="page="]:not([data-sort])').forEach(a => {
             a.addEventListener('click', e => {
                 e.preventDefault();
                 currentPage = parseInt(new URL(a.href).searchParams.get('page')) || 1;
@@ -602,6 +1156,46 @@ window.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+
+    function attachSortLinks() {
+        wrap.querySelectorAll('a[data-sort]').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                const url = new URL(a.href);
+                currentSort = url.searchParams.get('sort') || '';
+                currentDir  = url.searchParams.get('dir')  || 'desc';
+                fetchTable(true);
+            });
+        });
+    }
+
+    // ── Quick search (always visible, outside the collapsible panel) ──
+    // It mirrors into the form's hidden search field so getParams() — which
+    // reads the form — picks it up like any other filter.
+    const quickSearch = document.getElementById('quick-search');
+    const searchField = document.getElementById('search-field');
+
+    function runQuickSearch() {
+        clearTimeout(quickTimer);
+        searchField.value = quickSearch.value.trim();
+        fetchTable(true);
+    }
+
+    document.getElementById('quick-search-btn').addEventListener('click', runQuickSearch);
+
+    quickSearch.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); runQuickSearch(); }
+    });
+
+    // Live search as the user types. A short pause avoids a request per
+    // keystroke; typing that does not change the term (e.g. a trailing
+    // space) does not re-query.
+    let quickTimer = null;
+    quickSearch.addEventListener('input', () => {
+        clearTimeout(quickTimer);
+        if (quickSearch.value.trim() === searchField.value) return;
+        quickTimer = setTimeout(runQuickSearch, 250);
+    });
 
     // Apply button
     applyBtn.addEventListener('click', () => fetchTable(true));
@@ -618,11 +1212,42 @@ window.addEventListener('DOMContentLoaded', () => {
     clearBtn.addEventListener('click', () => {
         form.querySelectorAll('input[type="text"], input[type="number"]').forEach(i => i.value = '');
         form.querySelectorAll('select').forEach(s => s.value = '');
+        form.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+        resetAgeSlider();   // hidden inputs are not covered by the selectors above
+        // The search term lives in a hidden field mirrored from the always
+        // visible box, so clear both.
+        searchField.value = '';
+        quickSearch.value = '';
         fetchTable(true);
     });
 
-    // Initial server-rendered pagination links
+    // Initial server-rendered pagination + sort links
     attachPaginationLinks();
+    attachSortLinks();
+
+    // ── View toggle ─────────────────────────────────────────────
+    const viewBtns = document.querySelectorAll('.view-toggle');
+    function paintViewToggle() {
+        viewBtns.forEach(b => {
+            const on = b.dataset.view === currentView;
+            b.classList.toggle('bg-primary', on);
+            b.classList.toggle('text-white', on);
+            b.classList.toggle('hover:text-primary', !on);
+            b.classList.toggle('text-gray-500', !on);
+            b.classList.toggle('dark:text-gray-400', !on);
+        });
+    }
+    viewBtns.forEach(b => b.addEventListener('click', () => {
+        if (b.dataset.view === currentView) return;
+        currentView = b.dataset.view;
+        try { localStorage.setItem(VIEW_KEY, currentView); } catch (e) {}
+        paintViewToggle();
+        if (typeof hideActionBar === 'function') hideActionBar();
+        fetchTable(false);   // keep the current page
+    }));
+    paintViewToggle();
+    // Remembered grid choice but the server rendered the table: swap once.
+    if (currentView !== renderedView) fetchTable(false);
 
     // Keep overlay inside wrap after every innerHTML swap
     const observer = new MutationObserver(() => {

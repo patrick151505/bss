@@ -369,6 +369,7 @@
                     <div class="grid md:grid-cols-2 grid-cols-1 gap-4">
                         <div>
                             <label class="form-label">Approval Status</label>
+                            @can('citizens.approve')
                             <select name="approval_status" class="form-select">
                                 @foreach($approvalStatuses as $as)
                                     <option value="{{ $as->id }}" {{ old('approval_status', $citizen->approval_status) == $as->id ? 'selected' : '' }}>
@@ -376,6 +377,10 @@
                                     </option>
                                 @endforeach
                             </select>
+                            @else
+                            <input type="text" class="form-input" value="{{ optional($approvalStatuses->firstWhere('id', $citizen->approval_status))->description ?? 'Pending' }}" disabled>
+                            <p class="text-xs text-gray-400 mt-1">Set by staff who can approve records.</p>
+                            @endcan
                         </div>
 
                         <div>
@@ -393,7 +398,6 @@
                             $flagRows = [
                                 ['name' => 'is_pwd',         'label' => 'PWD',         'hint' => 'Person with disability'],
                                 ['name' => 'is_soloparents', 'label' => 'Solo Parent', 'hint' => 'Registered solo parent'],
-                                ['name' => 'is_verify',      'label' => 'Verified',    'hint' => 'Record has been verified'],
                             ];
                         @endphp
                         @foreach($flagRows as $f)
@@ -422,10 +426,32 @@
                     {{-- Precinct No. — shown only when Voter is on --}}
                     <div id="field-precinct" class="md:w-1/2 {{ old('voters', $citizen->voters) == 1 ? '' : 'hidden' }}">
                         <label class="form-label">Precinct No. <span class="text-danger">*</span></label>
-                        <input type="text" name="pricinct_no" value="{{ old('pricinct_no', $citizen->pricinct_no) }}"
+                        <input type="text" name="pricinct_no" id="precinct-input" value="{{ old('pricinct_no', $citizen->pricinct_no) }}"
                             class="form-input @error('pricinct_no') border-danger @enderror"
                             placeholder="0055F" maxlength="6">
                         @error('pricinct_no') <p class="text-danger text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    {{-- Verification status — derived from Voter + Precinct No.,
+                         so it is shown rather than edited. --}}
+                    <div class="rounded-lg border p-3 flex items-start gap-3
+                                {{ $citizen->is_verify ? 'border-success/40 bg-success/5' : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50' }}"
+                         id="verify-status">
+                        <i id="verify-icon"
+                           class="{{ $citizen->is_verify ? 'mgc_check_circle_line text-success' : 'mgc_information_line text-gray-400' }} text-xl mt-0.5 shrink-0"></i>
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-gray-800 dark:text-gray-100" id="verify-title">
+                                {{ $citizen->is_verify ? 'Verified' : 'Not Verified' }}
+                            </p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400" id="verify-hint">
+                                @if($citizen->is_verify)
+                                    Verified on {{ $citizen->verified_at?->format('M d, Y') ?? '—' }}
+                                    @if($citizen->verified_at) at {{ $citizen->verified_at->format('g:i A') }} @endif
+                                @else
+                                    A citizen is verified once they are a registered voter with a precinct number.
+                                @endif
+                            </p>
+                        </div>
                     </div>
 
                 </div>
@@ -503,7 +529,7 @@
 
                     @if($citizen->profile)
                         <img id="profile-preview"
-                            src="{{ asset('storage/' . $citizen->profile) }}"
+                            src="{{ $citizen->profile_url }}"
                             class="w-28 h-28 rounded-full object-cover border-4 border-white dark:border-gray-700 shadow"
                             alt="Profile">
                     @else
@@ -777,9 +803,38 @@ window.addEventListener('DOMContentLoaded', () => {
         });
 
         // Voter toggle → show/hide precinct
+        // Verification is derived from Voter + Precinct No., so reflect the
+        // pending result as those two change. The server decides on save.
+        const VERIFIED_ON = @json($citizen->verified_at?->format('M d, Y g:i A'));
+
+        function refreshVerifyStatus() {
+            const isVoter  = $('#voters-select').is(':checked');
+            const precinct = ($('#precinct-input').val() || '').trim();
+            const verified = isVoter && precinct !== '';
+
+            $('#verify-status')
+                .toggleClass('border-success/40 bg-success/5', verified)
+                .toggleClass('border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50', !verified);
+
+            $('#verify-icon')
+                .toggleClass('mgc_check_circle_line text-success', verified)
+                .toggleClass('mgc_information_line text-gray-400', !verified);
+
+            $('#verify-title').text(verified ? 'Verified' : 'Not Verified');
+
+            $('#verify-hint').text(
+                verified
+                    ? (VERIFIED_ON ? 'Verified on ' + VERIFIED_ON : 'Will be marked verified when you save.')
+                    : 'A citizen is verified once they are a registered voter with a precinct number.'
+            );
+        }
+
         $('#voters-select').on('change', function () {
             $('#field-precinct').toggleClass('hidden', !$(this).is(':checked'));
+            refreshVerifyStatus();
         });
+
+        $('#precinct-input').on('input', refreshVerifyStatus);
 
         // Profile photo preview
         $('#profile-input').on('change', function () {

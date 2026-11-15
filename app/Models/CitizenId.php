@@ -62,7 +62,7 @@ class CitizenId extends Model
             'qrcode_value'    => $qrValue,
             'bday'            => $c->bday?->format('M d, Y') ?? '—',
             'gender'          => match ((int) ($c->gender ?? 0)) { 1 => 'Male', 2 => 'Female', default => '—' },
-            'address'         => $c->complete_address ?? ($c->addressZone?->description ?? '—'),
+            'address'         => $c->full_address ?: '—',
             'contact'         => $c->contact ?? '—',
             'since'           => $c->year_stay?->format('Y') ?? '—',
             'valid_until'     => ($validUntil ?? now()->addYears(2))->format('M d, Y'),

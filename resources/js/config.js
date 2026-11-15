@@ -6,8 +6,10 @@
 
 (function () {
 
-    var savedConfig = sessionStorage.getItem("__CONFIG__");
-    // var savedConfig = localStorage.getItem("__CONFIG__");
+    // localStorage, not sessionStorage: the theme choice should survive closing
+    // the tab and restarting the browser. Kept in sync with the pre-paint script
+    // in layouts/vertical.blade.php and the writer in app.js.
+    var savedConfig = localStorage.getItem("__CONFIG__");
 
     var defaultConfig = {
         direction: "ltr",

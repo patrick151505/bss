@@ -1,9 +1,21 @@
 @php
-    $totalPages = ceil($total / $limit);
+    $totalPages = (int) ceil($total / $limit);
     $from       = ($page - 1) * $limit + 1;
     $to         = min($page * $limit, $total);
     $selectFn   = $callback ?? 'selectCitizen';
     $isWizard   = ($selectFn === 'selectCitizenForWizard');
+
+    // Show a WINDOW of pages around the current one. Looping over every page
+    // rendered ~2,500 buttons for the full citizen list, which overflowed the
+    // modal and bloated every response.
+    $window = 2;                                   // pages either side of current
+    $start  = max(1, $page - $window);
+    $end    = min($totalPages, $page + $window);
+    // Keep the strip a stable width when near either end.
+    if ($end - $start < $window * 2) {
+        $start = max(1, min($start, $end - $window * 2));
+        $end   = min($totalPages, max($end, $start + $window * 2));
+    }
 @endphp
 
 @if($citizens->isEmpty())
@@ -54,20 +66,48 @@
 
     {{-- Pagination --}}
     @if($totalPages > 1)
-    <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <p class="text-xs text-gray-400">{{ $from }}–{{ $to }} of {{ $total }}</p>
-        <div class="flex gap-1">
-            @for($i = 1; $i <= $totalPages; $i++)
-            <button
-                @if($isWizard)
-                    onclick="loadStep1Citizens(document.getElementById('step1-search').value, {{ $i }})"
-                @else
-                    onclick="loadCitizenPicker({{ $i }})"
-                @endif
-                class="w-7 h-7 rounded text-xs font-medium {{ $i === $page ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200' }}">
-                {{ $i }}
+    @php
+        // One place to build the click handler, so the wizard and the picker
+        // stay in step instead of repeating the @if on every button.
+        $go = fn ($p) => $isWizard
+            ? "loadStep1Citizens(document.getElementById('step1-search').value, {$p})"
+            : "loadCitizenPicker({$p})";
+        $btn     = 'min-w-[28px] h-7 px-1.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:pointer-events-none';
+        $btnOn   = 'min-w-[28px] h-7 px-1.5 rounded text-xs font-medium bg-primary text-white';
+    @endphp
+    <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3 flex-wrap">
+        <p class="text-xs text-gray-400 whitespace-nowrap">
+            {{ number_format($from) }}–{{ number_format($to) }} of {{ number_format($total) }}
+        </p>
+        <div class="flex items-center gap-1">
+            {{-- Prev --}}
+            <button type="button" class="{{ $btn }}" {{ $page <= 1 ? 'disabled' : '' }}
+                    onclick="{{ $go($page - 1) }}" title="Previous">
+                <i class="mgc_left_line"></i>
             </button>
+
+            {{-- Jump to first when it is outside the window --}}
+            @if($start > 1)
+            <button type="button" class="{{ $btn }}" onclick="{{ $go(1) }}">1</button>
+            @if($start > 2)<span class="text-xs text-gray-400 px-0.5">…</span>@endif
+            @endif
+
+            @for($i = $start; $i <= $end; $i++)
+            <button type="button" onclick="{{ $go($i) }}"
+                    class="{{ $i === $page ? $btnOn : $btn }}">{{ $i }}</button>
             @endfor
+
+            {{-- Jump to last when it is outside the window --}}
+            @if($end < $totalPages)
+            @if($end < $totalPages - 1)<span class="text-xs text-gray-400 px-0.5">…</span>@endif
+            <button type="button" class="{{ $btn }}" onclick="{{ $go($totalPages) }}">{{ number_format($totalPages) }}</button>
+            @endif
+
+            {{-- Next --}}
+            <button type="button" class="{{ $btn }}" {{ $page >= $totalPages ? 'disabled' : '' }}
+                    onclick="{{ $go($page + 1) }}" title="Next">
+                <i class="mgc_right_line"></i>
+            </button>
         </div>
     </div>
     @endif

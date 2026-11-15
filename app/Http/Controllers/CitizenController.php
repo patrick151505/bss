@@ -11,6 +11,7 @@ use App\Models\Family;
 use App\Models\Household;
 use App\Models\Relation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CitizenController extends Controller
 {
@@ -19,28 +20,31 @@ class CitizenController extends Controller
         $filters = $request->only([
             'search', 'gender', 'civil_status', 'address',
             'approval_status', 'age_min', 'age_max',
-            'is_active', 'voters', 'is_pwd', 'is_soloparents', 'senior',
-            'household_search', 'hh_role', 'hh_assigned', 'tags',
+            'voters', 'is_pwd', 'is_soloparents', 'senior',
+            'household_search', 'hh_role', 'hh_assigned', 'tags', 'income_class',
         ]);
 
-        $query = Citizen::with(['civilStatus', 'addressZone', 'approvalStatus', 'family.household', 'tags'])
-            ->when($filters['search'] ?? null, function ($q, $search) {
-                $q->where(function ($q) use ($search) {
-                    $q->where('fname', 'like', "%{$search}%")
-                      ->orWhere('lname', 'like', "%{$search}%")
-                      ->orWhere('mname', 'like', "%{$search}%")
-                      ->orWhere('contact', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%");
-                });
-            })
+        // The list defaults to voters only. A request that has been through
+        // the filter form always carries `voters` (even as an empty string
+        // for "All"), so only a first, unfiltered visit gets the default.
+        if (! $request->has('voters')) {
+            $filters['voters'] = '1';
+        }
+
+        $query = Citizen::with(['civilStatus', 'addressZone', 'approvalStatus', 'family.household', 'tags', 'activeHold'])
+            // The list only ever shows active citizens; there is no filter for
+            // this, so archived records never surface here.
+            ->where('is_active', 1)
+            ->when($filters['search'] ?? null, fn($q, $search) => $q->searchName($search))
             ->when($filters['gender'] ?? null, fn($q, $v) => $q->where('gender', $v))
             ->when($filters['civil_status'] ?? null, fn($q, $v) => $q->where('civil_status', $v))
             ->when($filters['address'] ?? null, fn($q, $v) => $q->where('address', $v))
             ->when($filters['approval_status'] ?? null, fn($q, $v) => $q->where('approval_status', $v))
-            ->when($filters['voters'] ?? null, fn($q, $v) => $q->where('voters', $v))
+            // "Non-Voter" is the value 0, which a truthy check would drop,
+            // so test for presence instead.
+            ->when(($filters['voters'] ?? '') !== '', fn($q) => $q->where('voters', $filters['voters']))
             ->when($filters['is_pwd'] ?? null, fn($q, $v) => $q->where('is_pwd', $v))
             ->when($filters['is_soloparents'] ?? null, fn($q, $v) => $q->where('is_soloparents', $v))
-            ->when(isset($filters['is_active']) && $filters['is_active'] !== '', fn($q) => $q->where('is_active', $filters['is_active']))
             ->when($filters['age_min'] ?? null, function ($q, $v) {
                 $q->whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) >= ?', [$v]);
             })
@@ -62,6 +66,9 @@ class CitizenController extends Controller
                 }
             })
             ->when(($filters['hh_role'] ?? '') !== '', fn($q) => $q->where('isHead', $filters['hh_role']))
+            // Optional income classification (only when switched on and allowed)
+            ->when(($filters['income_class'] ?? '') !== '' && \App\Support\IncomeClass::visibleTo(auth()->user()),
+                fn($q) => \App\Support\IncomeClass::applyCitizenFilter($q, $filters['income_class']))
             ->when(!empty($filters['tags']), function ($q) use ($filters) {
                 $tagIds = array_filter((array) $filters['tags']);
                 if ($tagIds) {
@@ -76,33 +83,48 @@ class CitizenController extends Controller
                       ->orWhere('completeAdress', 'like', "%$term%");
                 });
             })
-            ->orderBy('lname')
-            ->orderBy('fname');
+            ->when(true, function ($q) use ($request) {
+                // Only whitelisted columns are sortable, so the value can go
+                // straight into orderBy without risking injection.
+                $sortable = ['name', 'date_created', 'date_last_updated'];
+                $sort     = $request->get('sort');
+                $dir      = strtolower($request->get('dir')) === 'asc' ? 'asc' : 'desc';
+
+                // "name" is a virtual column: surname, then first name.
+                if ($sort === 'name') {
+                    $q->orderBy('lname', $dir)->orderBy('fname', $dir);
+                    return;
+                }
+
+                if (in_array($sort, $sortable, true)) {
+                    $q->orderBy($sort, $dir);
+                    return;
+                }
+
+                $q->orderBy('lname')->orderBy('fname');
+            });
 
         $perPage = (int) $request->get('per_page', 15);
         $citizens = $query->paginate(in_array($perPage, [15, 25, 50, 100]) ? $perPage : 15)
             ->withQueryString();
 
+        $sort = in_array($request->get('sort'), ['name', 'date_created', 'date_last_updated'], true)
+            ? $request->get('sort')
+            : null;
+        $dir  = strtolower($request->get('dir')) === 'asc' ? 'asc' : 'desc';
+
         if ($request->ajax()) {
             return response()->json([
-                'html'  => view('citizens._table', compact('citizens'))->render(),
+                'html'  => view('citizens._table', compact('citizens', 'sort', 'dir'))->render(),
                 'total' => $citizens->total(),
             ]);
         }
 
-        $stats = [
-            'total'  => Citizen::count(),
-            'male'   => Citizen::where('gender', 1)->count(),
-            'female' => Citizen::where('gender', 0)->count(),
-            'voters' => Citizen::where('voters', 1)->count(),
-            'pwd'    => Citizen::where('is_pwd', 1)->count(),
-            'senior' => Citizen::whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) >= 60')->count(),
-        ];
-
         return view('citizens.index', [
             'citizens'        => $citizens,
             'filters'         => $filters,
-            'stats'           => $stats,
+            'sort'            => $sort,
+            'dir'             => $dir,
             'civilStatuses'   => CivilStatus::orderBy('description')->get(),
             'addresses'       => Address::where('is_active', true)->orderBy('description')->get(),
             'approvalStatuses'=> ApprovalStatus::orderBy('id')->get(),
@@ -115,19 +137,13 @@ class CitizenController extends Controller
         $filters = $request->only([
             'search', 'gender', 'civil_status', 'address',
             'approval_status', 'age_min', 'age_max',
-            'is_active', 'voters', 'is_pwd', 'is_soloparents', 'senior',
+            'voters', 'is_pwd', 'is_soloparents', 'senior', 'income_class',
         ]);
 
         $query = Citizen::with(['civilStatus', 'addressZone', 'approvalStatus'])
-            ->when($filters['search'] ?? null, function ($q, $search) {
-                $q->where(function ($q) use ($search) {
-                    $q->where('fname', 'like', "%{$search}%")
-                      ->orWhere('lname', 'like', "%{$search}%")
-                      ->orWhere('mname', 'like', "%{$search}%")
-                      ->orWhere('contact', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%");
-                });
-            })
+            // Mirrors the list: exports cover active citizens only.
+            ->where('is_active', 1)
+            ->when($filters['search'] ?? null, fn($q, $search) => $q->searchName($search))
             ->when($filters['gender'] ?? null, fn($q, $v) => $q->where('gender', $v))
             ->when($filters['civil_status'] ?? null, fn($q, $v) => $q->where('civil_status', $v))
             ->when($filters['address'] ?? null, fn($q, $v) => $q->where('address', $v))
@@ -135,7 +151,6 @@ class CitizenController extends Controller
             ->when($filters['voters'] ?? null, fn($q, $v) => $q->where('voters', $v))
             ->when($filters['is_pwd'] ?? null, fn($q, $v) => $q->where('is_pwd', $v))
             ->when($filters['is_soloparents'] ?? null, fn($q, $v) => $q->where('is_soloparents', $v))
-            ->when(isset($filters['is_active']) && $filters['is_active'] !== '', fn($q) => $q->where('is_active', $filters['is_active']))
             ->when($filters['age_min'] ?? null, function ($q, $v) {
                 $q->whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) >= ?', [$v]);
             })
@@ -149,6 +164,8 @@ class CitizenController extends Controller
                     $q->whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) < 60');
                 }
             })
+            ->when(($filters['income_class'] ?? '') !== '' && \App\Support\IncomeClass::visibleTo(auth()->user()),
+                fn($q) => \App\Support\IncomeClass::applyCitizenFilter($q, $filters['income_class']))
             ->orderBy('lname')
             ->orderBy('fname');
 
@@ -257,24 +274,7 @@ class CitizenController extends Controller
 
     private function buildFullAddress(Citizen $c): string
     {
-        $parts = [];
-
-        if ($c->addressZone) {
-            if ($c->addressZone->is_subd == 1) {
-                if ($c->blk)    $parts[] = 'Blk ' . $c->blk;
-                if ($c->lot)    $parts[] = 'Lot ' . $c->lot;
-                if ($c->phase)  $parts[] = 'Ph '  . $c->phase;
-                if ($c->street) $parts[] = $c->street;
-            } elseif ($c->addressZone->is_subd == 2) {
-                if ($c->complete_address) $parts[] = $c->complete_address;
-            } else {
-                if ($c->no)     $parts[] = $c->no;
-                if ($c->street) $parts[] = $c->street;
-            }
-            $parts[] = $c->addressZone->description;
-        }
-
-        return implode(', ', array_filter($parts));
+        return $c->full_address;
     }
 
     public function create()
@@ -305,12 +305,12 @@ class CitizenController extends Controller
             'year_stay'       => 'required|date',
             'owner_status'    => 'required|in:0,1',
             'email'           => 'nullable|email|max:250',
-            'approval_status' => 'required|exists:eb_approval_status,id',
+            'approval_status' => (auth()->user()->can('citizens.approve') ? 'required' : 'nullable') . '|exists:eb_approval_status,id',
             'is_active'       => 'required|in:0,1',
             'is_pwd'          => 'required|in:0,1',
             'is_soloparents'  => 'required|in:0,1',
             'voters'          => 'required|in:0,1',
-            'is_verify'       => 'required|in:0,1',
+            'is_verify'       => 'nullable|in:0,1',
             'ic_fullname'     => 'nullable|max:250',
             'ic_relationship' => 'nullable|max:250',
             'ic_address'      => 'nullable|max:500',
@@ -410,7 +410,7 @@ class CitizenController extends Controller
             'owner_status'      => $request->owner_status,
             'contact'           => $request->contact,
             'email'             => $request->email,
-            'approval_status'   => $request->approval_status,
+            'approval_status'   => $this->approvalFor($request),
             'is_active'         => $request->is_active,
             'is_pwd'            => $request->is_pwd,
             'is_soloparents'    => $request->is_soloparents,
@@ -494,7 +494,8 @@ class CitizenController extends Controller
 
     public function show(Citizen $citizen)
     {
-        $citizen->load(['civilStatus', 'addressZone', 'approvalStatus', 'approvedBy', 'relation', 'tags']);
+        $citizen->load(['civilStatus', 'addressZone', 'approvalStatus', 'approvedBy', 'relation', 'tags',
+            'activeHold.placedBy', 'holds.placedBy', 'holds.liftedBy']);
 
         $encrypted = [
             'mname', 'bplace', 'contact', 'email', 'complete_address',
@@ -579,12 +580,12 @@ class CitizenController extends Controller
             'year_stay'       => 'required|date',
             'owner_status'    => 'required|in:0,1',
             'email'           => 'nullable|email|max:250',
-            'approval_status' => 'required|exists:eb_approval_status,id',
+            'approval_status' => (auth()->user()->can('citizens.approve') ? 'required' : 'nullable') . '|exists:eb_approval_status,id',
             'is_active'       => 'required|in:0,1',
             'is_pwd'          => 'required|in:0,1',
             'is_soloparents'  => 'required|in:0,1',
             'voters'          => 'required|in:0,1',
-            'is_verify'       => 'required|in:0,1',
+            'is_verify'       => 'nullable|in:0,1',
             'ic_fullname'     => 'nullable|max:250',
             'ic_relationship' => 'nullable|max:250',
             'ic_address'      => 'nullable|max:500',
@@ -693,7 +694,7 @@ class CitizenController extends Controller
             'owner_status'    => $request->owner_status,
             'contact'         => $request->contact,
             'email'           => $request->email,
-            'approval_status' => $request->approval_status,
+            'approval_status' => $this->approvalFor($request, $citizen),
             'is_active'       => $request->is_active,
             'is_pwd'          => $request->is_pwd,
             'is_soloparents'  => $request->is_soloparents,
@@ -820,9 +821,85 @@ class CitizenController extends Controller
             ->with('success', 'Citizen record updated successfully.');
     }
 
-    public function destroy(Citizen $citizen)
+    /**
+     * Archive rather than delete. Barangay records are referenced by blotter
+     * entries, document requests, households and IDs, so the row is kept and
+     * only hidden from the active list.
+     */
+    public function destroy(Request $request, Citizen $citizen)
     {
-        // TODO: implement destroy
+        $data = $request->validate(
+            ['reason' => 'required|string|min:5|max:500'],
+            [
+                'reason.required' => 'A reason is required before archiving a citizen.',
+                'reason.min'      => 'Please give a slightly fuller reason (at least 5 characters).',
+            ]
+        );
+
+        $citizen->update([
+            'is_active'         => 0,
+            'archive_reason'    => $data['reason'],
+            'archived_at'       => now(),
+            'archived_by'       => auth()->id(),
+            'date_last_updated' => now(),
+        ]);
+
+        ActivityLog::record(
+            'archived', 'citizen', $citizen->id,
+            "{$citizen->lname}, {$citizen->fname} was archived",
+            ['reason' => $data['reason']]
+        );
+
+        return redirect()
+            ->route('citizens.index')
+            ->with('success', "\"{$citizen->full_name}\" moved to the Archive.");
+    }
+
+    /** Citizens that have been archived. */
+    public function inactive(Request $request)
+    {
+        $search = $request->get('search');
+
+        $citizens = Citizen::onlyInactive()
+            ->with(['civilStatus', 'addressZone', 'approvalStatus', 'archivedBy'])
+            ->when($search, fn($q) => $q->searchName($search))
+            ->orderByDesc('date_last_updated')
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('citizens.inactive', compact('citizens', 'search'));
+    }
+
+
+    /**
+     * Return an archived citizen to the active list.
+     *
+     * Resolved by id rather than route-model binding: the global "active"
+     * scope hides archived citizens, so binding would 404.
+     */
+    public function restore(int $citizenId)
+    {
+        $citizen = Citizen::withInactive()->findOrFail($citizenId);
+
+        if ($citizen->is_active) {
+            return back()->with('error', 'That citizen is already active.');
+        }
+
+        $citizen->update([
+            'is_active'         => 1,
+            // These describe the archived state only.
+            'archive_reason'    => null,
+            'archived_at'       => null,
+            'archived_by'       => null,
+            'date_last_updated' => now(),
+        ]);
+
+        ActivityLog::record(
+            'restored', 'citizen', $citizen->id,
+            "{$citizen->lname}, {$citizen->fname} was restored to active"
+        );
+
+        return back()->with('success', "\"{$citizen->full_name}\" restored to active.");
     }
 
     public function detail(Citizen $citizen)
@@ -839,19 +916,195 @@ class CitizenController extends Controller
             'bday'           => $citizen->bday?->format('M d, Y'),
             'gender'         => match((int)$citizen->gender) { 1 => 'Male', 2 => 'Female', default => '—' },
             'contact'        => $citizen->contact,
-            'address'        => $citizen->complete_address ?? $citizen->addressZone?->description,
+            'address'        => $citizen->full_address,
             'year_stay'      => $citizen->year_stay?->format('Y'),
             'civil_status'   => $citizen->civilStatus?->description,
             'ic_fullname'    => $citizen->ic_fullname,
             'ic_contact'     => $citizen->ic_contact,
             'ic_relationship'=> $citizen->ic_relationship,
             'ic_address'     => $citizen->ic_address,
-            'profile'        => $citizen->profile ? asset(str_replace('public/', 'storage/', $citizen->profile)) : null,
+            'profile'        => $citizen->profile_url,
         ]);
     }
 
-    public function quickHistory(Citizen $citizen)
+    // Everything a citizen has been involved in, newest first — used by the pop-up
+    // that opens when an ID is scanned on the Citizens page. Look up by ?code=
+    // (the QR on their ID) or ?id=. Each section is only included when the user
+    // may view that module.
+    public function activity(Request $request)
     {
+        $user  = auth()->user();
+        $query = Citizen::with(['addressZone', 'activeHold', 'family.household', 'tags']);
+        $citizen = $request->filled('code')
+            ? $query->where('qrcode', trim((string) $request->input('code')))->first()
+            : $query->find((int) $request->input('id'));
+
+        if (!$citizen) {
+            return response()->json(['found' => false, 'message' => 'No citizen found for this code.'], 404);
+        }
+
+        $items  = collect();
+        $counts = [];
+        // tone: success | warning | danger | info | gray (rendered as the project's dot-pill badges)
+        $add = function (string $cat, string $icon, string $title, ?string $sub, ?string $label, string $tone, $when, ?string $url = null) use (&$items) {
+            $at = $when ? \Carbon\Carbon::parse($when) : null;
+            $items->push([
+                'cat' => $cat, 'icon' => $icon, 'title' => $title, 'sub' => $sub,
+                'label' => $label, 'tone' => $tone, 'url' => $url,
+                'date' => $at?->format('M d, Y g:i A'), 'sort' => $at?->timestamp ?? 0,
+            ]);
+        };
+        $docTone = ['pending' => 'warning', 'approved' => 'info', 'ready_for_release' => 'info', 'released' => 'success', 'rejected' => 'danger', 'voided' => 'danger'];
+        $nice    = fn(?string $v) => $v ? ucfirst(str_replace('_', ' ', $v)) : null;   // ready_for_release → Ready for release
+
+        if ($user->can('documents.view')) {
+            $q = $citizen->documentRequests()->with('documentType');
+            $counts['documents'] = (clone $q)->count();
+            foreach ($q->orderByDesc('created_at')->limit(50)->get() as $r) {
+                $add('documents', 'mgc_file_line', $r->documentType?->name ?? 'Document',
+                    trim(($r->doc_number ? "#{$r->doc_number}" : '') . ($r->purpose ? " · {$r->purpose}" : ''), ' ·'),
+                    $nice($r->status), $docTone[$r->status] ?? 'gray', $r->created_at, route('documents.requests.show', $r));
+            }
+        }
+
+        if ($user->can('blotter.view')) {
+            $parties = \App\Models\BlotterParty::with('blotter')->where('citizen_id', $citizen->id)->get()->filter(fn($p) => $p->blotter);
+            $counts['blotter'] = $parties->unique('blotter_id')->count();
+            $blotterTone = ['filed' => 'info', 'pending' => 'warning', 'ongoing' => 'warning', 'scheduled' => 'warning',
+                            'settled' => 'success', 'referred' => 'gray', 'dismissed' => 'danger', 'closed' => 'gray'];
+            foreach ($parties->unique('blotter_id')->take(50) as $p) {
+                $b = $p->blotter;
+                $add('blotter', 'mgc_alert_line', "Blotter {$b->blotter_no}", ucfirst($p->role) . ' · ' . $b->typeLabel(),
+                    $b->statusLabel(), $blotterTone[$b->status] ?? 'gray', $b->filed_date ?? $b->created_at, route('blotters.show', $b));
+            }
+        }
+
+        if ($user->can('events.view')) {
+            $att  = $citizen->eventAttendances()->with('event')->orderByDesc('time_in')->limit(50)->get();
+            $wins = $citizen->eventWins()->with('event')->orderByDesc('drawn_at')->limit(50)->get();
+            $counts['events'] = $citizen->eventAttendances()->count() + $citizen->eventWins()->count();
+            foreach ($att as $a) {
+                $add('events', 'mgc_calendar_line', 'Attended ' . ($a->event?->title ?? 'an event'),
+                    ['qr' => 'Checked in by QR scan', 'manual' => 'Checked in manually', 'bulk' => 'Added in bulk'][$a->method] ?? null,
+                    null, 'info', $a->time_in, $a->event ? route('events.show', $a->event) : null);
+            }
+            foreach ($wins as $w) {
+                $add('events', 'mgc_trophy_line', 'Raffle winner · ' . ($w->event?->title ?? 'event'),
+                    trim("Round #{$w->round}" . ($w->prize_label ? " · {$w->prize_label}" : '')),
+                    $w->claimed_at ? 'Claimed' : 'Not claimed', $w->claimed_at ? 'success' : 'warning',
+                    $w->drawn_at, $w->event ? route('events.winners.index', $w->event) : null);
+            }
+        }
+
+        if ($user->can('health.view')) {
+            $hq = \App\Models\HealthCheckup::with('medicines')->where('citizen_id', $citizen->id);
+            $counts['health'] = (clone $hq)->count();
+            foreach ($hq->orderByDesc('checked_at')->limit(50)->get() as $h) {
+                $alerts = $h->alerts();
+                $sub = collect([
+                    $h->bloodPressure() ? 'BP ' . $h->bloodPressure() : null,
+                    $h->weight_kg ? rtrim(rtrim(number_format($h->weight_kg, 1), '0'), '.') . ' kg' : null,
+                    $h->complaint ? \Illuminate\Support\Str::limit($h->complaint, 60) : null,
+                    $h->medicines->isNotEmpty() ? $h->medicines->count() . ' medicine' . ($h->medicines->count() > 1 ? 's' : '') . ' given' : null,
+                ])->filter()->implode(' · ');
+                $add('health', 'mgc_heartbeat_line', 'Health check-up', $sub ?: null,
+                    $alerts ? $alerts[0][0] : 'Normal', $alerts ? $alerts[0][1] : 'success', $h->checked_at, route('health.show', $h));
+            }
+        }
+
+        $canRel   = $user->can('inventory_releases.view');
+        $canRent  = $user->can('inventory_rentals.view');
+        $canSched = $user->can('inventory_schedule.view');
+        if ($canRel || $canRent || $canSched) {
+            $releases = $canRel  ? $citizen->inventoryReleases()->with('items.item')->orderByDesc('created_at')->limit(50)->get() : collect();
+            $rentals  = $canRent ? \App\Models\InventoryRental::with('items.item')->where('citizen_id', $citizen->id)->orderByDesc('created_at')->limit(50)->get() : collect();
+            $counts['inventory'] = ($canRel ? $citizen->inventoryReleases()->count() : 0)
+                + ($canRent ? \App\Models\InventoryRental::where('citizen_id', $citizen->id)->count() : 0);
+            $itemList = fn($rows) => $rows->map(fn($i) => ($i->quantity ?? 1) . '× ' . ($i->item?->name ?? 'item'))->implode(', ');
+            $relTone  = ['pending' => 'warning', 'approved' => 'info', 'released' => 'success', 'rejected' => 'danger'];
+            foreach ($releases as $r) {
+                $add('inventory', 'mgc_box_3_line', 'Received items', $itemList($r->items) ?: $r->purpose,
+                    ucfirst($r->status), $relTone[$r->status] ?? 'gray', $r->released_at ?? $r->created_at, route('inventory.releases.show', $r));
+            }
+            $rentTone = ['scheduled' => 'info', 'out' => 'warning', 'returned' => 'success', 'cancelled' => 'gray'];
+            foreach ($rentals as $r) {
+                $overdue = $r->status === 'out' && $r->due_on && now()->gt($r->due_on);
+                $add('inventory', 'mgc_box_3_line', 'Borrowed items', $itemList($r->items) . ($r->due_on ? ' · due ' . \Carbon\Carbon::parse($r->due_on)->format('M d, Y') : ''),
+                    $overdue ? 'Overdue' : (\App\Models\InventoryRental::STATUSES[$r->status] ?? ucfirst($r->status)),
+                    $overdue ? 'danger' : ($rentTone[$r->status] ?? 'gray'), $r->borrowed_on ?? $r->created_at, route('inventory.rentals.show', $r));
+            }
+            // Reservations on the Inventory → Schedule calendar (ambulance, hall…)
+            $bookings = $canSched ? \App\Models\InventorySchedule::with('item:id,name')->where('citizen_id', $citizen->id)->orderByDesc('start_at')->limit(50)->get() : collect();
+            $counts['inventory'] += $canSched ? \App\Models\InventorySchedule::where('citizen_id', $citizen->id)->count() : 0;
+            $bookTone = ['reserved' => 'info', 'completed' => 'success', 'cancelled' => 'gray'];
+            foreach ($bookings as $b) {
+                $add('inventory', 'mgc_calendar_line', 'Reserved ' . ($b->quantity > 1 ? "{$b->quantity}× " : '') . ($b->item?->name ?? 'item'),
+                    $b->start_at->format('M d, Y g:i A') . ' – ' . $b->end_at->format($b->start_at->isSameDay($b->end_at) ? 'g:i A' : 'M d, Y g:i A') . ($b->purpose ? " · {$b->purpose}" : ''),
+                    \App\Models\InventorySchedule::STATUSES[$b->status] ?? ucfirst($b->status), $bookTone[$b->status] ?? 'gray', $b->created_at, route('inventory.schedule.index'));
+            }
+        }
+
+        // The citizen record itself: ID cards, holds, and changes to the record.
+        $ids   = $citizen->citizenIds()->orderByDesc('created_at')->get();
+        $holds = $citizen->holds()->orderByDesc('placed_at')->get();
+        $logs  = $user->can('activity_logs.view')
+            ? \App\Models\ActivityLog::with('user')->where('subject_type', 'citizen')->where('subject_id', $citizen->id)
+                ->whereNotIn('action', ['hold_placed', 'hold_lifted'])->orderByDesc('created_at')->limit(30)->get()
+            : collect();
+        $counts['records'] = $ids->count() + $holds->count() + $logs->count();
+        foreach ($ids as $i) {
+            $add('records', 'mgc_IDcard_line', 'Barangay ID issued', $i->valid_until ? 'Valid until ' . $i->valid_until->format('M d, Y') : null,
+                $i->valid_until && $i->valid_until->isPast() ? 'Expired' : 'Valid', $i->valid_until && $i->valid_until->isPast() ? 'gray' : 'success', $i->created_at);
+        }
+        foreach ($holds as $h) {
+            $add('records', 'mgc_lock_line', 'Placed on hold', $h->reason, $h->lifted_at ? 'Lifted' : 'Active', $h->lifted_at ? 'gray' : 'danger', $h->placed_at);
+        }
+        foreach ($logs as $l) {
+            $add('records', 'mgc_history_line', $l->description ?: ucfirst(str_replace('_', ' ', $l->action)),
+                $l->user ? 'by ' . $l->user->name : null, null, 'gray', $l->created_at);
+        }
+
+        $household = $citizen->family?->household;
+        $latestId  = $ids->first();
+
+        return response()->json([
+            'found'   => true,
+            'citizen' => [
+                'id'         => $citizen->id,
+                'name'       => $citizen->full_name,
+                'code'       => \App\Models\Setting::instance()->formatCitizenId($citizen->id),
+                'photo'      => $citizen->profile_url,
+                'age'        => $citizen->age,
+                'gender'     => match ((int) $citizen->gender) { 1 => 'Male', 2 => 'Female', default => null },
+                'address'    => $citizen->full_address,
+                'contact'    => $citizen->contact,
+                'voter'      => (bool) $citizen->voters,
+                'pwd'        => (bool) $citizen->is_pwd,
+                'senior'     => ($citizen->age ?? 0) >= 60,
+                'solo'       => (bool) $citizen->is_soloparents,
+                'archived'   => !$citizen->is_active,
+                'hold'       => $citizen->activeHold?->reason,
+                'household'  => $household ? ($household->formatted_id ?? ('#' . $household->id)) . ($citizen->is_household_head ? ' · Head' : '') : null,
+                'id_valid'   => $latestId?->valid_until?->format('M d, Y'),
+                // Optional income classification of the citizen's family
+                'income'     => \App\Support\IncomeClass::visibleTo($user) && $citizen->family
+                    ? \App\Support\IncomeClass::describe($citizen->family) : null,
+                'tags'       => $citizen->tags->map(fn($t) => ['name' => $t->name, 'color' => $t->color])->values(),
+            ],
+            'counts'  => $counts,
+            'items'   => $items->sortByDesc('sort')->values(),
+            'links'   => [
+                'profile' => route('citizens.show', $citizen),
+                'request' => $user->can('documents.create') ? route('documents.requests.create', ['citizen' => $citizen->id]) : null,
+            ],
+        ]);
+    }
+
+    // Also used for walk-ins on the document request page, so they're looked up
+    // explicitly (route-model binding would hide them).
+    public function quickHistory($citizen)
+    {
+        $citizen = Citizen::withWalkins()->findOrFail((int) $citizen);
         $requests = $citizen->documentRequests()
             ->with('documentType')
             ->orderByDesc('created_at')
@@ -987,7 +1240,48 @@ class CitizenController extends Controller
             ],
         ];
 
-        return view('citizens.demographics', compact('stats', 'hh', 'sectors', 'charts'));
+        // Optional income classification: families in active households, grouped by class.
+        $income = null;
+        if (\App\Support\IncomeClass::visibleTo(auth()->user())) {
+            $bands   = \App\Support\IncomeClass::BANDS;
+            $fam     = array_fill_keys(array_keys($bands), 0);
+            $people  = array_fill_keys(array_keys($bands), 0);
+            $byZone  = [];
+            $unassessed = 0;
+            $waitingThreshold = 0;
+            $rows = Family::with('household.address')->withCount('allMembers')
+                ->whereHas('household', fn($q) => $q->where('is_active', 1))
+                ->get(['id', 'householdId', 'citizenId', 'monthly_income', 'income_class']);
+            foreach ($rows as $f) {
+                $key = \App\Support\IncomeClass::keyFor($f->monthly_income, $f->income_class, (int) $f->all_members_count);
+                if (!$key) {
+                    $f->monthly_income !== null ? $waitingThreshold++ : $unassessed++;
+                    continue;
+                }
+                $fam[$key]++;
+                $people[$key] += (int) $f->all_members_count;
+                $zone = $f->household?->address?->description ?? 'No zone';
+                $byZone[$zone] = ($byZone[$zone] ?? array_fill_keys(array_keys($bands), 0));
+                $byZone[$zone][$key]++;
+            }
+            ksort($byZone);
+            $assessed = array_sum($fam);
+            $income = [
+                'labels'     => array_column($bands, 'label'),
+                'keys'       => array_keys($bands),
+                'families'   => array_values($fam),
+                'people'     => array_values($people),
+                'by_zone'    => $byZone,
+                'total'      => $rows->count(),
+                'assessed'   => $assessed,
+                'unassessed' => $unassessed,
+                'waiting'    => $waitingThreshold,      // amounts entered but no threshold set yet
+                'poor_pct'   => $assessed ? round($fam['poor'] / $assessed * 100, 1) : null,
+                'threshold'  => \App\Support\IncomeClass::threshold(),
+            ];
+        }
+
+        return view('citizens.demographics', compact('stats', 'hh', 'sectors', 'charts', 'income'));
     }
 
     public function createMinor()
@@ -1013,7 +1307,7 @@ class CitizenController extends Controller
             'citizenship'     => 'required|max:250',
             'address'         => 'required|exists:eb_address,id',
             'relation_id'     => 'required|exists:eb_relation,id',
-            'approval_status' => 'required|exists:eb_approval_status,id',
+            'approval_status' => (auth()->user()->can('citizens.approve') ? 'required' : 'nullable') . '|exists:eb_approval_status,id',
             'is_pwd'          => 'required|in:0,1',
             'note'            => 'nullable|max:1000',
             'profile'         => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
@@ -1100,7 +1394,7 @@ class CitizenController extends Controller
             'is_pwd'            => $request->is_pwd,
             'is_id_release'     => 0,
             'is_verify'         => 0,
-            'approval_status'   => $request->approval_status,
+            'approval_status'   => $this->approvalFor($request),
             'is_active'         => 1,
             'ic_fullname'       => $parent->fname . ' ' . $parent->lname,
             'ic_relationship'   => 'Parent',
@@ -1143,11 +1437,7 @@ class CitizenController extends Controller
         return response()->json(
             Citizen::with(['family.household.address', 'addressZone'])
                 ->where('is_active', 1)
-                ->where(function ($query) use ($q) {
-                    $query->where('fname', 'like', "%{$q}%")
-                          ->orWhere('lname', 'like', "%{$q}%")
-                          ->orWhere('mname', 'like', "%{$q}%");
-                })
+                ->searchName($q)
                 ->orderBy('lname')->orderBy('fname')
                 ->limit(12)
                 ->get()
@@ -1171,7 +1461,7 @@ class CitizenController extends Controller
                         'id'         => $c->id,
                         'name'       => trim("{$c->lname}, {$c->fname}" . ($c->mname ? " {$c->mname}" : '')),
                         'age'        => $c->age,
-                        'profile'    => $c->profile ? asset(str_replace('public/', 'storage/', $c->profile)) : null,
+                        'profile'    => $c->profile_url,
                         'zone'       => $c->addressZone?->description ?? '',
                         'has_family' => $hasFamily,
                         'family_id'  => $family?->id,
@@ -1189,6 +1479,19 @@ class CitizenController extends Controller
         );
     }
 
+    /**
+     * Approval status to save. Only staff with citizens.approve choose it; for
+     * everyone else a new record starts as Pending (1) and an edit keeps the
+     * current status.
+     */
+    private function approvalFor(Request $request, ?Citizen $existing = null): int
+    {
+        if ($request->user()->can('citizens.approve')) {
+            return (int) $request->approval_status;
+        }
+        return (int) ($existing?->approval_status ?? 1);
+    }
+
     public function search(Request $request)
     {
         $q = trim($request->get('q', ''));
@@ -1199,13 +1502,9 @@ class CitizenController extends Controller
 
         return response()->json(
             $this->mapCitizens(
-                Citizen::where('is_active', 1)
-                    ->where(function ($query) use ($q) {
-                        $query->where('fname', 'like', "%{$q}%")
-                              ->orWhere('lname', 'like', "%{$q}%")
-                              ->orWhere('mname', 'like', "%{$q}%")
-                              ->orWhere('qrcode', $q);
-                    })
+                Citizen::with(['activeHold', 'addressZone'])
+                    ->where('is_active', 1)
+                    ->searchName($q)
                     ->orderBy('lname')->orderBy('fname')
                     ->limit(10)
                     ->get($this->citizenPickerColumns())
@@ -1222,7 +1521,8 @@ class CitizenController extends Controller
 
         return response()->json(
             $this->mapCitizens(
-                Citizen::where('is_active', 1)
+                Citizen::with(['activeHold', 'addressZone'])
+                    ->where('is_active', 1)
                     ->orderByDesc('date_last_updated')
                     ->orderByDesc('id')   // stable tie-break when timestamps are equal
                     ->limit($limit)
@@ -1233,7 +1533,10 @@ class CitizenController extends Controller
 
     protected function citizenPickerColumns(): array
     {
-        return ['id', 'fname', 'mname', 'lname', 'suffix', 'contact', 'complete_address', 'qrcode', 'profile', 'voters', 'is_pwd', 'is_soloparents', 'bday', 'date_last_updated'];
+        // Address parts + zone id are needed for full_address (most records keep
+        // their address only in these parts, not in complete_address).
+        return ['id', 'fname', 'mname', 'lname', 'suffix', 'contact', 'complete_address', 'qrcode', 'profile', 'voters', 'is_pwd', 'is_soloparents', 'bday', 'date_last_updated',
+                'address', 'blk', 'lot', 'phase', 'street', 'no'];
     }
 
     protected function mapCitizens($citizens)
@@ -1242,13 +1545,15 @@ class CitizenController extends Controller
             'id'      => $c->id,
             'name'    => $c->full_name,
             'contact' => $c->contact ?? '',
-            'address' => $c->complete_address ?? '',
+            'address' => $c->full_address,
             'qrcode'  => $c->qrcode ?? '',
-            'profile' => $c->profile ? asset(str_replace('public/', 'storage/', $c->profile)) : null,
+            'profile' => $c->profile_url,
             'voter'   => (bool) $c->voters,
             'pwd'     => (bool) $c->is_pwd,
             'solo'    => (bool) $c->is_soloparents,
             'senior'  => $c->age !== null && $c->age >= 60,
+            // Reason text when on hold (blocks document issuance), else null.
+            'hold'    => $c->activeHold?->reason,
         ]);
     }
 }

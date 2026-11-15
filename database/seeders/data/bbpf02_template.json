@@ -1,0 +1,1777 @@
+[
+  {
+    "name": "GENERAL ADMINISTRATIVE PROGRAM",
+    "section_label": "1",
+    "items": [
+      {
+        "name": "Salaries and Wages - Regular",
+        "object_class": "PS",
+        "object_code": "5-01-01-010",
+        "aip_code": "1000-01",
+        "expected_result": null,
+        "performance_indicator": "No. of qualified barangay employees to receive regular salary.",
+        "group_label": null
+      },
+      {
+        "name": "Salaries and Wages - Casual/Contractual",
+        "object_class": "PS",
+        "object_code": "5-01-01-020",
+        "aip_code": "1000-02",
+        "expected_result": null,
+        "performance_indicator": "No. of qualified barangay employees to receive casual salary.",
+        "group_label": null
+      },
+      {
+        "name": "Personal Economic Relief Allowance (PERA)",
+        "object_class": "PS",
+        "object_code": "5-01-02-010",
+        "aip_code": "1000-03",
+        "expected_result": null,
+        "performance_indicator": "No. of qualified barangay employees to receive PERA.",
+        "group_label": null
+      },
+      {
+        "name": "Clothing/Uniform Allowance",
+        "object_class": "PS",
+        "object_code": "5-01-02-040",
+        "aip_code": "1000-04",
+        "expected_result": null,
+        "performance_indicator": "No. of qualified barangay employees to receive clothing allowance.",
+        "group_label": null
+      },
+      {
+        "name": "Productivity Incentive Allowance",
+        "object_class": "PS",
+        "object_code": "5-01-02-080",
+        "aip_code": "1000-05",
+        "expected_result": "Received PEI bonus by SB Members",
+        "performance_indicator": "Signed Payroll",
+        "group_label": null
+      },
+      {
+        "name": "Honoraria - Administrative",
+        "object_class": "PS",
+        "object_code": "5-01-02-100",
+        "aip_code": "1000-06",
+        "expected_result": "Received honoraria by SB Members and Admin Staff.",
+        "performance_indicator": "Signed Payroll",
+        "group_label": null
+      },
+      {
+        "name": "Mid Year / Year End Bonus",
+        "object_class": "PS",
+        "object_code": "5-01-02-140",
+        "aip_code": "1000-07",
+        "expected_result": "Received Year-end Bonus by SB Members",
+        "performance_indicator": "Signed Payroll",
+        "group_label": null
+      },
+      {
+        "name": "Cash Gift",
+        "object_class": "PS",
+        "object_code": "5-01-02-150",
+        "aip_code": "1000-08",
+        "expected_result": "Received Cash Gift by SB Members",
+        "performance_indicator": "Signed Payroll",
+        "group_label": null
+      },
+      {
+        "name": "Other Bonuses and Allowances",
+        "object_class": "PS",
+        "object_code": "5-01-02-990",
+        "aip_code": "1000-09",
+        "expected_result": "Received Other Bonuses and Allowances mandated by other memorandum",
+        "performance_indicator": "Signed Payroll",
+        "group_label": null
+      },
+      {
+        "name": "Monetized Leave Benefits (Leave Credit)",
+        "object_class": "PS",
+        "object_code": "5-01-04-990",
+        "aip_code": "1000-10",
+        "expected_result": "Received Monetized Leave Benefits by SB Members",
+        "performance_indicator": "Signed Payroll",
+        "group_label": null
+      },
+      {
+        "name": "Other Personnel Benefits",
+        "object_class": "PS",
+        "object_code": "5-01-04-990",
+        "aip_code": "1000-11",
+        "expected_result": "Received Other Bonuses and Allowances mandated by memorandum",
+        "performance_indicator": "Signed Payroll",
+        "group_label": null
+      },
+      {
+        "name": "Traveling Expenses - Local",
+        "object_class": "MOOE",
+        "object_code": "5-02-01-010",
+        "aip_code": "1000-12",
+        "expected_result": "Received transportation for various seminars",
+        "performance_indicator": "No. of barangay official trips",
+        "group_label": null
+      },
+      {
+        "name": "Training Expenses - Admin",
+        "object_class": "MOOE",
+        "object_code": "5-02-02-010",
+        "aip_code": "1000-13",
+        "expected_result": "Capacitated SB Members",
+        "performance_indicator": "No. of barangay officials/staff participants.",
+        "group_label": null
+      },
+      {
+        "name": "Janitorial Supplies Expense",
+        "object_class": "MOOE",
+        "object_code": "5-02-12-020",
+        "aip_code": "1000-14",
+        "expected_result": "Purchased janitorial equipment & supplies for every quarter of budget year",
+        "performance_indicator": "Amount of actual purchases every quarter",
+        "group_label": null
+      },
+      {
+        "name": "Office Supplies Expenses - Admin",
+        "object_class": "MOOE",
+        "object_code": "5-02-03-010",
+        "aip_code": "1000-15",
+        "expected_result": "Purchased office supplies for every quarter of budget year",
+        "performance_indicator": "Amount of actual purchases every quarter",
+        "group_label": null
+      },
+      {
+        "name": "Accountable Forms Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-03-020",
+        "aip_code": "1000-16",
+        "expected_result": "Purchased Cedula and Government O.R.",
+        "performance_indicator": "No. of accountable forms purchased during the year.",
+        "group_label": null
+      },
+      {
+        "name": "Non-Accountable Forms Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-03-030",
+        "aip_code": "1000-17",
+        "expected_result": "Purchased various non-accountable forms",
+        "performance_indicator": "Amount of actual purchases",
+        "group_label": null
+      },
+      {
+        "name": "Food Supplies Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-03-050",
+        "aip_code": "1000-18",
+        "expected_result": "Purchased food supplies (Rice) for Barangay Tanod & food for weekly clean up drive",
+        "performance_indicator": "Amount of actual purchases",
+        "group_label": null
+      },
+      {
+        "name": "Welfare Goods Expenses - Admin.",
+        "object_class": "MOOE",
+        "object_code": "5-02-03-060",
+        "aip_code": "1000-19",
+        "expected_result": "Distibuted welfare goods amoung barangay constituents",
+        "performance_indicator": "No. of constituents benefited.",
+        "group_label": null
+      },
+      {
+        "name": "Drugs and Medicines Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-03-070",
+        "aip_code": "1000-20",
+        "expected_result": "Distributed drugs and medicine among barangay constituents",
+        "performance_indicator": "No. of constituents benefited.",
+        "group_label": null
+      },
+      {
+        "name": "Medical, Dental and Laboratory Supplies Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-03-080",
+        "aip_code": "1000-21",
+        "expected_result": "Distributed medical, dental and laboratory supplies among barangay constituents",
+        "performance_indicator": "No. of constituents benefited.",
+        "group_label": null
+      },
+      {
+        "name": "Fuel, Oil and Lubricants Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-03-090",
+        "aip_code": "1000-22",
+        "expected_result": "Purchased fuel, oil and lubricants during the budget year.",
+        "performance_indicator": "No. of barangay and constituents official trips",
+        "group_label": null
+      },
+      {
+        "name": "Agricultural and Marine Supplies Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-03-100",
+        "aip_code": "1000-23",
+        "expected_result": "Distributed agricultural and Marine suppliesamong barangay constituents",
+        "performance_indicator": "No. of constituents benefited.",
+        "group_label": null
+      },
+      {
+        "name": "Military, Police and Traffic Supplies Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-03-120",
+        "aip_code": "1000-24",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Water Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-04-010",
+        "aip_code": "1000-25",
+        "expected_result": "Paid Water Expenses",
+        "performance_indicator": "Actual amount paid during the year",
+        "group_label": null
+      },
+      {
+        "name": "Electricity Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-04-020",
+        "aip_code": "1000-26",
+        "expected_result": "Paid Electricty Expenses",
+        "performance_indicator": "Percentage of public consumption.",
+        "group_label": null
+      },
+      {
+        "name": "Telephone Expenses-mobile",
+        "object_class": "MOOE",
+        "object_code": "5-02-05-020",
+        "aip_code": "1000-27",
+        "expected_result": "11 SB members communication expenses",
+        "performance_indicator": "Percentage of public consumption.",
+        "group_label": null
+      },
+      {
+        "name": "Internet Subscription Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-05-030",
+        "aip_code": "1000-28",
+        "expected_result": "Paid internet subscription during the budget year",
+        "performance_indicator": "Actual expenses related to internet subscription",
+        "group_label": null
+      },
+      {
+        "name": "Cable, Satellite, Telegraph and Radio Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-05-040",
+        "aip_code": "1000-29",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Legal Services",
+        "object_class": "MOOE",
+        "object_code": "5-02-11-010",
+        "aip_code": "1000-30",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Meal Subsidy of Barangay Officials",
+        "object_class": "MOOE",
+        "object_code": "5-02-11-990",
+        "aip_code": "1000-31",
+        "expected_result": "meal subsidy for 11 SB members",
+        "performance_indicator": "Actual amount incurred.",
+        "group_label": null
+      },
+      {
+        "name": "Environment/Sanitary Services",
+        "object_class": "MOOE",
+        "object_code": "5-02-12-010",
+        "aip_code": "1000-32",
+        "expected_result": "Cleaned Environment",
+        "performance_indicator": "Actual expenses related to environment/sanitary services",
+        "group_label": null
+      },
+      {
+        "name": "Repairs and Maintenance - Land Improvements",
+        "object_class": "MOOE",
+        "object_code": "5-02-09-010",
+        "aip_code": "1000-33",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Repairs and Maintenance - Buildings and Other Structures",
+        "object_class": "MOOE",
+        "object_code": "5-02-13-040",
+        "aip_code": "1000-34",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Repairs and Maintenance - Machinery and Equipment",
+        "object_class": "MOOE",
+        "object_code": "5-02-13-050",
+        "aip_code": "1000-35",
+        "expected_result": "Maintained Machinery and Equipment",
+        "performance_indicator": "Actual amount incurred.",
+        "group_label": null
+      },
+      {
+        "name": "Repairs and Maintenance - Transportation Equipment",
+        "object_class": "MOOE",
+        "object_code": "5-02-13-060",
+        "aip_code": "1000-36",
+        "expected_result": "Repaired and maintained transporation equipment",
+        "performance_indicator": "No. of vehicles repaired and maintained",
+        "group_label": null
+      },
+      {
+        "name": "Repairs and Maintenance - Furniture and Fixtures",
+        "object_class": "MOOE",
+        "object_code": "5-02-13-070",
+        "aip_code": "1000-37",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Repairs and Maintenance - Other Property, Plant and Equipment",
+        "object_class": "MOOE",
+        "object_code": "5-02-13-990",
+        "aip_code": "1000-38",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Subsidy for burial assistance for senior residents",
+        "object_class": "MOOE",
+        "object_code": "5-02-14-030",
+        "aip_code": "1000-39",
+        "expected_result": "Funeral subsidy for Barangay Tres Senior Citizen Residents",
+        "performance_indicator": "Actual amount incurred.",
+        "group_label": null
+      },
+      {
+        "name": "Transfers of Unspent Funds (BDRRM/SK)",
+        "object_class": "MOOE",
+        "object_code": "5-02-15-010",
+        "aip_code": "1000-40",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Taxes, Duties and Licenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-16-010",
+        "aip_code": "1000-41",
+        "expected_result": "Renewed Service Vehicles of barangay",
+        "performance_indicator": "Actual amount of expenses",
+        "group_label": null
+      },
+      {
+        "name": "Fidelity Bond Premiums",
+        "object_class": "MOOE",
+        "object_code": "5-02-16-020",
+        "aip_code": "1000-42",
+        "expected_result": "Paid fidelity bond on time",
+        "performance_indicator": "Actual amount of fidelity bond premium paid.",
+        "group_label": null
+      },
+      {
+        "name": "Insurance Expenses - Admin",
+        "object_class": "MOOE",
+        "object_code": "5-02-16-030",
+        "aip_code": "1000-43",
+        "expected_result": "Insured SB Members and Staff",
+        "performance_indicator": "No. of SB members/employees/staff insured.",
+        "group_label": null
+      },
+      {
+        "name": "Printing and Publication Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-99-020",
+        "aip_code": "1000-44",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Representation Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-99-030",
+        "aip_code": "1000-45",
+        "expected_result": "Purchased food supplies (Rice) for Barangay Tanod & food for weekly clean up drive",
+        "performance_indicator": "Amount of actual purchases",
+        "group_label": null
+      },
+      {
+        "name": "Extraordinary and Miscellaneous Expenses",
+        "object_class": "MOOE",
+        "object_code": "5-02-10-030",
+        "aip_code": "1000-46",
+        "expected_result": "Donation/Finanacial Assistance to individuals in Crisis Management",
+        "performance_indicator": "No. of beneficiaries from civic and charitable institutions",
+        "group_label": null
+      },
+      {
+        "name": "Membership Dues and Contributions to Organizations",
+        "object_class": "MOOE",
+        "object_code": "5-02-99-060",
+        "aip_code": "1000-47",
+        "expected_result": "Paid membership dues on time",
+        "performance_indicator": "Actual amount of membership dues paid",
+        "group_label": null
+      },
+      {
+        "name": "Donation - Social Services",
+        "object_class": "MOOE",
+        "object_code": "5-02-99-080",
+        "aip_code": "1000-48",
+        "expected_result": "Financial assistance received by qualified constituents",
+        "performance_indicator": "No. of beneficiaries 1500 constituents",
+        "group_label": null
+      },
+      {
+        "name": "Other MOOE",
+        "object_class": "MOOE",
+        "object_code": "5-02-99-990",
+        "aip_code": "1000-49",
+        "expected_result": "Paid other MOOE",
+        "performance_indicator": "Actual amount and nature of other MOOE paid",
+        "group_label": null
+      },
+      {
+        "name": "Other Supplies and Materials",
+        "object_class": "MOOE",
+        "object_code": "5-02-03-990",
+        "aip_code": "1000-50",
+        "expected_result": "Purchase of various janitorial & other supplies",
+        "performance_indicator": "Actual amount and nature of other supplies paid",
+        "group_label": null
+      },
+      {
+        "name": "Other General Services",
+        "object_class": "MOOE",
+        "object_code": "5-02-12-990",
+        "aip_code": "1000-51",
+        "expected_result": "includes semi-expandable machinery & equipment like IT resources, electrical and plumbing materials, Et al.",
+        "performance_indicator": "Actual amount of expenses",
+        "group_label": null
+      },
+      {
+        "name": "Interest Expenses",
+        "object_class": "FE",
+        "object_code": "5-03-01-020",
+        "aip_code": "9000-01",
+        "expected_result": "Amount",
+        "performance_indicator": "Total interest expenses incurred during the year",
+        "group_label": null
+      },
+      {
+        "name": "Bank Charges",
+        "object_class": "FE",
+        "object_code": "5-03-01-040",
+        "aip_code": "9000-02",
+        "expected_result": "Paid/Purchased Checkbooklets",
+        "performance_indicator": "No. of checkbooklets purchased",
+        "group_label": null
+      },
+      {
+        "name": "Other Financial Charges",
+        "object_class": "FE",
+        "object_code": "5-03-01-990",
+        "aip_code": "9000-03",
+        "expected_result": "Amount",
+        "performance_indicator": "Amount of other financial charges",
+        "group_label": null
+      },
+      {
+        "name": "Land Acquisition",
+        "object_class": "CO",
+        "object_code": "1-07-01-010",
+        "aip_code": "8000-01",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Other Land Improvements Construction",
+        "object_class": "CO",
+        "object_code": "1-07-02-990",
+        "aip_code": "8000-02",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Road Networks Construction",
+        "object_class": "CO",
+        "object_code": "1-07-03-010",
+        "aip_code": "8000-03",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Flood Control Systems Construction",
+        "object_class": "CO",
+        "object_code": "1-07-03-020",
+        "aip_code": "8000-04",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Sewer Systems Construction",
+        "object_class": "CO",
+        "object_code": "1-07-03-030",
+        "aip_code": "8000-05",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Water Supply Systems Construction",
+        "object_class": "CO",
+        "object_code": "1-07-03-040",
+        "aip_code": "8000-06",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Power Supply Systems Construction",
+        "object_class": "CO",
+        "object_code": "1-07-03-050",
+        "aip_code": "8000-07",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Seaport Systems Construction",
+        "object_class": "CO",
+        "object_code": "1-07-03-070",
+        "aip_code": "8000-08",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Other Infrastructure Assets",
+        "object_class": "CO",
+        "object_code": "1-07-03-990",
+        "aip_code": "8000-09",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Buildings Construction",
+        "object_class": "CO",
+        "object_code": "1-07-04-010",
+        "aip_code": "8000-10",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "School Buildings Construction",
+        "object_class": "CO",
+        "object_code": "1-07-04-020",
+        "aip_code": "8000-11",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Hospitals and Health Centers Construction",
+        "object_class": "CO",
+        "object_code": "1-07-04-030",
+        "aip_code": "8000-12",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Slaughterhouses Construction",
+        "object_class": "CO",
+        "object_code": "1-07-04-050",
+        "aip_code": "8000-13",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Other Structures",
+        "object_class": "CO",
+        "object_code": "1-07-04-990",
+        "aip_code": "8000-14",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Machinery Purchases",
+        "object_class": "CO",
+        "object_code": "1-07-05-010",
+        "aip_code": "8000-15",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Office Equipment Puchases",
+        "object_class": "CO",
+        "object_code": "1-07-05-020",
+        "aip_code": "8000-16",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Information and Communication Technology Equipment Purchases",
+        "object_class": "CO",
+        "object_code": "1-07-05-030",
+        "aip_code": "8000-17",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Marine and Fishery Equipment",
+        "object_class": "CO",
+        "object_code": "1-07-05-050",
+        "aip_code": "8000-18",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Communication Equipment Purchases",
+        "object_class": "CO",
+        "object_code": "1-07-05-070",
+        "aip_code": "8000-19",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Disaster Response and Rescue Equipment Purchases",
+        "object_class": "CO",
+        "object_code": "1-07-05-090",
+        "aip_code": "8000-20",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Military, Police and Security Equipment Purchases",
+        "object_class": "CO",
+        "object_code": "1-07-05-100",
+        "aip_code": "8000-21",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Medical Equipment Purchases",
+        "object_class": "CO",
+        "object_code": "1-07-05-110",
+        "aip_code": "8000-22",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Sports Equipment Purchases",
+        "object_class": "CO",
+        "object_code": "1-07-05-130",
+        "aip_code": "8000-23",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Other Machinery and Equipment",
+        "object_class": "CO",
+        "object_code": "1-07-05-990",
+        "aip_code": "8000-24",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Motor Vehicles Purchases",
+        "object_class": "CO",
+        "object_code": "1-07-06-010",
+        "aip_code": "8000-25",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Furniture and Fixtures Purchases",
+        "object_class": "CO",
+        "object_code": "1-07-07-010",
+        "aip_code": "8000-26",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Plants and Trees",
+        "object_class": "CO",
+        "object_code": "1-08-01-020",
+        "aip_code": "8000-27",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Aquaculture",
+        "object_class": "CO",
+        "object_code": "1-08-01-030",
+        "aip_code": "8000-28",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      },
+      {
+        "name": "Other Machinery and Equipment",
+        "object_class": "CO",
+        "object_code": "1-09-01-020",
+        "aip_code": "8000-29",
+        "expected_result": null,
+        "performance_indicator": null,
+        "group_label": null
+      }
+    ],
+    "children": []
+  },
+  {
+    "name": "BASIC SERVICES AND FACILITIES PROGRAM",
+    "section_label": "2",
+    "items": [],
+    "children": [
+      {
+        "name": "Peace and Order",
+        "section_label": "A",
+        "items": [
+          {
+            "name": "Honoraria - Peace and Order",
+            "object_class": "PS",
+            "object_code": "5-01-02-100",
+            "aip_code": "1000-54",
+            "expected_result": "Received honoraria by the members of peace and order",
+            "performance_indicator": "Signed Payroll",
+            "group_label": null
+          },
+          {
+            "name": "Communication Equipment - Peace and Order",
+            "object_class": "PS",
+            "object_code": "1-07-05-070",
+            "aip_code": "1000-55",
+            "expected_result": "10 sets two-way radio",
+            "performance_indicator": "Actual amout incurred",
+            "group_label": null
+          },
+          {
+            "name": "Training Expenses - Peace and Order",
+            "object_class": "MOOE",
+            "object_code": "5-02-02-010",
+            "aip_code": "1000-56",
+            "expected_result": "Capacitated members of peace and order",
+            "performance_indicator": "No. of participants trained during the budget year",
+            "group_label": null
+          },
+          {
+            "name": "Welfare Goods Expenses - Peace and Order",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-060",
+            "aip_code": "1000-57",
+            "expected_result": "Paid expenses related to welfare goods expenses",
+            "performance_indicator": "Actual amount paid related to welfare goods",
+            "group_label": null
+          },
+          {
+            "name": "Insurance Expenses - Peace and Order",
+            "object_class": "MOOE",
+            "object_code": "5-02-16-030",
+            "aip_code": "1000-58",
+            "expected_result": "Insured Barangay Tanod",
+            "performance_indicator": "No. of beneficiaries",
+            "group_label": null
+          },
+          {
+            "name": "Other Supplies and Materials",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-990",
+            "aip_code": "1000-59",
+            "expected_result": "Paid other supplies and materials",
+            "performance_indicator": "Actrual amount of paid other supplies and materials",
+            "group_label": null
+          },
+          {
+            "name": "Communication Equipment - Peace and Order",
+            "object_class": "CO",
+            "object_code": "1-07-05-070",
+            "aip_code": "8000-34",
+            "expected_result": "Purchased communication equipment (10pcs two-way radio) for barangay used",
+            "performance_indicator": "Actual amount paid realted to communication equipment",
+            "group_label": null
+          }
+        ]
+      },
+      {
+        "name": "Katarungang Pambarangay",
+        "section_label": "B",
+        "items": [
+          {
+            "name": "Honoraria - Lupon",
+            "object_class": "PS",
+            "object_code": "5-01-02-100",
+            "aip_code": "1000-61",
+            "expected_result": "Received honoraria by the members of katarungang pambarangay",
+            "performance_indicator": "Signed Payroll",
+            "group_label": null
+          },
+          {
+            "name": "Training Expenses - Lupon",
+            "object_class": "MOOE",
+            "object_code": "5-02-02-010",
+            "aip_code": "1000-63",
+            "expected_result": "Capacitated members of katarungang pambarangay",
+            "performance_indicator": "No. of participants trained on katarungan Pambarangay law",
+            "group_label": null
+          }
+        ]
+      },
+      {
+        "name": "Health and Nutrition",
+        "section_label": "C",
+        "items": [
+          {
+            "name": "Honoraria - Health and Nutrition",
+            "object_class": "PS",
+            "object_code": "5-01-02-100",
+            "aip_code": "1000-65",
+            "expected_result": "Received Honoraria by the members of Health and Nutrition",
+            "performance_indicator": "Signed Payroll",
+            "group_label": null
+          },
+          {
+            "name": "Training Expenses - Health and Nutrition",
+            "object_class": "MOOE",
+            "object_code": "5-02-02-010",
+            "aip_code": "3000-01",
+            "expected_result": "Capacitated members of Health and Nutrition",
+            "performance_indicator": "No. of participants to increase awareness on health and nutrition programs of the barangay.",
+            "group_label": null
+          },
+          {
+            "name": "Welfare Goods Expenses - Health and Nutirtion",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-060",
+            "aip_code": "3000-02",
+            "expected_result": "Paid expenses related to welfare goods expenses for health and nutirtion projects",
+            "performance_indicator": "No. of beneficiaries",
+            "group_label": null
+          },
+          {
+            "name": "Insurance Expenses - Health and Nutrition",
+            "object_class": "MOOE",
+            "object_code": "5-02-16-030",
+            "aip_code": "3000-03",
+            "expected_result": "Paid insurance expense related to health and nutrition",
+            "performance_indicator": "No. of beneficiaries",
+            "group_label": null
+          },
+          {
+            "name": "Medical Equipment",
+            "object_class": "CO",
+            "object_code": "1-07-05-110",
+            "aip_code": "8000-39",
+            "expected_result": null,
+            "performance_indicator": "No. and specification of medical equipments",
+            "group_label": null
+          }
+        ]
+      },
+      {
+        "name": "Day Care Services",
+        "section_label": "D",
+        "items": [
+          {
+            "name": "Honoraria - Day Care Services",
+            "object_class": "PS",
+            "object_code": "5-01-02-100",
+            "aip_code": "1000-67",
+            "expected_result": "1 day care center teacher",
+            "performance_indicator": "No. of employees employed for day care services.",
+            "group_label": null
+          },
+          {
+            "name": "Training Expenses",
+            "object_class": "MOOE",
+            "object_code": "5-02-02-010",
+            "aip_code": "3000-06",
+            "expected_result": "Trained pesonnel related to Day Care Service",
+            "performance_indicator": "No. of trained personnel durng the year",
+            "group_label": null
+          }
+        ]
+      },
+      {
+        "name": "Solid Waste Management",
+        "section_label": "E",
+        "items": [
+          {
+            "name": "Honoraria - Solid Waste Mgt.",
+            "object_class": "PS",
+            "object_code": "5-01-02-100",
+            "aip_code": "1000-69",
+            "expected_result": null,
+            "performance_indicator": null,
+            "group_label": null
+          },
+          {
+            "name": "Training Expenses - Solid Waste",
+            "object_class": "MOOE",
+            "object_code": "5-02-02-010",
+            "aip_code": "3000-11",
+            "expected_result": "Capacitated members of Sold Waste Management",
+            "performance_indicator": "No. of participants attended to increase knowledge in proper solid waste management",
+            "group_label": null
+          },
+          {
+            "name": "Purchase of Garbage Containers",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-990",
+            "aip_code": "3000-12",
+            "expected_result": "Purchased garbage containers",
+            "performance_indicator": "Actual expenses incurred",
+            "group_label": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "SPECIAL PURPOSE APPROPRIATION",
+    "section_label": "3",
+    "items": [],
+    "children": [
+      {
+        "name": "Appropriation for Debt Service",
+        "section_label": "A",
+        "items": [
+          {
+            "name": "Appropriation for Debt Service",
+            "object_class": "FE",
+            "object_code": null,
+            "aip_code": "9000-04",
+            "expected_result": null,
+            "performance_indicator": "Total amounts of payment remitted during the year.",
+            "group_label": null
+          }
+        ]
+      },
+      {
+        "name": "Appropriation for Sangguniang Kabataan (RA 7160)",
+        "section_label": "B",
+        "items": []
+      },
+      {
+        "name": "Appropriation for Development Fund (RA 7160)",
+        "section_label": "C",
+        "items": [
+          {
+            "name": "Rehabilitation of Multi Media Center",
+            "object_class": "CO",
+            "object_code": "1-07-04-020",
+            "aip_code": "3000-13",
+            "expected_result": null,
+            "performance_indicator": null,
+            "group_label": "Social Development"
+          },
+          {
+            "name": "Rehabilitation of ARCHWAY at NSDC entrance",
+            "object_class": "MOOE",
+            "object_code": "5-02-13-040",
+            "aip_code": "3000-14",
+            "expected_result": "Rehabilitated andeqipped the new command center",
+            "performance_indicator": "Actual amount of expenses in improving the archway entrance",
+            "group_label": "Social Development"
+          },
+          {
+            "name": "Rehabilitation and equipping of Command Center",
+            "object_class": "CO",
+            "object_code": "1-07-04-020",
+            "aip_code": "3000-15",
+            "expected_result": "Established command center for real-time monitoring, coordination, communication, and rapid response during emergencies and security incidents",
+            "performance_indicator": "Actual capital expenditures incurred.",
+            "group_label": "Social Development"
+          },
+          {
+            "name": "Procurement of Office Equipment for BPSO and VAWC for proper recording/documentation of cases",
+            "object_class": "CO",
+            "object_code": "1-07-05-990",
+            "aip_code": "3000-16",
+            "expected_result": "Purchased complete computer equipment and iOS for on time recording and documentation of cases of BPSO and VAWC",
+            "performance_indicator": "Actual capital expenditures incurred.",
+            "group_label": "Social Development"
+          },
+          {
+            "name": "Installation of public address system",
+            "object_class": "CO",
+            "object_code": "1-07-05-990",
+            "aip_code": "3000-17",
+            "expected_result": "Installed audio system for public annoucement; Improved dissemination of emergency warnings, announcements, and important information to residents.",
+            "performance_indicator": "Actual capital expenditures incurred.",
+            "group_label": "Social Development"
+          },
+          {
+            "name": "Preservation of cultural/historical sites",
+            "object_class": "CO",
+            "object_code": "1-07-04-990",
+            "aip_code": "3000-18",
+            "expected_result": "Rehabilitated cultural/historical sites",
+            "performance_indicator": "Actual capital expenditures incurred.",
+            "group_label": "Social Development"
+          },
+          {
+            "name": "Construction or rehabilitation of evacuation centers",
+            "object_class": "CO",
+            "object_code": "1-07-04-990",
+            "aip_code": "3000-19",
+            "expected_result": "Constructed evacuation center",
+            "performance_indicator": "Actual capital expenditures incurred.",
+            "group_label": "Social Development"
+          },
+          {
+            "name": "Medical Equipments",
+            "object_class": "CO",
+            "object_code": "1-07-05-110",
+            "aip_code": "3000-20",
+            "expected_result": "Purchased Medical Equipments",
+            "performance_indicator": "Actual capital expenditures incurred.",
+            "group_label": "Social Development"
+          },
+          {
+            "name": "Construction of Plant Nursery, with built in stainless metal racks and cabinets.",
+            "object_class": "CO",
+            "object_code": "1-07-04-010",
+            "aip_code": "8000-44",
+            "expected_result": "Realization of Urban Gardening Project",
+            "performance_indicator": "Actual amount invested.",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Rehabilitation of the 2nd Floor of Health Center to be converted to the candle making facility",
+            "object_class": "MOOE",
+            "object_code": "5-02-13-040",
+            "aip_code": "8000-45",
+            "expected_result": "Rehabilitated 2nd Floor of Health Center as the new Candle Making Facility for our Livelihood Association",
+            "performance_indicator": "Actual amount invested.",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Construction/rehabilitation of shared kitchen & pantry area",
+            "object_class": "CO",
+            "object_code": "1-07-03-010",
+            "aip_code": "8000-46",
+            "expected_result": "Rehabilitated pantry area",
+            "performance_indicator": "Actual amount invested.",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Construction/rehabilitation of local roads or bridges",
+            "object_class": "CO",
+            "object_code": "1-07-03-010",
+            "aip_code": "8000-47",
+            "expected_result": "Rehabilitated local roads",
+            "performance_indicator": "Area of rehabilitated roads",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Construction of Barangay tourist structures",
+            "object_class": "CO",
+            "object_code": "1-07-03-990",
+            "aip_code": "8000-48",
+            "expected_result": "Constructed/installed barangay tourist structures",
+            "performance_indicator": "Size, location and % completion of Construction related to land improvements",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Purchases of Marine and Fishery Equipments",
+            "object_class": "CO",
+            "object_code": "1-07-03-990",
+            "aip_code": "8000-49",
+            "expected_result": "Purchased Marine and Fishery Equipments",
+            "performance_indicator": "Actual amount invested",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Rehabilitation of Brgy. Other Infrastructure",
+            "object_class": "CO",
+            "object_code": "1-07-04-990",
+            "aip_code": "8000-50",
+            "expected_result": "Rehabilitated Brgy. Other infrastracture",
+            "performance_indicator": "Size, location and % completion of Construction related",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Construction and Rehabilitation of Barangay Canal",
+            "object_class": "CO",
+            "object_code": "1-07-04-990",
+            "aip_code": "8000-51",
+            "expected_result": "Rehabilated canals along barangay jurisdiction",
+            "performance_indicator": "Size, location and % completion of Construction of Barangay Canal",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Construction of Barangay Stage",
+            "object_class": "CO",
+            "object_code": "1-07-04-990",
+            "aip_code": "8000-52",
+            "expected_result": "Constructed Barangay Signage",
+            "performance_indicator": "No. of barangay signage",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Construction of Barangay Signage",
+            "object_class": "CO",
+            "object_code": "1-07-04-990",
+            "aip_code": "8000-53",
+            "expected_result": "Constructed barangay signage",
+            "performance_indicator": "Size, location and % completion of Construction of Barangay Signage",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Construction of Barangay Satellite Office",
+            "object_class": "CO",
+            "object_code": "1-07-04-990",
+            "aip_code": "8000-54",
+            "expected_result": "Constructed barangay satellite office",
+            "performance_indicator": "Size, location and % completion of Construction of Barangay Satellite office",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Construction of Barangay Outpost",
+            "object_class": "CO",
+            "object_code": "1-07-04-990",
+            "aip_code": "8000-55",
+            "expected_result": "Constructed barangay outpost",
+            "performance_indicator": "Size, location and % completion of Construction of Barangay Outpost",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Installation of CCTV Surveillance System",
+            "object_class": "CO",
+            "object_code": "1-07-04-990",
+            "aip_code": "8000-56",
+            "expected_result": "Installed CCTVs along barangay area; Improved monitoring and security within the Barangay, with faster detection and response to incidents.",
+            "performance_indicator": "Actual capital expenditures incurred.",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Rehabilitation Multi-Purpose Hall",
+            "object_class": "MOOE",
+            "object_code": "5-02-13-040",
+            "aip_code": "8000-57",
+            "expected_result": "Rehabilitated Multi-Purpose Hall",
+            "performance_indicator": "Actual capital expenditures incurred.",
+            "group_label": "Economic Development"
+          },
+          {
+            "name": "Rehabilitation of Materials Recovery Facility for solid waste management",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-21",
+            "expected_result": "Improved Materials Recovery Facility",
+            "performance_indicator": "Amount of investment incurred.",
+            "group_label": "Environmental Management"
+          },
+          {
+            "name": "Procurement of recycle bins for all sitio.",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-22",
+            "expected_result": "Purchased recycle bin with cages for each sitio",
+            "performance_indicator": "Amount of expenses in support for Solid Waste Management Program",
+            "group_label": "Environmental Management"
+          },
+          {
+            "name": "Rehabilitation of Drainages/Canal in all areas and maintenance cleaning",
+            "object_class": "MOOE",
+            "object_code": null,
+            "aip_code": "3000-23",
+            "expected_result": "Rehabilitated and maintained drainages/canals in all Sitio",
+            "performance_indicator": "Actual amount of expenses incurred",
+            "group_label": "Environmental Management"
+          },
+          {
+            "name": "Construction/rehabilitation of sanitary landfill or controlled dumpsite and purchase of a garbage truck or related equipment",
+            "object_class": "CO",
+            "object_code": "1-07-04-990",
+            "aip_code": "3000-25",
+            "expected_result": null,
+            "performance_indicator": null,
+            "group_label": "Environmental Management"
+          },
+          {
+            "name": "Reforestration and urban greening",
+            "object_class": "CO",
+            "object_code": "1-07-04-990",
+            "aip_code": "3000-26",
+            "expected_result": "hanging",
+            "performance_indicator": null,
+            "group_label": "Environmental Management"
+          },
+          {
+            "name": "Implementation of flood and erosion control projects such as rehabilitation and construction of drainage systems, de-silting of rivers, de-clogging of canals",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-27",
+            "expected_result": null,
+            "performance_indicator": null,
+            "group_label": "Environmental Management"
+          },
+          {
+            "name": "Purchase of Garbage Truck",
+            "object_class": "CO",
+            "object_code": "1-07-06-990",
+            "aip_code": "3000-28",
+            "expected_result": null,
+            "performance_indicator": null,
+            "group_label": "Environmental Management"
+          }
+        ]
+      },
+      {
+        "name": "Appropriation for BDRRM Fund (RA 10121)",
+        "section_label": "D",
+        "items": [
+          {
+            "name": "Procurement of rescue supplies and equipment; seminar and training on public response and emergency drill",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-050",
+            "aip_code": "3000-29",
+            "expected_result": "Readiness of the barangay to quickly respond during the state of calamity",
+            "performance_indicator": "no. of beneficiaries",
+            "group_label": "Quick Response Fund (QRF) 30%"
+          },
+          {
+            "name": "Aid to Disaster victims and assistance to emergencies (in cash or in kind)",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-080",
+            "aip_code": "3000-30",
+            "expected_result": "Distributed assistance (in cash or in kind)",
+            "performance_indicator": "no. of beneficiaries",
+            "group_label": "Quick Response Fund (QRF) 30%"
+          },
+          {
+            "name": "Donation - Financial Assistance for Disaster Victims",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-080",
+            "aip_code": "3000-31",
+            "expected_result": "Distributed financial assistance for Disaster Victims ; pre and post disaster activities",
+            "performance_indicator": "no. of beneficiaries",
+            "group_label": "Quick Response Fund (QRF) 30%"
+          },
+          {
+            "name": "Repair and Maintenance - Damaged Structures",
+            "object_class": "MOOE",
+            "object_code": "5-02-13-990",
+            "aip_code": "3000-32",
+            "expected_result": "Repaired damaged structures after calamity",
+            "performance_indicator": "Actual amount of expense to repair damages due to calamity",
+            "group_label": "Quick Response Fund (QRF) 30%"
+          },
+          {
+            "name": "BDRRM Training and Seminars on Public response and emergency drill, including Foods",
+            "object_class": "MOOE",
+            "object_code": "5-02-02-010",
+            "aip_code": "3000-35",
+            "expected_result": "Capacitated BDRRM members as to plan formulation and effective response to Calamity",
+            "performance_indicator": "No. of participants attended for the training and seminars preparedness activities",
+            "group_label": "Disaster Preparedness (Mitigation Fund) 70%"
+          },
+          {
+            "name": "Drugs and Medicine (Vaccines, supplies, vitamins, and other medicines for disaster outbreak prevention)",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-070",
+            "aip_code": "3000-37",
+            "expected_result": "Purchased supplies for the disaster outbreaks such as flu, leptospirosis, measles, typhoid fever, dengue, cholera, COVID-19, etc",
+            "performance_indicator": "Actual amount of expenses incurred for the disaster outbreak prevention",
+            "group_label": "Disaster Preparedness (Mitigation Fund) 70%"
+          },
+          {
+            "name": "Monthly cleaning and maintenance around the river and brgy tres canals to prevent pollution",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-050",
+            "aip_code": "3000-36",
+            "expected_result": "River and Barangay Tres canals are monthly cleaned and maintained to prevent pollution and flooding",
+            "performance_indicator": "Actual amount of expenses incurred during regular clean-up drive",
+            "group_label": "Disaster Preparedness (Mitigation Fund) 70%"
+          },
+          {
+            "name": "Repairs and Maintenance - Emergency Response Equipment",
+            "object_class": "MOOE",
+            "object_code": "5-02-13-050",
+            "aip_code": "3000-38",
+            "expected_result": "Maintained Emergency Response Equipment at its running condition",
+            "performance_indicator": "Actual amount of repair and maintenance expenses incurred",
+            "group_label": "Disaster Preparedness (Mitigation Fund) 70%"
+          },
+          {
+            "name": "Repairs and Maintenance - BDRRM and Rescue Vehicles",
+            "object_class": "MOOE",
+            "object_code": "5-02-13-060",
+            "aip_code": "3000-39",
+            "expected_result": "Maintained BDRRM and Rescue Vehicles at its running condition",
+            "performance_indicator": "Actual amount of repair and maintenance expenses incurred",
+            "group_label": "Disaster Preparedness (Mitigation Fund) 70%"
+          },
+          {
+            "name": "Fuel and Oil - BDRRM and Rescue Vehicles",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-090",
+            "aip_code": "3000-40",
+            "expected_result": "Paid expenses for fuel and oil of BDRRM and Rescue Vehicles",
+            "performance_indicator": "Actual amount of Fuel and Oil related to BDRRM and Rescue Vechiles",
+            "group_label": "Disaster Preparedness (Mitigation Fund) 70%"
+          },
+          {
+            "name": "Other Supplies and Materials for Calamity Preparedness",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-990",
+            "aip_code": "3000-41",
+            "expected_result": "Purchased calamity prerparedness materials and non food supplies",
+            "performance_indicator": "Actual amount of supplies and materials bought in the preparation for calamity.",
+            "group_label": "Disaster Preparedness (Mitigation Fund) 70%"
+          },
+          {
+            "name": "Rescue Vehicles suchs as Ambulance, Mobile Clinic, Food Trucks, Boats, etc)",
+            "object_class": "CO",
+            "object_code": "1-07-05-090",
+            "aip_code": "3000-42",
+            "expected_result": "Purchased BDRRM and Rescue Vehicles",
+            "performance_indicator": "Actual amount of BDRRM and Rescue Vehicles purchased",
+            "group_label": "Disaster Preparedness (Mitigation Fund) 70%"
+          },
+          {
+            "name": "Command Center Equipments",
+            "object_class": "CO",
+            "object_code": "1-07-05-090",
+            "aip_code": "3000-43",
+            "expected_result": "Purchased Equpment for Command Center for Public Safety purposes",
+            "performance_indicator": "Actual amount of expenses Incurred",
+            "group_label": "Disaster Preparedness (Mitigation Fund) 70%"
+          },
+          {
+            "name": "Early Warning System Installation",
+            "object_class": "CO",
+            "object_code": "1-07-05-090",
+            "aip_code": "3000-44",
+            "expected_result": "Installed Early warning System in the area of Barangay",
+            "performance_indicator": "Actual amount of expenses incurred",
+            "group_label": "Disaster Preparedness (Mitigation Fund) 70%"
+          }
+        ]
+      },
+      {
+        "name": "Appropriation for Discretionary Fund",
+        "section_label": "E",
+        "items": [
+          {
+            "name": "Donation - Financial Assitance to individuals in Crisis Situation",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-080",
+            "aip_code": "3000-45",
+            "expected_result": "Donated financial assitance to civic and charitable institutions",
+            "performance_indicator": "No. of beneficiaries",
+            "group_label": null
+          }
+        ]
+      },
+      {
+        "name": "Appropriation for SC and PWD",
+        "section_label": "F",
+        "items": [
+          {
+            "name": "Handog sa mga Senior Citizen ng barangay para sa Pasko at Kaarawan",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-080",
+            "aip_code": "3000-50",
+            "expected_result": "Purchased supplies/gifts for Senior Citizens",
+            "performance_indicator": "No. of beneficiaries",
+            "group_label": null
+          },
+          {
+            "name": "Donation - Birthday Cash Gift to senior Citizen",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-080",
+            "aip_code": "3000-51",
+            "expected_result": "Distributed Birthday Cash Gift to senior Citizen",
+            "performance_indicator": "No. of beneficiaries",
+            "group_label": null
+          },
+          {
+            "name": "Handog sa mga Senior Citizen ng barangay para sa Pasko at Kaarawan",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-080",
+            "aip_code": "3000-52",
+            "expected_result": "Purchased supplies/gifts for Senior Citizens",
+            "performance_indicator": "No. of beneficiaries",
+            "group_label": null
+          },
+          {
+            "name": "Pamaskong Handog sa mga PWD ng barangay.",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-080",
+            "aip_code": "3000-53",
+            "expected_result": "Purchased supplies/gifts for PWD",
+            "performance_indicator": "No. of beneficiaries",
+            "group_label": null
+          },
+          {
+            "name": "Donation - Financial assistance to assist expenses of medical, dental, hospitalization, vaccination, etc.",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-080",
+            "aip_code": "3000-54",
+            "expected_result": "Distributed financial assistance for PWD",
+            "performance_indicator": "No. of beneficiaries",
+            "group_label": null
+          }
+        ]
+      },
+      {
+        "name": "Appropriation for BCPC / BCPC (RA 9344)",
+        "section_label": "G",
+        "items": [
+          {
+            "name": "Training Expenses - BCPC",
+            "object_class": "MOOE",
+            "object_code": "5-02-02-010",
+            "aip_code": "3000-55",
+            "expected_result": "Capacitated members of BCPC or partners in promoting children's rights",
+            "performance_indicator": "No. of attendees on training and seminars regarding children protection activities",
+            "group_label": null
+          },
+          {
+            "name": "Mental Health and Emotional Wellness Program for children and parent/guardian",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-56",
+            "expected_result": "Increased awareness and understanding of mental health; improved emotional coping and communication skills;and increased capacity of parents/guardians to recognize and respond to children's emotional and mental health needs.",
+            "performance_indicator": "Number of children, parents, and guardians who participate in mental health and emotional wellness activities; number of sessions conducted; percentage of participants demonstrating increased awareness based on feedback and evaluation.",
+            "group_label": null
+          },
+          {
+            "name": "Donation - Financial Assistance to assist Children victims of abuse or in conflict with the law",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-080",
+            "aip_code": "3000-57",
+            "expected_result": "Distributed financial Assitance to children victims of abuse or in conflict with the law",
+            "performance_indicator": "No. of beneficiaries",
+            "group_label": null
+          },
+          {
+            "name": "Child Protection Seminar for Children, Parents and Guardians",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-58",
+            "expected_result": "Increased awareness of children's rights and protection; improved ability to recognize, prevent, and report child abuse and other forms of violence.",
+            "performance_indicator": "Number of seminars conducted; number of children, parents, and guardians trained/participated; percentage of participants demonstrating increased knowledge based on evaluation.",
+            "group_label": null
+          }
+        ]
+      },
+      {
+        "name": "Appropriation for GAD (RA 7192)",
+        "section_label": "H",
+        "items": [
+          {
+            "name": "Week long Barangay Event celebrating diversity, and the socio cultural practices and values of all Barangay Tres GEN Z & residents.",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-60",
+            "expected_result": "Fellowship and unity amongst the community and cultivating a deep sense of pride in their cultural identity.",
+            "performance_indicator": "No. of activities to cultivate socio-cultural programs and actual amount of expenses incurred during barangay day event",
+            "group_label": "Health and Nutrition Services"
+          },
+          {
+            "name": "Women Month Celebration/Activities",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-61",
+            "expected_result": "Increase awareness and empowerment of women; improved access to health, social, and support services; and strengthened participation of women in community activities and decision-making.",
+            "performance_indicator": "Number of activities conducted; number of women participants; percentage of participants who report increased awareness of women's rights, health, and available services.",
+            "group_label": "Health and Nutrition Services"
+          },
+          {
+            "name": "OPERATION TULI",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-62",
+            "expected_result": "> 50 boys participated ang hygienically circumcised",
+            "performance_indicator": ">No. of beneficiaries (50) > Actual amount of expenses incurred",
+            "group_label": "Health and Nutrition Services"
+          },
+          {
+            "name": "SOLO Parent and LGBTQ Training Program",
+            "object_class": "MOOE",
+            "object_code": null,
+            "aip_code": "3000-63",
+            "expected_result": ">Oriented 100 participants on RA 8972 and SOGIE Bill ; OPEN-FORUM on their concerns are noted. > Conducted activities to all participants",
+            "performance_indicator": ">No. of beneficiaries (100) > Actual amount of expenses incurred",
+            "group_label": "Health and Nutrition Services"
+          },
+          {
+            "name": "Oral Health Program: Tooth Extraction and Dentures for Senior Citizen",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-64",
+            "expected_result": "Basic oral health care provided Increase awareness about oral health and the importance of preventive care.",
+            "performance_indicator": "No. of beneficiaries : 100 target population for tooth extraction ; 30 Senior Citizen for dentures",
+            "group_label": "Health and Nutrition Services"
+          },
+          {
+            "name": "To provide Eye Care for low income individuals whose eye impairment became a hindrance for work opportunity plus for senior citizens",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-65",
+            "expected_result": "Provided free consultation and eye glasses for senior and low income individuals to improve their eyesight and work opportunity",
+            "performance_indicator": "No. of beneficiaries : 50 target population for free consultation and free eye glasses",
+            "group_label": "Health and Nutrition Services"
+          },
+          {
+            "name": "Senior Citizens' Community Engagement Program",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-66",
+            "expected_result": "Improved social engagement, well being, and awareness of programs and servics for senior citizens.",
+            "performance_indicator": "Number of activities conducted and senior citizens served and participated.",
+            "group_label": "Health and Nutrition Services"
+          },
+          {
+            "name": "Employees Welfare Program To improve the well being and productivity of Barangay employees who are stressed and fatigued through a Unity Event.",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-67",
+            "expected_result": "> Team Development >Expected that 100% of the KAWANI will attend and participate in all activities set.",
+            "performance_indicator": "Number of activities conducted and employees participated.",
+            "group_label": "Social Welfare Program ; Educational and MANPOWER Development"
+          },
+          {
+            "name": "BARANGAY COOKFEST To showcase the artistry and talents of Mothers and Pregnant Individuals in cooking thereby promoting local delicacy.",
+            "object_class": "MOOE",
+            "object_code": null,
+            "aip_code": "3000-68",
+            "expected_result": "Celebrated the artistry and talent of Mothers and Pregnant Women thru the Barangay Cookfest.",
+            "performance_indicator": "Actual amount of expenses incurred",
+            "group_label": "Social Welfare Program ; Educational and MANPOWER Development"
+          },
+          {
+            "name": "Barangay Event celebrating the socio cultural practices and values of all Barangay Tres residents.",
+            "object_class": "MOOE",
+            "object_code": null,
+            "aip_code": "3000-69",
+            "expected_result": "Unity and togetherness amongst the community and cultivating a deep sense of pride in their cultural identity.",
+            "performance_indicator": "No. of activities to cultivate socio-cultural programs and actual amount of expenses incurred during barangay day event",
+            "group_label": "Social Welfare Program ; Educational and MANPOWER Development"
+          },
+          {
+            "name": "Launch the Barangay Tres Cooperative for KAMARE-TR3S : Candle Making",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-70",
+            "expected_result": "Create awareness and encourage membership to the COOPERATIVE , tapping the W.I.S.E.members & SOLO parents of Barangay Tres",
+            "performance_indicator": "Lower unemployment rate and increase income of W.I.S.E .& SOLO parents member compared to LY",
+            "group_label": "Social Welfare Program ; Educational and MANPOWER Development"
+          },
+          {
+            "name": ">DAYCARE Graduation > BALIK ESKWELA Program",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-080",
+            "aip_code": "3000-71",
+            "expected_result": "> celebrate graduation day of our DAYCARE students >Procurement of school supplies for Daycare students",
+            "performance_indicator": ">No. of beneficiaries > Actual amount of expenses incurred",
+            "group_label": "Social Welfare Program ; Educational and MANPOWER Development"
+          }
+        ]
+      },
+      {
+        "name": "Appropriation for BADAC Programs",
+        "section_label": "I",
+        "items": [
+          {
+            "name": "Training Expenses - BADAC",
+            "object_class": "MOOE",
+            "object_code": "5-02-02-010",
+            "aip_code": "3000-72",
+            "expected_result": "Capacitated members of BADAC",
+            "performance_indicator": "No. of employees attended training regarding barangay anti-drugs programs",
+            "group_label": null
+          },
+          {
+            "name": "Free Drug Test",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-070",
+            "aip_code": "3000-73",
+            "expected_result": "Paid expenses during drug test",
+            "performance_indicator": "No. of individuals undergo drug testing",
+            "group_label": null
+          },
+          {
+            "name": "Food Expenses during BADAC Meetings",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-050",
+            "aip_code": "3000-74",
+            "expected_result": "Paid food expenses during regular meetings of BADAC Members",
+            "performance_indicator": "No. of attendees during meeting",
+            "group_label": null
+          }
+        ]
+      },
+      {
+        "name": "Appropriation for Nutrition Services",
+        "section_label": "J",
+        "items": [
+          {
+            "name": "Feeding Program among children",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-77",
+            "expected_result": "Decreased malnutrition among children",
+            "performance_indicator": "No. of children undergo nutrition evaluation and feeding program",
+            "group_label": null
+          },
+          {
+            "name": "Training Expenses",
+            "object_class": "MOOE",
+            "object_code": "5-02-02-010",
+            "aip_code": "3000-78",
+            "expected_result": "Capacitated members of BNS",
+            "performance_indicator": "No. of BNS/employees attended training reagarding Nutrition Services",
+            "group_label": null
+          }
+        ]
+      },
+      {
+        "name": "Appropriation for HIV / AIDS Prevention",
+        "section_label": "K",
+        "items": [
+          {
+            "name": "Celebration of World AIDS Day",
+            "object_class": "MOOE",
+            "object_code": "5-02-02-010",
+            "aip_code": "3000-82",
+            "expected_result": "Capacitated members of officers regarding HIV/AIDS prevention",
+            "performance_indicator": "No. of employees attended training/seminar related to HIV/AIDS prevention",
+            "group_label": null
+          },
+          {
+            "name": "Pride Month Celebration/ Equality and Inclusion Program",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-990",
+            "aip_code": "3000-83",
+            "expected_result": "Increased awareness of equality and respect; strengthened social inclusion; and a more supportive, respectful, and discrimination-free community",
+            "performance_indicator": "Number of activities conducted; number of participants; percentage of participants dmonstrating increased awareness of equality respect, and anti-discrimination.",
+            "group_label": null
+          },
+          {
+            "name": "Celebration of World AIDS Day",
+            "object_class": "MOOE",
+            "object_code": null,
+            "aip_code": "3000-84",
+            "expected_result": "Paid supplies and materials for the celebration of World AIDS Day",
+            "performance_indicator": "Actual amount of expenses incurred.",
+            "group_label": null
+          },
+          {
+            "name": "Other Supplies and Materials - Candlelight Commeration",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-990",
+            "aip_code": "3000-85",
+            "expected_result": "Paid supplies and materials for Candlelight Commeration",
+            "performance_indicator": "Actual amount of expenses incurred.",
+            "group_label": null
+          },
+          {
+            "name": "Other Sipplies and Materials - Pride Month Celebration",
+            "object_class": "MOOE",
+            "object_code": "5-02-03-990",
+            "aip_code": "3000-86",
+            "expected_result": "Paid supplies and materials for Pride Month Celebration",
+            "performance_indicator": "Actual amount of expenses incurred.",
+            "group_label": null
+          }
+        ]
+      },
+      {
+        "name": "Appropriation for BPOC Services",
+        "section_label": "L",
+        "items": [
+          {
+            "name": "Training Expenses - BPOC",
+            "object_class": "MOOE",
+            "object_code": "5-02-02-010",
+            "aip_code": "3000-87",
+            "expected_result": "Capacitated members of BPOC & PARTNERS",
+            "performance_indicator": "No. of employees attended training regarding barangay anti-drugs programs",
+            "group_label": null
+          },
+          {
+            "name": "Free Drug Test",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-88",
+            "expected_result": "Paid expenses during drug test",
+            "performance_indicator": "No. of individuals undergo drug testing",
+            "group_label": null
+          },
+          {
+            "name": "DAPC EVENT 2027",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-990",
+            "aip_code": "3000-89",
+            "expected_result": "Awareness against the dangerous effect of drugs amongst the residents of Barangay Tres, more so to the students of our community.",
+            "performance_indicator": "No. of attendees during the week long training and seminar/webinar",
+            "group_label": null
+          }
+        ]
+      },
+      {
+        "name": "Appropriation for BHRAO Services",
+        "section_label": "M",
+        "items": [
+          {
+            "name": "Donation - Financial Assitance and protection expenses of those victims of Human Rights",
+            "object_class": "MOOE",
+            "object_code": "5-02-99-080",
+            "aip_code": "3000-92",
+            "expected_result": "Financially assisted victims of human rights",
+            "performance_indicator": "No. of beneficiaries.",
+            "group_label": null
+          },
+          {
+            "name": "Training Expenses - Human rights advocates",
+            "object_class": "MOOE",
+            "object_code": "5-02-02-010",
+            "aip_code": "3000-93",
+            "expected_result": "Capacitated officials assisting in human rights cases",
+            "performance_indicator": "Actual amount of trainings/seminars.",
+            "group_label": null
+          }
+        ]
+      }
+    ]
+  }
+]

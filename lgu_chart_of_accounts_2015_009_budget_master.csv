@@ -1,0 +1,257 @@
+﻿code,account_title,account_type,account_group,level,parent_code,is_active,is_budgetable
+1-07-01-010,Land,Asset,Land,4,,True,True
+1-07-01-012,Accumulated Impairment Losses – Land,Asset,Land,4,,True,True
+1-07-02-990,Other Land Improvements,Asset,Land Improvements,4,,True,True
+1-07-03-010,Road Networks,Asset,Infrastructure Assets,4,,True,True
+1-07-03-020,Flood Control Systems,Asset,Infrastructure Assets,4,,True,True
+1-07-03-030,Sewer Systems,Asset,Infrastructure Assets,4,,True,True
+1-07-03-040,Water Supply Systems,Asset,Infrastructure Assets,4,,True,True
+1-07-03-050,Power Supply Systems,Asset,Infrastructure Assets,4,,True,True
+1-07-03-060,Communication Networks,Asset,Infrastructure Assets,4,,True,True
+1-07-03-070,Seaport Systems,Asset,Infrastructure Assets,4,,True,True
+1-07-03-080,Airport Systems,Asset,Infrastructure Assets,4,,True,True
+1-07-03-090,"Parks, Plazas and Monuments",Asset,Infrastructure Assets,4,,True,True
+1-07-03-990,Other Infrastructure Assets,Asset,Infrastructure Assets,4,,True,True
+1-07-04-010,Buildings,Asset,Buildings and Other Structures,4,,True,True
+1-07-04-020,School Buildings,Asset,Buildings and Other Structures,4,,True,True
+1-07-04-030,Hospitals and Health Centers,Asset,Buildings and Other Structures,4,,True,True
+1-07-04-040,Markets,Asset,Buildings and Other Structures,4,,True,True
+1-07-04-050,Slaughterhouses,Asset,Buildings and Other Structures,4,,True,True
+1-07-04-060,Hostels and Dormitories,Asset,Buildings and Other Structures,4,,True,True
+1-07-04-990,Other Structures,Asset,Buildings and Other Structures,4,,True,True
+1-07-05-010,Machinery,Asset,Machinery and Equipment,4,,True,True
+1-07-05-020,Office Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-05-030,Information and Communication Technology Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-05-040,Agricultural and Forestry Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-05-050,Marine and Fishery Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-05-060,Airport Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-05-070,Communication Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-05-080,Construction and Heavy Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-05-090,Disaster Response and Rescue Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-05-100,"Military, Police and Security Equipment",Asset,Machinery and Equipment,4,,True,True
+1-07-05-110,Medical Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-05-120,Printing Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-05-130,Sports Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-05-140,Technical and Scientific Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-05-990,Other Machinery and Equipment,Asset,Machinery and Equipment,4,,True,True
+1-07-06-010,Motor Vehicles,Asset,Transportation Equipment,4,,True,True
+1-07-06-020,Trains,Asset,Transportation Equipment,4,,True,True
+1-07-06-030,Aircrafts and Aircrafts Ground Equipment,Asset,Transportation Equipment,4,,True,True
+1-07-06-040,Watercrafts,Asset,Transportation Equipment,4,,True,True
+1-07-06-990,Other Transportation Equipment,Asset,Transportation Equipment,4,,True,True
+1-07-07-010,Furniture and Fixtures,Asset,"Furniture, Fixtures and Books",4,,True,True
+1-07-07-020,Books,Asset,"Furniture, Fixtures and Books",4,,True,True
+1-07-10-010,Construction in Progress – Land Improvements,Asset,Construction in Progress,4,,True,True
+1-07-10-020,Construction in Progress – Infrastructure Assets,Asset,Construction in Progress,4,,True,True
+1-07-10-030,Construction in Progress – Buildings and Other Structures,Asset,Construction in Progress,4,,True,True
+1-07-10-040,Construction in Progress – Leased Assets,Asset,Construction in Progress,4,,True,True
+1-07-10-050,Construction in Progress – Leased Assets Improvements,Asset,Construction in Progress,4,,True,True
+1-09-01-010,Patents/Copyrights,Asset,Intangible Assets,4,,True,True
+1-09-01-020,Computer Software,Asset,Intangible Assets,4,,True,True
+1-09-01-990,Other Intangible Assets,Asset,Intangible Assets,4,,True,True
+4-01-01-020,Professional Tax,Income,Tax Revenue,4,,True,True
+4-01-01-050,Community Tax,Income,Tax Revenue,4,,True,True
+4-01-02-040,Real Property Tax – Basic,Income,Tax Revenue – Property,4,,True,True
+4-01-02-050,Special Education Tax,Income,Tax Revenue – Property,4,,True,True
+4-01-02-060,Special Levy on Idle Lands,Income,Tax Revenue – Property,4,,True,True
+4-01-02-070,Special Levy on Lands Benefited by Public Works Projects,Income,Tax Revenue – Property,4,,True,True
+4-01-02-080,Real Property Transfer Tax,Income,Tax Revenue – Property,4,,True,True
+4-01-03-030,Business Tax,Income,Tax Revenue – Goods and Services,4,,True,True
+4-01-03-040,"Tax on Sand, Gravel and Other Quarry Products",Income,Tax Revenue – Goods and Services,4,,True,True
+4-01-03-050,Tax on Delivery Trucks and Vans,Income,Tax Revenue – Goods and Services,4,,True,True
+4-01-03-060,Amusement Tax,Income,Tax Revenue – Goods and Services,4,,True,True
+4-01-03-070,Franchise Tax,Income,Tax Revenue – Goods and Services,4,,True,True
+4-01-03-080,Printing and Publication Tax,Income,Tax Revenue – Goods and Services,4,,True,True
+4-01-04-990,Other Taxes,Income,Tax Revenue – Others,4,,True,True
+4-01-05-010,Tax Revenue – Fines and Penalties – Taxes on Individual and Corporation,Income,Tax Revenue – Fines and Penalties,4,,True,True
+4-01-05-020,Tax Revenue – Fines and Penalties – Property Taxes,Income,Tax Revenue – Fines and Penalties,4,,True,True
+4-01-05-030,Tax Revenue – Fines and Penalties – Goods and Services,Income,Tax Revenue – Fines and Penalties,4,,True,True
+4-01-05-990,Tax Revenue – Fines and Penalties – Others,Income,Tax Revenue – Fines and Penalties,4,,True,True
+4-01-06-010,Share from Internal Revenue Collections (IRA),Income,Share from National Taxes,4,,True,True
+4-01-06-020,Share from Expanded Value Added Tax,Income,Share from National Taxes,4,,True,True
+4-01-06-030,Share from National Wealth,Income,Share from National Taxes,4,,True,True
+4-01-06-040,Share from Tobacco Excise Tax (RA 7171 and 8240),Income,Share from National Taxes,4,,True,True
+4-01-06-050,Share from Economic Zones,Income,Share from National Taxes,4,,True,True
+4-02-01-010,Permit Fees,Income,Service Income,4,,True,True
+4-02-01-020,Registration Fees,Income,Service Income,4,,True,True
+4-02-01-030,"Registration Plates, Tag and Sticker Fees",Income,Service Income,4,,True,True
+4-02-01-040,Clearance and Certification Fees,Income,Service Income,4,,True,True
+4-02-01-070,Supervision and Regulation Enforcement Fees,Income,Service Income,4,,True,True
+4-02-01-100,Inspection Fees,Income,Service Income,4,,True,True
+4-02-01-110,Verification and Authentication Fees,Income,Service Income,4,,True,True
+4-02-01-130,Processing Fees,Income,Service Income,4,,True,True
+4-02-01-140,Occupation Fees,Income,Service Income,4,,True,True
+4-02-01-150,"Fishery Rentals, Fees and Charges",Income,Service Income,4,,True,True
+4-02-01-160,Fees for Sealing and Licensing of Weights and Measures,Income,Service Income,4,,True,True
+4-02-01-980,Fines and Penalties – Service Income,Income,Service Income,4,,True,True
+4-02-01-990,Other Service Income,Income,Service Income,4,,True,True
+4-02-02-050,Rent Income,Income,Business Income,4,,True,True
+4-02-02-120,Parking Fees,Income,Business Income,4,,True,True
+4-02-02-140,Receipts from Market Operations,Income,Business Income,4,,True,True
+4-02-02-150,Receipts from Slaughterhouse Operations,Income,Business Income,4,,True,True
+4-02-02-160,Receipts from Cemetery Operations,Income,Business Income,4,,True,True
+4-02-02-170,Receipts from Printing and Publication,Income,Business Income,4,,True,True
+4-02-02-180,Sales Revenue,Income,Business Income,4,,True,True
+4-02-02-190,Garbage Fees,Income,Business Income,4,,True,True
+4-02-02-200,Hospital Fees,Income,Business Income,4,,True,True
+4-02-02-210,Dividend Income,Income,Business Income,4,,True,True
+4-02-02-220,Interest Income,Income,Business Income,4,,True,True
+4-02-02-990,Other Business Income,Income,Business Income,4,,True,True
+4-03-01-010,Subsidy from National Government,Income,"Transfers, Assistance and Subsidy",4,,True,True
+4-03-01-020,Subsidy from Local Government Units,Income,"Transfers, Assistance and Subsidy",4,,True,True
+4-03-01-030,Subsidy from Government-Owned and/or Controlled Corporations,Income,"Transfers, Assistance and Subsidy",4,,True,True
+4-03-01-040,Subsidy from Other Funds,Income,"Transfers, Assistance and Subsidy",4,,True,True
+4-03-01-050,Subsidy from General Fund Proper/Other Special Accounts,Income,"Transfers, Assistance and Subsidy",4,,True,True
+4-03-01-060,Subsidy from Other Local Economic Enterprise,Income,"Transfers, Assistance and Subsidy",4,,True,True
+4-03-02-010,Transfers from General Fund of LGU Counterpart/Transfers,Income,Transfers,4,,True,True
+4-03-02-020,Transfers from General Fund of Unspent DRRMF,Income,Transfers,4,,True,True
+4-04-01-010,Share from PAGCOR,Income,"Shares, Grants and Donations",4,,True,True
+4-04-01-020,Share from PCSO,Income,"Shares, Grants and Donations",4,,True,True
+4-04-02-010,Grants and Donations in Cash,Income,Grants and Donations,4,,True,True
+4-04-02-020,Grants and Donations in Kind,Income,Grants and Donations,4,,True,True
+4-04-02-030,Grants from Concessionary Loans,Income,Grants and Donations,4,,True,True
+4-05-01-050,"Gain on Sale of Property, Plant and Equipment",Income,Gains,4,,True,True
+4-06-01-010,Miscellaneous Income,Income,Miscellaneous Income,4,,True,True
+5-01-01-010,Salaries and Wages – Regular,Expense,Personal Services,4,,True,True
+5-01-01-020,Salaries and Wages – Casual/Contractual,Expense,Personal Services,4,,True,True
+5-01-02-010,Personal Economic Relief Allowance (PERA),Expense,Personal Services,4,,True,True
+5-01-02-020,Representation Allowance (RA),Expense,Personal Services,4,,True,True
+5-01-02-030,Transportation Allowance (TA),Expense,Personal Services,4,,True,True
+5-01-02-040,Clothing/Uniform Allowance,Expense,Personal Services,4,,True,True
+5-01-02-050,Subsistence Allowance,Expense,Personal Services,4,,True,True
+5-01-02-060,Laundry Allowance,Expense,Personal Services,4,,True,True
+5-01-02-070,Quarters Allowance,Expense,Personal Services,4,,True,True
+5-01-02-080,Productivity Incentive Allowance,Expense,Personal Services,4,,True,True
+5-01-02-090,Overseas Allowance,Expense,Personal Services,4,,True,True
+5-01-02-100,Honoraria,Expense,Personal Services,4,,True,True
+5-01-02-110,Hazard Pay,Expense,Personal Services,4,,True,True
+5-01-02-120,Longevity Pay,Expense,Personal Services,4,,True,True
+5-01-02-130,Overtime and Night Pay,Expense,Personal Services,4,,True,True
+5-01-02-140,Year End Bonus,Expense,Personal Services,4,,True,True
+5-01-02-150,Cash Gift,Expense,Personal Services,4,,True,True
+5-01-02-990,Other Bonuses and Allowances,Expense,Personal Services,4,,True,True
+5-01-03-010,Retirement and Life Insurance Premiums,Expense,Personal Services,4,,True,True
+5-01-03-020,Pag-IBIG Contributions,Expense,Personal Services,4,,True,True
+5-01-03-030,PhilHealth Contributions,Expense,Personal Services,4,,True,True
+5-01-03-040,Employees Compensation Insurance Premiums,Expense,Personal Services,4,,True,True
+5-01-03-050,Provident/Welfare Fund Contributions,Expense,Personal Services,4,,True,True
+5-01-04-010,Pension Benefits,Expense,Personal Services,4,,True,True
+5-01-04-020,Retirement Gratuity,Expense,Personal Services,4,,True,True
+5-01-04-030,Terminal Leave Benefits,Expense,Personal Services,4,,True,True
+5-01-04-990,Other Personnel Benefits,Expense,Personal Services,4,,True,True
+5-02-01-010,Travelling Expenses – Local,Expense,MOOE,4,,True,True
+5-02-01-020,Travelling Expenses – Foreign,Expense,MOOE,4,,True,True
+5-02-02-010,Training Expenses,Expense,MOOE,4,,True,True
+5-02-02-020,Scholarship Grants/Expenses,Expense,MOOE,4,,True,True
+5-02-03-010,Office Supplies Expenses,Expense,MOOE,4,,True,True
+5-02-03-020,Accountable Forms Expenses,Expense,MOOE,4,,True,True
+5-02-03-030,Non-Accountable Forms Expenses,Expense,MOOE,4,,True,True
+5-02-03-040,Animal/Zoological Supplies Expenses,Expense,MOOE,4,,True,True
+5-02-03-050,Food Supplies Expenses,Expense,MOOE,4,,True,True
+5-02-03-060,Welfare Goods Expenses,Expense,MOOE,4,,True,True
+5-02-03-070,Drugs and Medicines Expenses,Expense,MOOE,4,,True,True
+5-02-03-080,"Medical, Dental and Laboratory Supplies Expenses",Expense,MOOE,4,,True,True
+5-02-03-090,"Fuel, Oil and Lubricant Expenses",Expense,MOOE,4,,True,True
+5-02-03-100,Agricultural and Marine Supplies Expenses,Expense,MOOE,4,,True,True
+5-02-03-110,Textbooks and Instruction Materials Expenses,Expense,MOOE,4,,True,True
+5-02-03-120,"Military, Police and Traffic Supplies Expenses",Expense,MOOE,4,,True,True
+5-02-03-130,Chemical and Filtering Supplies Expenses,Expense,MOOE,4,,True,True
+5-02-03-990,Other Supplies and Materials Expenses,Expense,MOOE,4,,True,True
+5-02-04-010,Water Expenses,Expense,MOOE,4,,True,True
+5-02-04-020,Electricity Expenses,Expense,MOOE,4,,True,True
+5-02-05-010,Postage and Courier Services,Expense,MOOE,4,,True,True
+5-02-05-020,Telephone Expenses,Expense,MOOE,4,,True,True
+5-02-05-030,Internet Subscription Expenses,Expense,MOOE,4,,True,True
+5-02-05-040,"Cable, Satellite, Telegraph and Radio Expenses",Expense,MOOE,4,,True,True
+5-02-06-010,Awards/Rewards Expenses,Expense,MOOE,4,,True,True
+5-02-06-020,Prizes,Expense,MOOE,4,,True,True
+5-02-07-010,Survey Expenses,Expense,MOOE,4,,True,True
+5-02-07-020,"Research, Exploration and Development Expenses",Expense,MOOE,4,,True,True
+5-02-08-010,Demolition and Relocation Expenses,Expense,MOOE,4,,True,True
+5-02-08-020,Desilting and Dredging Expenses,Expense,MOOE,4,,True,True
+5-02-09-010,"Generation, Transmission and Distribution Expenses",Expense,MOOE,4,,True,True
+5-02-10-010,Confidential Expenses,Expense,MOOE,4,,True,True
+5-02-10-020,Intelligence Expenses,Expense,MOOE,4,,True,True
+5-02-10-030,Extraordinary and Miscellaneous Expenses,Expense,MOOE,4,,True,True
+5-02-11-010,Legal Services,Expense,MOOE,4,,True,True
+5-02-11-020,Auditing Services,Expense,MOOE,4,,True,True
+5-02-11-030,Consultancy Services,Expense,MOOE,4,,True,True
+5-02-11-990,Other Professional Services,Expense,MOOE,4,,True,True
+5-02-12-010,Environment/Sanitary Services,Expense,MOOE,4,,True,True
+5-02-12-020,Janitorial Services,Expense,MOOE,4,,True,True
+5-02-12-030,Security Services,Expense,MOOE,4,,True,True
+5-02-12-990,Other General Services,Expense,MOOE,4,,True,True
+5-02-13-010,Repairs and Maintenance – Investment Property,Expense,MOOE,4,,True,True
+5-02-13-020,Repairs and Maintenance – Land Improvements,Expense,MOOE,4,,True,True
+5-02-13-030,Repairs and Maintenance – Infrastructure Assets,Expense,MOOE,4,,True,True
+5-02-13-040,Repairs and Maintenance – Building and Other Structures,Expense,MOOE,4,,True,True
+5-02-13-050,Repairs and Maintenance – Machinery and Equipment,Expense,MOOE,4,,True,True
+5-02-13-060,Repairs and Maintenance – Transportation Equipment,Expense,MOOE,4,,True,True
+5-02-13-070,Repairs and Maintenance – Furniture and Fixtures,Expense,MOOE,4,,True,True
+5-02-13-080,Repairs and Maintenance – Leased Assets,Expense,MOOE,4,,True,True
+5-02-13-090,Repairs and Maintenance – Leased Assets Improvements,Expense,MOOE,4,,True,True
+5-02-13-990,"Repairs and Maintenance – Other Property, Plant and Equipment",Expense,MOOE,4,,True,True
+5-02-14-010,Subsidy to NGAs,Expense,MOOE,4,,True,True
+5-02-14-020,Subsidy to Other Local Government Units,Expense,MOOE,4,,True,True
+5-02-14-030,Subsidy to Other Funds,Expense,MOOE,4,,True,True
+5-02-14-040,Subsidy to General Fund Proper/Special Accounts,Expense,MOOE,4,,True,True
+5-02-14-050,Subsidy to Local Economic Enterprises,Expense,MOOE,4,,True,True
+5-02-14-990,Subsidies – Others,Expense,MOOE,4,,True,True
+5-02-15-010,Transfers to Unspent Current Year DRRM Funds,Expense,MOOE,4,,True,True
+5-02-15-020,Transfers for Project Equity Share/LGU Counterpart To the Trust Funds,Expense,MOOE,4,,True,True
+5-02-16-010,"Taxes, Duties and Licenses",Expense,MOOE,4,,True,True
+5-02-16-020,Fidelity Bond Premiums,Expense,MOOE,4,,True,True
+5-02-16-030,Insurance Expenses,Expense,MOOE,4,,True,True
+5-02-99-010,Advertising Expenses,Expense,MOOE,4,,True,True
+5-02-99-020,Printing and Publication Expenses,Expense,MOOE,4,,True,True
+5-02-99-030,Representation Expenses,Expense,MOOE,4,,True,True
+5-02-99-040,Transportation and Delivery Expenses,Expense,MOOE,4,,True,True
+5-02-99-050,Rent Expenses,Expense,MOOE,4,,True,True
+5-02-99-060,Membership Dues and Contributions to Organizations,Expense,MOOE,4,,True,True
+5-02-99-070,Subscription Expenses,Expense,MOOE,4,,True,True
+5-02-99-080,Donations,Expense,MOOE,4,,True,True
+5-02-99-990,Other Maintenance and Operating Expenses,Expense,MOOE,4,,True,True
+5-03-01-010,Management Supervision/Trusteeship Fees,Expense,Financial Expenses,4,,True,True
+5-03-01-020,Interest Expenses,Expense,Financial Expenses,4,,True,True
+5-03-01-030,Guarantee Fees,Expense,Financial Expenses,4,,True,True
+5-03-01-040,Bank Charges,Expense,Financial Expenses,4,,True,True
+5-03-01-050,Commitment Fees,Expense,Financial Expenses,4,,True,True
+5-03-01-990,Other Financial Charges,Expense,Financial Expenses,4,,True,True
+5-04-01-010,Direct Materials,Expense,Direct Costs,4,,True,True
+5-04-01-020,Direct Labor,Expense,Direct Costs,4,,True,True
+5-04-01-030,Manufacturing Overhead,Expense,Direct Costs,4,,True,True
+5-04-02-010,Cost of Goods Sold,Expense,Direct Costs,4,,True,True
+5-05-01-010,Depreciation – Investment Property,Expense,Non-Cash Expenses,4,,True,True
+5-05-01-020,Depreciation – Land Improvements,Expense,Non-Cash Expenses,4,,True,True
+5-05-01-030,Depreciation – Infrastructure Assets,Expense,Non-Cash Expenses,4,,True,True
+5-05-01-040,Depreciation – Building and Other Structures,Expense,Non-Cash Expenses,4,,True,True
+5-05-01-050,Depreciation – Machinery and Equipment,Expense,Non-Cash Expenses,4,,True,True
+5-05-01-060,Depreciation – Transportation Equipment,Expense,Non-Cash Expenses,4,,True,True
+5-05-01-070,"Depreciation – Furniture, Fixtures and Books",Expense,Non-Cash Expenses,4,,True,True
+5-05-01-080,Depreciation – Leased Assets,Expense,Non-Cash Expenses,4,,True,True
+5-05-01-090,Depreciation – Leased Assets Improvements,Expense,Non-Cash Expenses,4,,True,True
+5-05-01-100,Depreciation – Service Concession Assets,Expense,Non-Cash Expenses,4,,True,True
+5-05-01-990,"Depreciation – Other Property, Plant and Equipment",Expense,Non-Cash Expenses,4,,True,True
+5-05-02-010,Amortization – Intangible Assets,Expense,Non-Cash Expenses,4,,True,True
+5-05-03-010,Impairment Loss – Financial Assets Held to Maturity,Expense,Non-Cash Expenses,4,,True,True
+5-05-03-020,Impairment Loss – Loans and Receivables,Expense,Non-Cash Expenses,4,,True,True
+5-05-03-030,Impairment Loss – Lease Receivables,Expense,Non-Cash Expenses,4,,True,True
+5-05-03-040,Impairment Loss – Investments in GOCCs,Expense,Non-Cash Expenses,4,,True,True
+5-05-03-050,Impairment Loss – Investments in Joint Venture,Expense,Non-Cash Expenses,4,,True,True
+5-05-03-060,Impairment Loss – Other Receivables,Expense,Non-Cash Expenses,4,,True,True
+5-05-03-070,Impairment Loss – Inventories,Expense,Non-Cash Expenses,4,,True,True
+5-05-03-080,Impairment Loss – Investment Property,Expense,Non-Cash Expenses,4,,True,True
+5-05-03-090,Impairment Loss – Property Plant and Equipment,Expense,Non-Cash Expenses,4,,True,True
+5-05-03-100,Impairment Loss – Intangible Assets,Expense,Non-Cash Expenses,4,,True,True
+5-05-04-010,Loss on Foreign Exchange (FOREX),Expense,Losses,4,,True,True
+5-05-04-020,Loss on Sale of Investments,Expense,Losses,4,,True,True
+5-05-04-030,Loss on Sale of Investment Property,Expense,Losses,4,,True,True
+5-05-04-040,"Loss on Sale of Property, Plant and Equipment",Expense,Losses,4,,True,True
+5-05-04-050,Loss on Sale of Biological Assets,Expense,Losses,4,,True,True
+5-05-04-060,Loss on Sale of Intangible Assets,Expense,Losses,4,,True,True
+5-05-04-070,Loss on Sale of Assets,Expense,Losses,4,,True,True
+5-05-04-080,Loss on Initial Recognition of Biological Assets,Expense,Losses,4,,True,True
+5-05-04-090,Loss of Assets,Expense,Losses,4,,True,True
+5-05-04-100,Loss on Guaranty,Expense,Losses,4,,True,True
+5-05-04-990,Other Losses,Expense,Losses,4,,True,True
+5-05-05-010,Grants for Concessionary Loans,Expense,Grants,4,,True,True
