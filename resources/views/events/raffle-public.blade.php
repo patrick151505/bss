@@ -1119,14 +1119,29 @@ const CSRF  = '{{ csrf_token() }}';
 const ROUTES = {
     pool:        BASE + '/pool?pin='    + PIN,
     winners:     BASE + '/winners?pin=' + PIN,
-    checkinQr:   BASE + '/checkin-qr',
-    recordWinner: BASE + '/winner',
-    noShow:       BASE + '/no-show',
-    recordWinners: BASE + '/winners',
-    undo:          BASE + '/undo',
+    // Saves also carry the PIN in the URL, and saving winners has its own path:
+    // if the host ever redirects a POST, the browser re-sends it as a GET without
+    // the body, and it must never be answered by the read-only winners list.
+    checkinQr:   BASE + '/checkin-qr?pin=' + PIN,
+    recordWinner: BASE + '/winner?pin=' + PIN,
+    noShow:       BASE + '/no-show?pin=' + PIN,
+    recordWinners: BASE + '/winners/save?pin=' + PIN,
+    undo:          BASE + '/undo?pin=' + PIN,
     liveWait:      BASE + '/live/wait?pin=' + PIN,
-    livePush:      BASE + '/live',
+    livePush:      BASE + '/live?pin=' + PIN,
 };
+
+// Response reader for saves: a redirected save never reached its handler.
+async function readJson(r) {
+    if (r.redirected) {
+        return { success: false, message: 'The server redirected this request, so nothing was saved (HTTP ' + r.status + '). Reload the page and try again.' };
+    }
+    const data = await r.json().catch(() => null);
+    if (data) return data;
+    return { success: false, message: r.status === 419
+        ? 'This page expired. Reload it and try again.'
+        : 'Server error (HTTP ' + r.status + ') — nothing was saved.' };
+}
 
 // Screen mode: 'display' (projector — no controls, follows the controller),
 // 'control' (staff phone/tablet) or 'both' (one screen does everything).
@@ -1858,7 +1873,7 @@ async function drainPushes() {
                     method: 'POST',
                     headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: item.body,
-                }).then(r => r.json());
+                }).then(readJson);
                 if (res && res.success) { setLinkStatus(true); break; }
             } catch (e) {}
             setLinkStatus(false);
@@ -2045,7 +2060,7 @@ async function submitUndo() {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ pin: PIN, round: undoRound, reason, keep_out: keepOut }),
-    }).then(r => r.json()).catch(() => ({ success: false, message: 'Network error — nothing was changed.' }));
+    }).then(readJson).catch(() => ({ success: false, message: 'Network error — nothing was changed.' }));
 
     if (!res.success) {
         btn.disabled = false;
@@ -2336,7 +2351,7 @@ async function confirmBatch() {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({ citizenIds: d.winners.map(w => w.citizenId), prize_label: d.prizeLabel, pin: PIN }),
-    }).then(r => r.json()).catch(() => ({ success: false, message: 'Network error — winners not saved. Please try again.' }));
+    }).then(readJson).catch(() => ({ success: false, message: 'Network error — winners not saved. Please try again.' }));
 
     if (!res.success) {
         recordingLocal = false;
@@ -2429,7 +2444,7 @@ async function confirmPresent() {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json' },
         body: JSON.stringify({ citizenId: winner.citizenId, prize_label: prizeLabel, pin: PIN }),
-    }).then(r => r.json()).catch(() => ({ success: false, message: 'Network error — winner not saved. Please try again.' }));
+    }).then(readJson).catch(() => ({ success: false, message: 'Network error — winner not saved. Please try again.' }));
 
     if (!res.success) {
         recordingLocal = false;
@@ -2566,7 +2581,7 @@ async function submitQr(code) {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': CSRF, 'Content-Type': 'application/json' },
         body: JSON.stringify({ qrcode: code, pin: PIN }),
-    }).then(r => r.json()).catch(() => ({ success: false, message: 'Network error.' }));
+    }).then(readJson).catch(() => ({ success: false, message: 'Network error.' }));
 
     closeQrModal();
     showAttendResult(res);

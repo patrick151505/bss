@@ -237,6 +237,9 @@ class EventController extends Controller
                 ? 'The PIN expired on ' . $event->raffle_pin_expires_at->format('M d, Y g:i A') . '.'
                 : 'There is no active PIN for this event.';
         }
+        if ((string) $pin === '') {
+            return 'The request reached the server without the PIN (it may have been redirected). Reload the page and try again.';
+        }
         if ((string) $pin !== $event->raffle_pin) {
             return 'A new PIN was generated, so this link no longer works. Open the new link from the raffle page.';
         }
@@ -264,8 +267,8 @@ class EventController extends Controller
 
     public function publicCheckinQr(Request $request, Event $event)
     {
-        if (!$event->raffle_enabled || !$event->hasValidPin() || $request->input('pin') !== $event->raffle_pin) {
-            return response()->json(['success' => false, 'message' => 'Session expired or invalid.']);
+        if ($why = $this->pinFailure($event, $request->input('pin'))) {
+            return response()->json(['success' => false, 'message' => $why]);
         }
 
         $qrcode  = trim($request->input('qrcode'));
@@ -306,8 +309,8 @@ class EventController extends Controller
 
     public function publicRecordWinner(Request $request, Event $event)
     {
-        if (!$event->raffle_enabled || !$event->hasValidPin() || $request->input('pin') !== $event->raffle_pin) {
-            return response()->json(['success' => false, 'message' => 'Session expired or invalid.']);
+        if ($why = $this->pinFailure($event, $request->input('pin'))) {
+            return response()->json(['success' => false, 'message' => $why]);
         }
 
         return $this->recordWinner($request, $event);
@@ -319,8 +322,8 @@ class EventController extends Controller
 
     public function publicRecordWinners(Request $request, Event $event)
     {
-        if (!$event->raffle_enabled || !$event->hasValidPin() || $request->input('pin') !== $event->raffle_pin) {
-            return response()->json(['success' => false, 'message' => 'Session expired or invalid.']);
+        if ($why = $this->pinFailure($event, $request->input('pin'))) {
+            return response()->json(['success' => false, 'message' => $why]);
         }
 
         $request->validate([
@@ -376,8 +379,8 @@ class EventController extends Controller
 
     public function publicUndoWinner(Request $request, Event $event)
     {
-        if (!$event->raffle_enabled || !$event->hasValidPin() || $request->input('pin') !== $event->raffle_pin) {
-            return response()->json(['success' => false, 'message' => 'Session expired or invalid.']);
+        if ($why = $this->pinFailure($event, $request->input('pin'))) {
+            return response()->json(['success' => false, 'message' => $why]);
         }
 
         $request->validate([
@@ -449,8 +452,8 @@ class EventController extends Controller
 
     public function publicPushLiveState(Request $request, Event $event)
     {
-        if (!$event->raffle_enabled || !$event->hasValidPin() || $request->input('pin') !== $event->raffle_pin) {
-            return response()->json(['success' => false, 'message' => 'Session expired or invalid.']);
+        if ($why = $this->pinFailure($event, $request->input('pin'))) {
+            return response()->json(['success' => false, 'message' => $why]);
         }
 
         $request->validate([
@@ -479,8 +482,8 @@ class EventController extends Controller
 
     public function publicNoShow(Request $request, Event $event)
     {
-        if (!$event->raffle_enabled || !$event->hasValidPin() || $request->input('pin') !== $event->raffle_pin) {
-            return response()->json(['success' => false, 'message' => 'Session expired or invalid.']);
+        if ($why = $this->pinFailure($event, $request->input('pin'))) {
+            return response()->json(['success' => false, 'message' => $why]);
         }
 
         $citizen = Citizen::find((int) $request->input('citizenId'));

@@ -614,7 +614,7 @@ Route::prefix('events')->name('events.')->group(function () {
     Route::post('{event}/raffle/public/checkin-qr',  [EventController::class, 'publicCheckinQr'])->name('raffle.public.checkin-qr');
     Route::post('{event}/raffle/public/winner',      [EventController::class, 'publicRecordWinner'])->name('raffle.public.winner');
     Route::post('{event}/raffle/public/no-show',     [EventController::class, 'publicNoShow'])->name('raffle.public.no-show');
-    Route::post('{event}/raffle/public/winners',     [EventController::class, 'publicRecordWinners'])->name('raffle.public.winners.store');
+    Route::post('{event}/raffle/public/winners/save', [EventController::class, 'publicRecordWinners'])->name('raffle.public.winners.store');
     Route::post('{event}/raffle/public/undo',        [EventController::class, 'publicUndoWinner'])->name('raffle.public.undo');
     // Long-poll for the audience display: no session/cookies/CSRF (the whole 'web' group is skipped) so each wake-up is cheap.
     Route::get('{event}/raffle/public/live/wait',    [EventController::class, 'publicLiveWait'])->withoutMiddleware('web')->name('raffle.public.live.wait');
