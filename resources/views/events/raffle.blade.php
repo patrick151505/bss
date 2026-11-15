@@ -178,8 +178,10 @@ const CSRF = '{{ csrf_token() }}';
 document.addEventListener('DOMContentLoaded', () => {
     loadRafflePool();
     loadWinners();
-    setInterval(loadWinners, 5000);
-    setInterval(loadRafflePool, 10000);
+    // Slow, and paused in background tabs: the host throttles busy IPs, and a
+    // throttled IP can't save (PIN generate / winners fail with HTTP 405).
+    setInterval(() => { if (!document.hidden) loadWinners(); }, 15000);
+    setInterval(() => { if (!document.hidden) loadRafflePool(); }, 60000);
 });
 
 // ─── Pool ─────────────────────────────────────────────────────────────────────
@@ -281,7 +283,7 @@ async function generatePin(btn) {
     // "GET method is not supported". That happens before Laravel, so resending is safe.
     const send = async () => {
         let r;
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < 4; attempt++) {
             r = await fetch(ROUTES.generatePin, {
                 method: 'POST',
                 headers: {
@@ -292,15 +294,17 @@ async function generatePin(btn) {
                 },
                 body: '{}',
             });
-            if (!r.redirected) break;
-            await new Promise(ok => setTimeout(ok, 300 * (attempt + 1)));
+            // 405 = the host blocked the POST and replayed it as a GET (error-page
+            // handling), 429/503 = host throttling. None of these reached the app.
+            if (!r.redirected && ![405, 429, 503].includes(r.status)) break;
+            await new Promise(ok => setTimeout(ok, 800 * (attempt + 1)));
         }
         return r;
     };
 
     const res = await send().then(async r => {
-        if (r.redirected) {
-            return { success: false, message: 'The hosting server keeps redirecting this request (security filter), so no PIN was generated. Try again in a minute.' };
+        if (r.redirected || [405, 429, 503].includes(r.status)) {
+            return { success: false, message: `The hosting server blocked this request (HTTP ${r.status}${r.redirected ? ', redirected' : ''}), so no PIN was generated. Wait a minute and try again.` };
         }
         const data = await r.json().catch(() => null);
         if (r.ok && data) return data;

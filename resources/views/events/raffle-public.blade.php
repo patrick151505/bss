@@ -1136,18 +1136,19 @@ const ROUTES = {
 // The redirect happens before Laravel, so nothing was saved — resending is safe.
 async function postJson(url, opts) {
     let r;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 4; attempt++) {
         r = await fetch(url, opts);
-        if (!r.redirected) break;
-        await sleep(300 * (attempt + 1));
+        // 405 = host blocked the POST and replayed it as a GET; 429/503 = host throttling.
+        if (!r.redirected && ![405, 429, 503].includes(r.status)) break;
+        await sleep(800 * (attempt + 1));
     }
     return readJson(r);
 }
 
 // Response reader for saves: a redirected save never reached its handler.
 async function readJson(r) {
-    if (r.redirected) {
-        return { success: false, message: 'The server redirected this request, so nothing was saved (HTTP ' + r.status + '). Reload the page and try again.' };
+    if (r.redirected || [405, 429, 503].includes(r.status)) {
+        return { success: false, message: 'The hosting server blocked this request (HTTP ' + r.status + (r.redirected ? ', redirected' : '') + '), so nothing was saved. Wait a moment and press Confirm again.' };
     }
     const data = await r.json().catch(() => null);
     if (data) return data;
@@ -1220,7 +1221,9 @@ let recordingLocal  = false;
 document.addEventListener('DOMContentLoaded', () => {
     loadPool();
     loadWinners();
-    setInterval(pollWinners, 1000);
+    // Keep the request rate low: the host throttles busy IPs (403 → POSTs fail).
+    // The display follows the live channel, so its winners list only needs a slow refresh.
+    setInterval(() => { if (!document.hidden) pollWinners(); }, MODE === 'display' ? 15000 : 4000);
     // The display takes one clock sample before listening (so the first spin it hears is timed
     // right), then refines the clock in the background.
     syncClock(1).then(() => {
