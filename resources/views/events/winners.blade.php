@@ -52,7 +52,7 @@
                 @endforeach
             </div>
             <div class="flex flex-wrap gap-2">
-                @if($event->raffle_enabled)
+                @if($event->raffle_enabled && auth()->user()->can('events.edit'))
                 <a href="{{ route('events.raffle.page', $event) }}" class="btn btn-sm bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">
                     <i class="mgc_star_line me-1"></i> Raffle
                 </a>

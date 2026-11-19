@@ -19,6 +19,24 @@
 return [
 
     [
+        'version' => '3.1',
+        'date'    => '2026-11-19',
+        'title'   => 'Health printout, Print Paper page and a simpler raffle',
+        'summary' => 'Print a health check-up on the barangay letterhead, choose every printout’s paper on its own Settings page, and run the raffle on one screen.',
+        'changes' => [
+            ['type' => 'new', 'module' => 'Health', 'text' => 'Print a check-up record (patient, vital signs with flags, consultation, medicines given and signature lines) with the Print button on the check-up page.'],
+            ['type' => 'new', 'module' => 'Settings', 'text' => 'Print Paper now has its own page in Settings. Choose the paper template (and version) for the Blotter Report, Inventory Release Slip, Document Fee Summary and Health Check-up Record in one place.'],
+            ['type' => 'improved', 'module' => 'Settings', 'text' => 'The General Info page no longer includes the Print Paper choices.'],
+            ['type' => 'new', 'module' => 'Ordinances', 'text' => 'Activity Logs has an “Ordinances & Resolutions” filter, and each entry links to its measure.'],
+            ['type' => 'improved', 'module' => 'Ordinances', 'text' => 'The log now shows what changed: title, number, status, dates, votes, authors, amends/repeals and the signed copy, each from old to new. Removing a timeline entry is logged too.'],
+            ['type' => 'new', 'module' => 'Ordinances', 'text' => 'Change history on each ordinance or resolution page (for users who can see the Activity Logs), with a link to its full history.'],
+            ['type' => 'improved', 'module' => 'Events', 'text' => 'The raffle opens straight to the draw screen from the event page (Open Raffle). Staff must be logged in and allowed to edit events.'],
+            ['type' => 'improved', 'module' => 'Events', 'text' => 'Removed the PIN, the shareable link and the separate Display and Controller screens. To show the draw on a projector, open the raffle on the laptop connected to it.'],
+            ['type' => 'fixed', 'module' => 'Events', 'text' => 'A single raffle winner must now be on the event’s attendance list before it is saved.'],
+        ],
+    ],
+
+    [
         'version' => '3.0',
         'date'    => '2026-11-15',
         'title'   => 'Health check-ups, Ordinances and a better Documents page',

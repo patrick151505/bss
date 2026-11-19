@@ -265,30 +265,6 @@
                 </div>
             </div>
 
-            {{-- Print Paper — reuse Documents → Paper Templates on other printouts --}}
-            <div class="card">
-                <div class="card-header">
-                    <div class="flex items-center justify-between">
-                        <h5 class="card-title"><i class="mgc_paper_line me-2 text-primary"></i>Print Paper</h5>
-                        <a href="{{ route('documents.templates.index') }}" class="text-xs text-primary hover:underline">Paper Templates</a>
-                    </div>
-                </div>
-                <div class="p-6 space-y-4">
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                        Select a template and pin the version to use for each printout. <strong>Latest</strong> follows the
-                        template whenever a new version is saved; a specific version stays fixed.
-                    </p>
-                    <div class="grid md:grid-cols-2 xl:grid-cols-3 grid-cols-1 gap-6">
-                        @foreach(['blotter' => 'Blotter Report', 'inventory' => 'Inventory Release Slip', 'fees' => 'Document Fee Summary'] as $print => $label)
-                            @include('settings.partials.paper-picker', ['print' => $print, 'label' => $label])
-                        @endforeach
-                    </div>
-                    @if($paperOptions->isEmpty())
-                        <p class="text-xs text-warning">No paper templates yet — create one under Documents → Paper Templates.</p>
-                    @endif
-                </div>
-            </div>
-
             {{-- Income Classification — optional, off by default --}}
             <div class="card">
                 <div class="card-header">
@@ -459,28 +435,6 @@
 @endsection
 
 @section('script')
-<script>
-// ── Print Paper pickers ─────────────────────────────────────────────────
-// Choosing a template opens its "Pin a version" list. Only the open list's
-// radios are enabled (so only they are submitted); if none of them is
-// chosen yet, "Latest" is selected.
-document.querySelectorAll('.paper-picker').forEach(picker => {
-    const sync = () => {
-        const chosen = picker.querySelector('.paper-tpl-radio:checked')?.value ?? '';
-        picker.querySelectorAll('.paper-versions').forEach(block => {
-            const open = block.dataset.tpl === chosen;
-            block.classList.toggle('hidden', !open);
-            block.querySelectorAll('input[type=radio]').forEach(r => { r.disabled = !open; if (!open) r.checked = false; });
-            if (open && !block.querySelector('input[type=radio]:checked')) {
-                block.querySelector('.paper-ver-latest').checked = true;
-            }
-        });
-    };
-    picker.querySelectorAll('.paper-tpl-radio').forEach(r => r.addEventListener('change', sync));
-    sync();
-});
-</script>
-
 <script>
 window.addEventListener('DOMContentLoaded', () => {
     // Logo preview helper

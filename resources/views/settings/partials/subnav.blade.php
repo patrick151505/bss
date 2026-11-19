@@ -6,6 +6,7 @@
         ['route' => 'users.index',               'pattern' => 'users.*',                    'icon' => 'mgc_user_4_line'       ,'label' => 'Users',              'can' => 'users.view'],
         ['route' => 'roles.index',               'pattern' => 'roles.*',                    'icon' => 'mgc_shield_line',       'label' => 'Roles',              'can' => 'roles.view'],
         ['route' => 'documents.templates.index', 'pattern' => 'documents.templates.*',      'icon' => 'mgc_paper_line',        'label' => 'Paper Templates',    'can' => 'documents.view'],
+        ['route' => 'settings.print-paper',      'pattern' => 'settings.print-paper*',      'icon' => 'mgc_print_line',        'label' => 'Print Paper',        'can' => 'settings.view'],
         ['route' => 'citizens.ids.template.designer', 'pattern' => 'citizens.ids.template.*', 'icon' => 'mgc_IDcard_line',    'label' => 'ID Template',        'can' => 'citizen_ids.template'],
         ['route' => 'settings.updates',          'pattern' => 'settings.updates',           'icon' => 'mgc_rocket_line',       'label' => 'Updates',            'can' => 'settings.view', 'badge' => true],
     ];

@@ -66,10 +66,12 @@
         </div>
         <div class="flex flex-wrap gap-2 shrink-0">
             @if($event->raffle_enabled)
+            @can('events.edit')
             <a href="{{ route('events.raffle.page', $event) }}"
                 class="btn bg-warning text-white text-sm gap-1.5 shadow-sm">
                 <i class="mgc_star_line"></i> Open Raffle
             </a>
+            @endcan
             <a href="{{ route('events.winners.index', $event) }}"
                 class="btn bg-warning/25 text-warning hover:bg-warning hover:text-white text-sm gap-1.5">
                 <i class="mgc_trophy_line"></i> Winners

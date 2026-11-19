@@ -29,6 +29,8 @@ class Setting extends Model
         'inventory_paper_version_id',
         'fees_paper_template_id',
         'fees_paper_version_id',
+        'health_paper_template_id',
+        'health_paper_version_id',
         'income_enabled',
         'poverty_threshold',
     ];

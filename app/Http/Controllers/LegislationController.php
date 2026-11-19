@@ -86,7 +86,8 @@ class LegislationController extends Controller
             return $legislation;
         });
 
-        ActivityLog::record('created', 'Legislation', $legislation->id, "Recorded {$legislation->reference()} — {$legislation->title}");
+        $this->log('created', $legislation, "Recorded {$legislation->reference()} — {$legislation->title}",
+            ['details' => array_filter($this->snapshot($legislation->fresh()), fn($v) => $v !== '—')]);
 
         return redirect()->route('legislation.show', $legislation)->with('success', "{$legislation->reference()} saved.");
     }
@@ -94,7 +95,15 @@ class LegislationController extends Controller
     public function show(Legislation $legislation)
     {
         $legislation->load(['authors', 'events.user', 'amends', 'amendments', 'repealedBy', 'repeals', 'creator']);
-        return view('legislation.show', compact('legislation'));
+
+        // Who changed what (Activity Logs), for users allowed to see the logs.
+        $history = auth()->user()->can('activity_logs.view')
+            ? ActivityLog::with('user:id,name')->where('subject_type', self::LOG_TYPE)->where('subject_id', $legislation->id)
+                ->orderByDesc('created_at')->orderByDesc('id')->limit(8)->get()
+            : null;
+        $historyCount = $history ? ActivityLog::where('subject_type', self::LOG_TYPE)->where('subject_id', $legislation->id)->count() : 0;
+
+        return view('legislation.show', compact('legislation', 'history', 'historyCount'));
     }
 
     public function edit(Legislation $legislation)
@@ -105,7 +114,11 @@ class LegislationController extends Controller
 
     public function update(Request $request, Legislation $legislation)
     {
-        $data = $this->validated($request, $legislation);
+        $data   = $this->validated($request, $legislation);
+        $before = $this->snapshot($legislation);
+        $fileNote = $request->hasFile('file')
+            ? ($legislation->file_path ? 'Replaced' : 'Uploaded')
+            : ($request->boolean('remove_file') && $legislation->file_path ? 'Removed' : null);
 
         DB::transaction(function () use ($request, $data, $legislation) {
             $before = $legislation->status;
@@ -133,19 +146,26 @@ class LegislationController extends Controller
             $this->syncLinks($legislation, $request->input('repeals', []));
         });
 
-        ActivityLog::record('updated', 'Legislation', $legislation->id, "Updated {$legislation->reference()}");
+        $changed = $this->diff($before, $this->snapshot($legislation->fresh()));
+        if ($fileNote) {
+            $changed['Signed copy'] = ['from' => $fileNote === 'Uploaded' ? 'None' : 'Old file', 'to' => $fileNote === 'Removed' ? 'None' : 'New file'];
+        }
+        $this->log('updated', $legislation,
+            "Updated {$legislation->reference()}" . ($changed ? '' : ' (no changes)'),
+            $changed ? ['changed' => $changed] : []);
 
         return redirect()->route('legislation.show', $legislation)->with('success', 'Changes saved.');
     }
 
     public function destroy(Legislation $legislation)
     {
+        $details = array_filter($this->snapshot($legislation), fn($v) => $v !== '—');
         DB::transaction(function () use ($legislation) {
             // Measures this one repealed are back in force once it's gone.
             $this->syncLinks($legislation, [], true);
             $legislation->delete();
         });
-        ActivityLog::record('deleted', 'Legislation', $legislation->id, "Deleted {$legislation->reference()} — {$legislation->title}");
+        $this->log('deleted', $legislation, "Deleted {$legislation->reference()} — {$legislation->title}", ['details' => $details]);
 
         return redirect()->route('legislation.index')->with('success', "{$legislation->reference()} deleted.");
     }
@@ -163,7 +183,8 @@ class LegislationController extends Controller
             'votes_abstain' => ['nullable', 'integer', 'min:0', 'max:99'],
         ], ['to.in' => 'That step is not available for this measure any more. Reload the page.']);
 
-        $to = $request->to;
+        $to     = $request->to;
+        $before = $this->snapshot($legislation);
         DB::transaction(function () use ($request, $legislation, $to) {
             $updates = ['status' => $to, 'updated_by' => auth()->id()];
             if ($to === 'approved')  $updates['date_approved']  = $request->date;
@@ -178,8 +199,16 @@ class LegislationController extends Controller
             }
         });
 
-        $label = $legislation->labelFor($to);
-        ActivityLog::record('updated', 'Legislation', $legislation->id, "{$legislation->reference()}: {$label}");
+        $label   = $legislation->labelFor($to);
+        $changed = $this->diff($before, $this->snapshot($legislation->fresh()));
+        if ($request->filled('remarks')) {
+            $changed['Remarks'] = ['from' => '—', 'to' => $request->remarks];
+        }
+        $repealed = $legislation->hasPassed() ? $legislation->repeals()->get()->map->reference()->all() : [];
+        $this->log('updated', $legislation,
+            "{$legislation->reference()}: marked {$label} on " . \Carbon\Carbon::parse($request->date)->format('M d, Y')
+                . ($repealed ? ' — repeals ' . implode(', ', $repealed) : ''),
+            ['changed' => $changed]);
 
         return back()->with('success', "{$legislation->reference()} marked {$label}.");
     }
@@ -193,8 +222,13 @@ class LegislationController extends Controller
             'remarks' => ['nullable', 'string', 'max:1000', 'required_if:event,note'],
         ], ['remarks.required_if' => 'Write the note.']);
 
-        $this->event($legislation, $request->event, $request->date, $request->remarks);
-        ActivityLog::record('updated', 'Legislation', $legislation->id, "{$legislation->reference()}: added timeline entry ({$request->event})");
+        $entry = $this->event($legislation, $request->event, $request->date, $request->remarks);
+        $this->log('updated', $legislation, "{$legislation->reference()}: added timeline entry — {$entry->meta()[0]}", [
+            'details' => array_filter([
+                'Date'    => \Carbon\Carbon::parse($request->date)->format('M d, Y'),
+                'Remarks' => $request->remarks,
+            ]),
+        ]);
 
         return back()->with('success', 'Added to the timeline.');
     }
@@ -203,6 +237,12 @@ class LegislationController extends Controller
     {
         abort_unless($event->legislation_id === $legislation->id && in_array($event->event, LegislationEvent::MANUAL, true), 404);
         $event->delete();
+        $this->log('updated', $legislation, "{$legislation->reference()}: removed timeline entry — {$event->meta()[0]}", [
+            'details' => array_filter([
+                'Date'    => $event->event_date?->format('M d, Y'),
+                'Remarks' => $event->remarks,
+            ]),
+        ]);
         return back()->with('success', 'Timeline entry removed.');
     }
 
@@ -346,9 +386,57 @@ class LegislationController extends Controller
         }
     }
 
-    private function event(Legislation $legislation, string $event, $date, ?string $remarks = null): void
+    // ── Activity log ───────────────────────────────────────────────────────
+
+    /** Activity-log type for ordinances and resolutions (Activity Logs → Module filter). */
+    const LOG_TYPE = 'legislation';
+
+    private function log(string $action, Legislation $legislation, string $description, array $props = []): void
     {
-        $legislation->events()->create([
+        ActivityLog::record($action, self::LOG_TYPE, $legislation->id, $description,
+            ['reference' => $legislation->reference()] + $props);
+    }
+
+    /** The measure as readable "Field => value" pairs, to compare before and after a change. */
+    private function snapshot(Legislation $l): array
+    {
+        $l->loadMissing(['authors', 'repeals', 'amends']);
+        $date  = fn($d) => $d ? $d->format('M d, Y') : '—';
+        $votes = collect(['Yes' => $l->votes_yes, 'No' => $l->votes_no, 'Abstain' => $l->votes_abstain])
+            ->filter(fn($v) => $v !== null)->map(fn($v, $k) => "{$k} {$v}")->implode(', ');
+
+        return [
+            'Type'        => $l->typeLabel(),
+            'Number'      => (string) $l->number,
+            'Series'      => (string) $l->series_year,
+            'Title'       => (string) $l->title,
+            'Summary'     => \Illuminate\Support\Str::limit((string) $l->summary, 120) ?: '—',
+            'Category'    => $l->category ?: '—',
+            'Status'      => $l->statusLabel(),
+            'Introduced'  => $date($l->date_introduced),
+            'Approved'    => $date($l->date_approved),
+            'In force'    => $date($l->date_effective),
+            'Votes'       => $votes ?: '—',
+            'Authors'     => $l->authors->map(fn($a) => $a->name . ($a->role !== 'author' ? ' (' . (Legislation::AUTHOR_ROLES[$a->role] ?? $a->role) . ')' : ''))->implode(', ') ?: '—',
+            'Amends'      => $l->amends?->reference() ?? '—',
+            'Repeals'     => $l->repeals->map->reference()->implode(', ') ?: '—',
+        ];
+    }
+
+    /** Fields that differ, as ['Field' => ['from' => …, 'to' => …]] (the Activity Logs page shows these). */
+    private function diff(array $before, array $after): array
+    {
+        $out = [];
+        foreach ($after as $field => $to) {
+            $from = $before[$field] ?? '—';
+            if ($from !== $to) $out[$field] = ['from' => $from, 'to' => $to];
+        }
+        return $out;
+    }
+
+    private function event(Legislation $legislation, string $event, $date, ?string $remarks = null): LegislationEvent
+    {
+        return $legislation->events()->create([
             'event'      => $event,
             'event_date' => \Carbon\Carbon::parse($date)->toDateString(),
             'remarks'    => $remarks,

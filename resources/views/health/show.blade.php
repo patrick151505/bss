@@ -76,6 +76,9 @@
             </a>
             @endif
             @endcan
+            <a href="{{ route('health.print', $C) }}" target="_blank" class="btn bg-primary/25 text-primary hover:bg-primary hover:text-white">
+                <i class="mgc_print_line me-1"></i>Print
+            </a>
             @can('health.edit')
             <a href="{{ route('health.edit', $C) }}" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">
                 <i class="mgc_edit_line me-1"></i>Edit

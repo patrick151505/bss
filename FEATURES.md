@@ -162,7 +162,7 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 - Posting dates and notes can be added to the timeline.
 - **Signed copy**: upload a PDF or photo, view it on the page, or download it. The file is kept private, so only signed-in users who can view ordinances can open it.
 - Ordinances and Resolutions tabs, search (by number, title or author), filters by status, year and category, and counts of ordinances, resolutions, measures in force and pending readings.
-- Every change is recorded in the Activity Logs.
+- **Activity log**: recording, editing (each changed field shown from old to new, including status, dates, votes, authors, amends/repeals and the signed copy), moving to the next step or veto, adding or removing timeline entries, and deleting are all logged. Each ordinance page has a **Change history** card (for users who can see the Activity Logs) with a link to its full history, and Activity Logs has an **Ordinances & Resolutions** filter.
 
 **Roles:** view (all roles); add and edit (Staff, Super Admin); move the steps along, veto and add timeline entries (**Approve** permission, Super Admin); delete (Super Admin). Users without Approve always save new measures as Draft and can't change the status.
 
@@ -177,6 +177,7 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 - **Consultation notes**: complaint, findings, advice or treatment, where the patient was referred, and a follow-up date.
 - **Medicines from Inventory**: only items in a category marked **Use for medicine** (Inventory → Categories) can be picked. Pick items in stock and enter the quantity and how to take them. Stock is deducted when you save. For a citizen this also creates a released Inventory release, so it appears under Inventory → Releases and in the citizen's history. If there isn't enough stock, nothing is saved. Medicines can't be changed after saving; to fix a mistake, use a stock adjustment in Inventory.
 - **Save & next patient** button for busy check-up days.
+- **Print** a check-up record: patient details, vital signs with their flags, consultation notes, medicines given, and signature lines for the health worker and the patient. It prints on the paper chosen in Settings → Print Paper (or the plain barangay header).
 - **Check-up page**: the readings with their flags, the medicines given, and the patient's other check-ups so changes in BP, weight and so on can be compared.
 - List with counts for today, this month, high BP this month and follow-ups in the next 7 days (click a count to filter). You can search, filter by date, or show only high BP, fever, high blood sugar or upcoming follow-ups.
 - Citizen profile: a **Health** tab with all their check-ups and a "New check-up" button. Check-ups also appear in **All Transactions** on the Citizens page.
@@ -228,21 +229,20 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 ### 13. Raffle / Lucky Draw (part of Events)
 **Features**
 - Turn on a raffle for any event; everyone checked in is in the draw.
-- A **PIN-protected screen** that staff open on any device without logging in. A new PIN ends the old links.
+- **One draw screen inside the system**: staff open it with **Open Raffle** on the event page. It needs a login and the edit-events permission. There is no PIN, shareable link or live second screen. To show the draw on a projector, open it on the laptop connected to the projector.
 - Animated card carousel with a progress bar; nine cards on wide screens.
 - **Presence check**: after each draw, staff confirm the person is present, or mark them not present and the system draws again.
 - **Several winners in one draw** (up to 50). Absent people are removed before confirming, and all winners are saved together.
 - **Grand prize mode**: gold theme, slower spin and a bigger celebration, one winner.
 - **Area filter**: draw only from selected zones.
 - Optional prize label per draw; winners cannot win twice unless allowed in the event settings.
-- **Two-screen setup**: a projector "Display" with no buttons, and a staff "Controller" on a phone or tablet. The Display follows the Controller live and both stop on the winner at the same moment. If the connection drops, the Display reconnects and catches up.
 - **Undo** a confirmed winner, with a required reason. Not allowed once the prize has been claimed.
 - Cheerful sound effects with a mute button.
 - **Winners page**: edit prizes one by one or many at once, mark prizes as claimed (records when and by whom), and **export** the winners list to **CSV (Excel)** or **PDF**.
 
-**Roles:** view (all roles); run draws and manage winners (Staff, Super Admin). The draw screens themselves only need the PIN.
+**Roles:** view the winners list (all roles); open the draw screen, run draws and manage winners (Staff, Super Admin, or any role with the edit-events permission).
 
-**Status: Complete.** This was built and tested recently; a rehearsal on the real devices and network is recommended before the first live event. Note: the raffle screen still has a "check in by QR" function on the server, but its button was removed on request, so it cannot be used.
+**Status: Complete.**
 
 ---
 
@@ -272,7 +272,7 @@ The sidebar, buttons and the citizen activity pop-up only show what the role all
 **Features**
 - **General info**: barangay name, address, municipality, province, contact number, email, barangay and municipal logos, captain's name, position and signature.
 - **Citizen ID format**: number prefix and number of digits, and how long Barangay IDs stay valid.
-- **Print paper**: choose the official paper used for blotter reports and inventory release slips, picked from visual cards (including saved versions).
+- **Print Paper** (its own page in Settings): choose the paper template from Documents → Paper Templates, and either follow its latest version or pin one, for each printout: Blotter Report, Inventory Release Slip, Document Fee Summary and Health Check-up Record. "None" uses the plain barangay header. Changes are written to the activity log.
 - **Zones & Addresses**: add, edit and switch off zones or subdivisions.
 - **Officials**: list of barangay officials with position, description and display order.
 - Shortcuts to Users, Roles, Paper Templates and the ID Template Designer.
@@ -286,11 +286,11 @@ The sidebar, buttons and the citizen activity pop-up only show what the role all
 ### 16. Activity Logs (Audit Trail)
 **Features**
 - Record of actions taken in the system: who did it, when, what kind of record, and details.
-- Filter by action, record type, date range and staff member.
+- Filter by action, record type (including Ordinances & Resolutions), date range and staff member. Ordinance entries link to the measure.
 
 **Roles:** anyone with the activity log permission (all three default roles can view).
 
-**Status: Partially working.** Logged: citizens (including archive, restore, hold and exports), households, blotter, events and raffle, winners, ID generation, birthday exports, tags, officials, paper templates, settings and document voiding. Not logged: document creation, approval and release; inventory; users and roles; zones/addresses; document type changes; ID template changes.
+**Status: Partially working.** Logged: citizens (including archive, restore, hold and exports), households, blotter, ordinances and resolutions, health check-ups, print paper, events and raffle, winners, ID generation, birthday exports, tags, officials, paper templates, settings and document voiding. Not logged: document creation, approval and release; inventory; users and roles; zones/addresses; document type changes; ID template changes.
 
 ---
 
@@ -300,7 +300,7 @@ The sidebar, buttons and the citizen activity pop-up only show what the role all
 - Scanning the citizen's Barangay ID QR code with a handheld scanner to start a document request or check someone in to an event.
 - Barangay ID cards with a visual ID template designer.
 - Citizen hold, archive and restore, minor registration, and tags.
-- Raffle and lucky draw system (presence check, multi-winner, grand prize, area filter, projector and phone screens, undo, winner claiming and export).
+- Raffle and lucky draw system (presence check, multi-winner, grand prize, area filter, undo, winner claiming and export).
 - Event eligibility (areas, age, gender, senior/PWD/solo parent/voter, tags) and bulk attendance.
 - Inventory releases with printed slips, rentals with deposits and returns, and a reservation calendar (for example the ambulance) that blocks double booking.
 - Users and Roles management with custom roles and a per-user start page.
@@ -330,7 +330,6 @@ The sidebar, buttons and the citizen activity pop-up only show what the role all
 | Public sign-up page | Anyone can create an account. It should be turned off or restricted. |
 | Two-step login | Switched on in configuration but has no screens; not usable. |
 | Officials list | Saved in Settings but not used anywhere. |
-| Raffle QR check-in | Server function exists, but its button was removed, so it is unreachable. |
 | Activity log coverage | Several modules do not record their actions (see module 14). |
 | Password reset | Needs the server's email settings before it works. |
 | Leftover theme demo pages | Template sample pages (UI kit, patients, projects, calendar and others) are still in the files but not linked or reachable. They can be removed. |

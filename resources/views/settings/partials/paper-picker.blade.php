@@ -1,6 +1,6 @@
 {{--
     Paper template picker (same look as Documents → Document Type).
-    Params: $print ('blotter' | 'inventory' | 'fees'), $label, $paperOptions, $setting.
+    Params: $print (a key of App\Support\Paper::PRINTS), $label ('' = no heading), $paperOptions, $setting.
     Posts {print}_paper_tpl ("" = none / template id) and
           {print}_paper_ver ("latest" / version id).
 --}}
@@ -13,7 +13,7 @@
     $sizeName = fn($s) => $sizes[$s] ?? strtoupper($s ?? 'A4');
 @endphp
 <div class="paper-picker space-y-2" data-print="{{ $print }}">
-    <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">{{ $label }}</p>
+    @if($label !== '')<p class="text-sm font-semibold text-gray-700 dark:text-gray-200">{{ $label }}</p>@endif
 
     {{-- None --}}
     <label class="cursor-pointer block">

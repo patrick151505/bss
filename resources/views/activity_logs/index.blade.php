@@ -31,6 +31,16 @@
         <h5 class="card-title"><i class="mgc_filter_line me-2"></i>Filter</h5>
     </div>
     <form method="GET" action="{{ route('activity-logs.index') }}">
+        @if($subjectLabel)
+        {{-- Showing one record's history: keep it while other filters change --}}
+        <input type="hidden" name="subject_id" value="{{ $filters['subject_id'] }}">
+        <div class="mx-6 mt-5 -mb-1 flex flex-wrap items-center gap-2 text-sm">
+            <span class="inline-flex items-center gap-1.5 py-1 px-3 rounded-full bg-primary/10 text-primary font-medium">
+                <i class="mgc_book_6_line"></i> History of {{ $subjectLabel }}
+            </span>
+            <a href="{{ route('activity-logs.index', ['subject_type' => 'legislation']) }}" class="text-xs text-gray-500 hover:text-primary">Show all ordinances &amp; resolutions</a>
+        </div>
+        @endif
         <div class="flex flex-wrap items-end gap-4 p-6">
 
             <div>
@@ -53,6 +63,7 @@
                         <option value="citizen"  {{ ($filters['subject_type'] ?? '') === 'citizen'  ? 'selected' : '' }}>Citizen</option>
                         <option value="tag"      {{ ($filters['subject_type'] ?? '') === 'tag'      ? 'selected' : '' }}>Tag</option>
                         <option value="blotter"  {{ ($filters['subject_type'] ?? '') === 'blotter'  ? 'selected' : '' }}>Blotter</option>
+                        <option value="legislation" {{ ($filters['subject_type'] ?? '') === 'legislation' ? 'selected' : '' }}>Ordinances &amp; Resolutions</option>
                         <option value="official" {{ ($filters['subject_type'] ?? '') === 'official' ? 'selected' : '' }}>Official</option>
                         <option value="settings" {{ ($filters['subject_type'] ?? '') === 'settings' ? 'selected' : '' }}>Settings</option>
                         <option value="export"   {{ ($filters['subject_type'] ?? '') === 'export'   ? 'selected' : '' }}>Export</option>
@@ -167,6 +178,16 @@
                                     {{ \App\Models\Setting::instance()->formatCitizenId($log->subject_id) }}
                                 </a>
                                 —
+                            @elseif($log->subject_type === 'legislation')
+                                @if($legislations->has($log->subject_id) && auth()->user()->can('legislation.view'))
+                                    <a href="{{ route('legislation.show', $log->subject_id) }}"
+                                        class="inline-flex items-center gap-1 text-primary hover:underline font-medium">
+                                        <i class="mgc_book_6_line"></i>{{ $legislations[$log->subject_id]->reference() }}</a>
+                                @else
+                                    <span class="inline-flex items-center gap-1 text-gray-500 font-medium">
+                                        <i class="mgc_book_6_line"></i>{{ $props['reference'] ?? 'Ordinance / Resolution' }}</span>
+                                @endif
+                                —
                             @endif
                             {{ $log->description }}
                         </p>
@@ -258,6 +279,15 @@
                             @endif
                         @elseif($log->action === 'created' && !empty($props['qrcode']))
                             <p class="text-xs text-gray-400 font-mono">{{ $props['qrcode'] }}</p>
+                        @elseif(!empty($props['details']) && is_array($props['details']))
+                            {{-- Readable "Field: value" pairs (e.g. an ordinance when recorded or deleted) --}}
+                            @php $shown = array_slice($props['details'], 0, 4, true); $more = count($props['details']) - count($shown); @endphp
+                            <div class="space-y-0.5">
+                                @foreach($shown as $field => $value)
+                                    <p class="text-xs"><span class="font-medium text-gray-600 dark:text-gray-300">{{ $field }}</span>: <span class="text-gray-500 dark:text-gray-400">{{ Str::limit((string) $value, 40) }}</span></p>
+                                @endforeach
+                                @if($more > 0)<p class="text-xs text-gray-400">+{{ $more }} more</p>@endif
+                            </div>
                         @endif
                     </td>
 

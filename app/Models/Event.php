@@ -14,7 +14,6 @@ class Event extends Model
         'title', 'description', 'category', 'venue',
         'event_date', 'event_start', 'event_end',
         'cover_photo', 'raffle_enabled', 'allow_winner_repeat', 'allowed_addresses', 'eligibility',
-        'raffle_pin', 'raffle_pin_expires_at',
         'status', 'reopened_at', 'user_id', 'date_created', 'date_updated',
     ];
 
@@ -24,19 +23,11 @@ class Event extends Model
         'date_updated'          => 'datetime',
         'raffle_enabled'        => 'integer',
         'allow_winner_repeat'   => 'integer',
-        'raffle_pin_expires_at' => 'datetime',
         'reopened_at'           => 'datetime',
         'allowed_addresses'     => 'array',
         'eligibility'           => 'array',
         'user_id'               => 'integer',
     ];
-
-    public function hasValidPin(): bool
-    {
-        return $this->raffle_pin &&
-               $this->raffle_pin_expires_at &&
-               now()->lt($this->raffle_pin_expires_at);
-    }
 
     // ─── Allowed areas (address zones) ────────────────────────────────────────
     // Empty/NULL allowed_addresses = open to everyone.

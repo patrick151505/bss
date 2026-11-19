@@ -251,6 +251,7 @@ Route::middleware('auth')->group(function () {
         // "create" before "{checkup}" so the wildcard doesn't swallow it.
         Route::resource('health', \App\Http\Controllers\HealthCheckupController::class)->parameters(['health' => 'checkup'])->only(['create', 'store'])->middleware('can:health.create');
         Route::resource('health', \App\Http\Controllers\HealthCheckupController::class)->parameters(['health' => 'checkup'])->only(['index', 'show']);
+        Route::get('health/{checkup}/print', [\App\Http\Controllers\HealthCheckupController::class, 'print'])->name('health.print');
         Route::resource('health', \App\Http\Controllers\HealthCheckupController::class)->parameters(['health' => 'checkup'])->only(['edit', 'update'])->middleware('can:health.edit');
         Route::resource('health', \App\Http\Controllers\HealthCheckupController::class)->parameters(['health' => 'checkup'])->only(['destroy'])->middleware('can:health.delete');
     });
@@ -287,7 +288,6 @@ Route::middleware('auth')->group(function () {
         Route::get('{event}',                               [EventController::class, 'show'])->name('show');
         Route::get('{event}/attendance',                    [EventController::class, 'attendanceList'])->name('attendance.list');
         Route::get('{event}/citizens/search',               [EventController::class, 'searchCitizens'])->name('citizens.search');
-        Route::get('{event}/raffle',                        [EventController::class, 'rafflePage'])->name('raffle.page');
         Route::get('{event}/raffle/pool',                   [EventController::class, 'rafflePool'])->name('raffle.pool');
         Route::get('{event}/raffle/winners',                [EventController::class, 'winnerHistory'])->name('raffle.winners');
         // Winners after the draw: list + export (prize edits/claims are under events.edit)
@@ -306,8 +306,12 @@ Route::middleware('auth')->group(function () {
             Route::post('{event}/attendance/remove',        [EventController::class, 'removeAttendance'])->name('attendance.remove');
             Route::post('{event}/bulk/preview',             [EventController::class, 'bulkPreview'])->name('bulk.preview');
             Route::post('{event}/bulk/add',                 [EventController::class, 'bulkAdd'])->name('bulk.add');
-            Route::post('{event}/raffle/generate-pin',      [EventController::class, 'generatePin'])->name('raffle.generate-pin');
+            // Raffle: one logged-in screen runs the draw (no PIN, no public/live pages)
+            Route::get('{event}/raffle',                    [EventController::class, 'rafflePage'])->name('raffle.page');
             Route::post('{event}/raffle/winner',            [EventController::class, 'recordWinner'])->name('raffle.winner');
+            Route::post('{event}/raffle/winners/save',      [EventController::class, 'recordWinners'])->name('raffle.winners.store');
+            Route::post('{event}/raffle/no-show',           [EventController::class, 'noShow'])->name('raffle.no-show');
+            Route::post('{event}/raffle/undo',              [EventController::class, 'undoWinner'])->name('raffle.undo');
             Route::patch('{event}/winners/bulk',            [\App\Http\Controllers\EventWinnerController::class, 'bulk'])->name('winners.bulk');
             Route::patch('{event}/winners/{winner}/prize',  [\App\Http\Controllers\EventWinnerController::class, 'updatePrize'])->name('winners.prize');
         });
@@ -327,6 +331,8 @@ Route::middleware('auth')->group(function () {
     Route::get('settings', [SettingController::class, 'index'])->middleware('can:settings.view')->name('settings.index');
     Route::post('settings', [SettingController::class, 'update'])->middleware('can:settings.edit')->name('settings.update');
     Route::get('settings/updates', [SettingController::class, 'updates'])->middleware('can:settings.view')->name('settings.updates');
+    Route::get('settings/print-paper', [SettingController::class, 'printPaper'])->middleware('can:settings.view')->name('settings.print-paper');
+    Route::post('settings/print-paper', [SettingController::class, 'updatePrintPaper'])->middleware('can:settings.edit')->name('settings.print-paper.update');
 
     // Officials live under Settings and have no permission of their own, so
     // they reuse settings.view / settings.edit like addresses do.
@@ -604,21 +610,6 @@ Route::middleware('auth')->group(function () {
             });
         });
     });
-});
-
-// ── Public raffle audience view (no login required, PIN-protected) ────────────
-Route::prefix('events')->name('events.')->group(function () {
-    Route::get('{event}/raffle/public',              [EventController::class, 'publicRafflePage'])->name('raffle.public');
-    Route::get('{event}/raffle/public/pool',         [EventController::class, 'publicRafflePool'])->name('raffle.public.pool');
-    Route::get('{event}/raffle/public/winners',      [EventController::class, 'publicWinnerHistory'])->name('raffle.public.winners');
-    Route::post('{event}/raffle/public/checkin-qr',  [EventController::class, 'publicCheckinQr'])->name('raffle.public.checkin-qr');
-    Route::post('{event}/raffle/public/winner',      [EventController::class, 'publicRecordWinner'])->name('raffle.public.winner');
-    Route::post('{event}/raffle/public/no-show',     [EventController::class, 'publicNoShow'])->name('raffle.public.no-show');
-    Route::post('{event}/raffle/public/winners/save', [EventController::class, 'publicRecordWinners'])->name('raffle.public.winners.store');
-    Route::post('{event}/raffle/public/undo',        [EventController::class, 'publicUndoWinner'])->name('raffle.public.undo');
-    // Long-poll for the audience display: no session/cookies/CSRF (the whole 'web' group is skipped) so each wake-up is cheap.
-    Route::get('{event}/raffle/public/live/wait',    [EventController::class, 'publicLiveWait'])->withoutMiddleware('web')->name('raffle.public.live.wait');
-    Route::post('{event}/raffle/public/live',        [EventController::class, 'publicPushLiveState'])->name('raffle.public.live.push');
 });
 
 // Route::group(['middleware' => 'superadmin'], function() {

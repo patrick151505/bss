@@ -96,6 +96,17 @@ class HealthCheckupController extends Controller
         return view('health.show', compact('checkup', 'history'));
     }
 
+    /** Printable check-up record, on the paper chosen in Settings → Print Paper. */
+    public function print(HealthCheckup $checkup)
+    {
+        $checkup->load(['citizen.addressZone', 'medicines', 'creator']);
+        $settings = \App\Models\Setting::instance();
+        // null = plain built-in header
+        $paper = \App\Support\Paper::resolve($settings->health_paper_template_id, $settings->health_paper_version_id);
+
+        return view('health.print', compact('checkup', 'settings', 'paper'));
+    }
+
     public function edit(HealthCheckup $checkup)
     {
         $checkup->load(['citizen', 'medicines']);

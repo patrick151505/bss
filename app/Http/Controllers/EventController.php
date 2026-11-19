@@ -195,7 +195,7 @@ class EventController extends Controller
         return view('events.show', compact('event', 'addresses'));
     }
 
-    // ─── Raffle page (organizer) ──────────────────────────────────────────────
+    // ─── Raffle draw page (logged-in staff, one screen) ────────────────────────
 
     public function rafflePage(Event $event)
     {
@@ -203,128 +203,13 @@ class EventController extends Controller
         return view('events.raffle', compact('event'));
     }
 
-    // ─── Raffle: generate / refresh PIN ──────────────────────────────────────
-
-    public function generatePin(Event $event)
-    {
-        abort_if(!$event->raffle_enabled, 404);
-
-        $pin = strtoupper(substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 6));
-
-        $event->update([
-            'raffle_pin'            => $pin,
-            'raffle_pin_expires_at' => now()->addHours(8),
-            'date_updated'          => now(),
-        ]);
-
-        return response()->json([
-            'success'    => true,
-            'pin'        => $pin,
-            'expires_at' => $event->raffle_pin_expires_at->format('M d, Y g:i A'),
-            'public_url' => route('events.raffle.public', ['event' => $event->id, 'pin' => $pin]),
-        ]);
-    }
-
-    // Why a public raffle request is refused, or null when the PIN is good.
-    // Shown on the "Session Ended" screen so staff know whether to reopen the link.
-    private function pinFailure(Event $event, $pin): ?string
-    {
-        if (!$event->raffle_enabled) {
-            return 'The raffle was turned off for this event.';
-        }
-        if (!$event->hasValidPin()) {
-            return $event->raffle_pin_expires_at
-                ? 'The PIN expired on ' . $event->raffle_pin_expires_at->format('M d, Y g:i A') . '.'
-                : 'There is no active PIN for this event.';
-        }
-        if ((string) $pin === '') {
-            return 'The request reached the server without the PIN (it may have been redirected). Reload the page and try again.';
-        }
-        if ((string) $pin !== $event->raffle_pin) {
-            return 'A new PIN was generated, so this link no longer works. Open the new link from the raffle page.';
-        }
-        return null;
-    }
-
-    // ─── Public raffle audience page (no auth) ────────────────────────────────
-
-    public function publicRafflePage(Request $request, Event $event)
-    {
-        if (!$event->raffle_enabled) {
-            return view('events.raffle-inactive', ['reason' => 'no_raffle', 'event' => $event]);
-        }
-        if (!$event->hasValidPin()) {
-            return view('events.raffle-inactive', ['reason' => 'expired', 'event' => $event]);
-        }
-        if ($request->input('pin') !== $event->raffle_pin) {
-            return view('events.raffle-inactive', ['reason' => 'invalid_pin', 'event' => $event]);
-        }
-
-        return view('events.raffle-public', compact('event'));
-    }
-
-    // ─── Public raffle: QR check-in (no auth, pin-protected) ────────────────
-
-    public function publicCheckinQr(Request $request, Event $event)
-    {
-        if ($why = $this->pinFailure($event, $request->input('pin'))) {
-            return response()->json(['success' => false, 'message' => $why]);
-        }
-
-        $qrcode  = trim($request->input('qrcode'));
-        $citizen = Citizen::with('addressZone')->where('qrcode', $qrcode)->where('is_active', 1)->first();
-
-        if (!$citizen) {
-            return response()->json(['success' => false, 'message' => 'QR code not recognised.']);
-        }
-        if ($refusal = $this->areaRefusal($event, $citizen)) return $refusal;
-
-        $already = EventAttendance::where('eventId', $event->id)
-            ->where('citizenId', $citizen->id)->exists();
-
-        if (!$already) {
-            EventAttendance::create([
-                'eventId'   => $event->id,
-                'citizenId' => $citizen->id,
-                'time_in'   => now(),
-                'method'    => 'qr',
-            ]);
-        }
-
-        return response()->json([
-            'success'    => true,
-            'already'    => $already,
-            'name'       => $citizen->full_name,
-            'photo'      => $citizen->profile
-                ? asset(str_replace('public/', 'storage/', $citizen->profile))
-                : null,
-            'address'    => $citizen->addressZone?->description ?? '—',
-            'age'        => $citizen->age,
-            'gender'     => $citizen->gender === 1 ? 'Male' : 'Female',
-            'time_in'    => now()->format('M d, Y g:i A'),
-        ]);
-    }
-
-    // ─── Public raffle: record winner (no auth, pin-protected) ──────────────
-
-    public function publicRecordWinner(Request $request, Event $event)
-    {
-        if ($why = $this->pinFailure($event, $request->input('pin'))) {
-            return response()->json(['success' => false, 'message' => $why]);
-        }
-
-        return $this->recordWinner($request, $event);
-    }
-
-    // ─── Public raffle: record several winners from one draw (no auth, pin-protected) ──
+    // ─── Raffle: record several winners from one draw ─────────────────────────
     // All-or-nothing: every citizen must be an attendee (and not a past winner
     // unless repeats are allowed), then they get consecutive rounds in one transaction.
 
-    public function publicRecordWinners(Request $request, Event $event)
+    public function recordWinners(Request $request, Event $event)
     {
-        if ($why = $this->pinFailure($event, $request->input('pin'))) {
-            return response()->json(['success' => false, 'message' => $why]);
-        }
+        abort_if(!$event->raffle_enabled, 404);
 
         $request->validate([
             'citizenIds'   => 'required|array|min:1|max:50',
@@ -349,7 +234,7 @@ class EventController extends Controller
         }
 
         $rounds = DB::transaction(function () use ($event, $ids, $prize) {
-            // Lock this event's winner rows so two screens can't hand out the same round numbers.
+            // Lock this event's winner rows so two staff drawing at once can't get the same round numbers.
             $round  = (int) EventWinner::where('eventId', $event->id)->lockForUpdate()->max('round');
             $rounds = [];
             foreach ($ids as $citizenId) {
@@ -373,15 +258,13 @@ class EventController extends Controller
         return response()->json(['success' => true, 'rounds' => $rounds]);
     }
 
-    // ─── Public raffle: undo a confirmed winner (no auth, pin-protected) ──────
+    // ─── Raffle: undo a confirmed winner ──────────────────────────────────────
     // For a mistaken Confirm. Refused once the prize is claimed; the deleted row
     // is kept in the activity log together with the reason.
 
-    public function publicUndoWinner(Request $request, Event $event)
+    public function undoWinner(Request $request, Event $event)
     {
-        if ($why = $this->pinFailure($event, $request->input('pin'))) {
-            return response()->json(['success' => false, 'message' => $why]);
-        }
+        abort_if(!$event->raffle_enabled, 404);
 
         $request->validate([
             'round'  => 'required|integer',
@@ -415,76 +298,12 @@ class EventController extends Controller
         return response()->json(['success' => true, 'name' => $name]);
     }
 
-    // ─── Public raffle: live state (controller ⇄ audience display) ───────────
-
-    // Long-poll: answers as soon as the state version differs from ?since, or after
-    // ?hold seconds (max 20) with no change. Without ?since (or hold=0) it answers
-    // at once — the display also uses that for clock sync ("now" = server ms).
-    // Runs outside the 'web' middleware group, so $event is the raw id.
-    public function publicLiveWait(Request $request, $event)
-    {
-        $nowMs = fn() => (int) round(microtime(true) * 1000);
-        $no = ['Cache-Control' => 'no-store'];
-
-        $ev = Event::find((int) $event);
-        $why = $ev ? $this->pinFailure($ev, $request->query('pin')) : 'This event no longer exists.';
-        if ($why) {
-            return response()->json(['success' => false, 'message' => $why, 'now' => $nowMs()], 200, $no);
-        }
-
-        $since = $request->has('since') ? (int) $request->query('since') : null;
-        $hold  = $since === null ? 0 : max(0, min(20, (int) $request->query('hold', 20)));
-        @set_time_limit($hold + 15);
-
-        $deadline = microtime(true) + $hold;
-        while (true) {
-            $ver = (int) DB::table('eb_event')->where('id', $ev->id)->value('raffle_live_ver');
-            if ($since === null || $ver !== $since || microtime(true) >= $deadline) break;
-            usleep(120000);                              // ~8 cheap primary-key reads per second
-        }
-
-        $state = $ver !== $since
-            ? json_decode((string) DB::table('eb_event')->where('id', $ev->id)->value('raffle_live'), true)
-            : null;
-
-        return response()->json(['success' => true, 'ver' => $ver, 'state' => $state, 'now' => $nowMs()], 200, $no);
-    }
-
-    public function publicPushLiveState(Request $request, Event $event)
-    {
-        if ($why = $this->pinFailure($event, $request->input('pin'))) {
-            return response()->json(['success' => false, 'message' => $why]);
-        }
-
-        $request->validate([
-            'state'       => 'required|array',
-            'state.phase' => 'required|in:idle,spin,check,done,undo',
-        ]);
-
-        // Stamp the server time so displays can line their animation up with the controller.
-        $state = $request->input('state');
-        $state['server_at'] = (int) round(microtime(true) * 1000);
-        $json = json_encode($state);
-        if (strlen($json) > 100000) {
-            return response()->json(['success' => false, 'message' => 'State too large.'], 422);
-        }
-
-        DB::table('eb_event')->where('id', $event->id)->update([
-            'raffle_live'     => $json,
-            'raffle_live_ver' => DB::raw('raffle_live_ver + 1'),
-        ]);
-
-        return response()->json(['success' => true, 'now' => $state['server_at']]);
-    }
-
-    // ─── Public raffle: drawn person not present (no auth, pin-protected) ────
+    // ─── Raffle: drawn person not present ─────────────────────────────────────
     // Nothing is recorded as a win; the skip is logged so a re-draw is traceable.
 
-    public function publicNoShow(Request $request, Event $event)
+    public function noShow(Request $request, Event $event)
     {
-        if ($why = $this->pinFailure($event, $request->input('pin'))) {
-            return response()->json(['success' => false, 'message' => $why]);
-        }
+        abort_if(!$event->raffle_enabled, 404);
 
         $citizen = Citizen::find((int) $request->input('citizenId'));
         $prize   = trim((string) $request->input('prize_label', ''));
@@ -496,29 +315,6 @@ class EventController extends Controller
         );
 
         return response()->json(['success' => true]);
-    }
-
-    // ─── Public raffle: pool (no auth, pin-protected) ─────────────────────────
-
-    public function publicRafflePool(Request $request, Event $event)
-    {
-        if ($why = $this->pinFailure($event, $request->input('pin'))) {
-            return response()->json(['success' => false, 'message' => $why])->header('Cache-Control', 'no-store');
-        }
-
-        return $this->rafflePool($event)->header('Cache-Control', 'no-store');
-    }
-
-    // ─── Public raffle: winner history (no auth, pin-protected) ──────────────
-
-    public function publicWinnerHistory(Request $request, Event $event)
-    {
-        // no-store: hosts like LiteSpeed must never hand a stale "ended" answer to a live screen.
-        if ($why = $this->pinFailure($event, $request->input('pin'))) {
-            return response()->json(['success' => false, 'message' => $why])->header('Cache-Control', 'no-store');
-        }
-
-        return $this->winnerHistory($event)->header('Cache-Control', 'no-store');
     }
 
     // ─── Edit form ────────────────────────────────────────────────────────────
@@ -794,8 +590,14 @@ class EventController extends Controller
 
     public function recordWinner(Request $request, Event $event)
     {
+        abort_if(!$event->raffle_enabled, 404);
+
         $citizenId  = (int) $request->citizenId;
         $prizeLabel = $request->input('prize_label');
+
+        if (!EventAttendance::where('eventId', $event->id)->where('citizenId', $citizenId)->exists()) {
+            return response()->json(['success' => false, 'message' => 'This person is not on this event\'s attendance list.']);
+        }
 
         // Guard: if repeat not allowed, ensure not already a winner
         if (!$event->allow_winner_repeat) {

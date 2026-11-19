@@ -14,6 +14,18 @@ use Illuminate\Support\Collection;
  */
 class Paper
 {
+    /**
+     * Printouts that can use a paper template (Settings → Print Paper):
+     * key => [label, what it prints]. Each key has {key}_paper_template_id and
+     * {key}_paper_version_id columns on eb_settings.
+     */
+    public const PRINTS = [
+        'blotter'   => ['Blotter Report',          'Blotter → case → Print'],
+        'inventory' => ['Inventory Release Slip',  'Inventory → Releases → Print slip'],
+        'fees'      => ['Document Fee Summary',    'Documents → Requests → Fee Summary → Print'],
+        'health'    => ['Health Check-up Record',  'Health → check-up → Print'],
+    ];
+
     /** Paper sizes in inches (portrait), same set the document module uses. */
     private const SIZES = [
         'letter'      => [8.5, 11],

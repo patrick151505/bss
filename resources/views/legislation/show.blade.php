@@ -260,6 +260,51 @@
                 @endforelse
             </div>
         </div>
+
+        {{-- Change history (Activity Logs) — only for users who can see the logs --}}
+        @if($history !== null)
+        <div class="card mt-6">
+            <div class="card-header">
+                <div class="flex justify-between items-center">
+                    <h4 class="card-title">Change history</h4>
+                    @if($historyCount > $history->count())
+                    <a href="{{ route('activity-logs.index', ['subject_type' => 'legislation', 'subject_id' => $L->id]) }}" class="text-xs text-primary hover:underline">View all {{ $historyCount }}</a>
+                    @endif
+                </div>
+            </div>
+            <div class="p-6">
+                @forelse($history as $log)
+                @php
+                    $tone = ['created' => 'text-success', 'deleted' => 'text-danger'][$log->action] ?? 'text-primary';
+                    $changed = $log->properties['changed'] ?? [];
+                    $desc = \Illuminate\Support\Str::after($log->description, $L->reference() . ': ');
+                @endphp
+                <div class="{{ $loop->last ? '' : 'pb-4 mb-4 border-b border-gray-100 dark:border-gray-700' }}">
+                    <p class="text-sm text-gray-800 dark:text-gray-100">
+                        <span class="font-medium {{ $tone }}">{{ ucfirst($log->action) }}</span>
+                        <span class="text-gray-600 dark:text-gray-300">· {{ $desc }}</span>
+                    </p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $log->user->name ?? '—' }} · {{ $log->created_at?->format('M d, Y g:i A') }}</p>
+                    @if(is_array($changed) && $changed && is_array(reset($changed)))
+                    <div class="mt-1.5 space-y-0.5">
+                        @foreach(array_slice($changed, 0, 4, true) as $field => $d)
+                        <p class="text-xs">
+                            <span class="font-medium text-gray-600 dark:text-gray-300">{{ $field }}</span>:
+                            <span class="text-danger/80 line-through">{{ \Illuminate\Support\Str::limit((string) ($d['from'] ?? ''), 30) }}</span>
+                            <span class="text-gray-400">→</span>
+                            <span class="text-success">{{ \Illuminate\Support\Str::limit((string) ($d['to'] ?? ''), 30) }}</span>
+                        </p>
+                        @endforeach
+                        @if(count($changed) > 4)<p class="text-xs text-gray-400">+{{ count($changed) - 4 }} more</p>@endif
+                    </div>
+                    @endif
+                </div>
+                @empty
+                <p class="text-center py-6 text-sm text-gray-400">No changes recorded yet.</p>
+                @endforelse
+            </div>
+        </div>
+        @endif
     </div>
 </div>
 
