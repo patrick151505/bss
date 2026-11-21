@@ -49,7 +49,13 @@
                 $canIds        = auth()->user()?->can('citizen_ids.view');
                 $canBirthdays  = auth()->user()?->can('birthdays.view');
                 $canBlotter    = auth()->user()?->can('blotter.view');
-                $citizenGroupVisible = $canCitizens || $canHouseholds || $canTags || $canIds || $canBirthdays;
+                $canRegs       = auth()->user()?->can('citizens.approve');
+                $pendingRegs   = $canRegs && \Illuminate\Support\Facades\Schema::hasTable('eb_citizen_registrations')
+                    ? \App\Models\CitizenRegistration::pendingCount() : 0;
+                $canUpdates    = auth()->user()?->can('citizens.edit');
+                $pendingUpdates = $canUpdates && \Illuminate\Support\Facades\Schema::hasTable('eb_citizen_update_requests')
+                    ? \App\Models\CitizenUpdateRequest::pendingCount() : 0;
+                $citizenGroupVisible = $canCitizens || $canHouseholds || $canTags || $canIds || $canBirthdays || $canRegs || $canUpdates;
                 $citizenGroupActive = request()->routeIs('citizens.*') || request()->routeIs('tags.*') || request()->routeIs('birthdays.index') || request()->routeIs('households.*');
                 // The Barangay section covers the Citizen group + Blotter — show its
                 // title only if the user can access at least one of those.
@@ -68,7 +74,7 @@
                 </a>
                 <ul class="sub-menu {{ $citizenGroupActive ? '' : 'hidden' }}">
                     @if($canCitizens)
-                    <li class="menu-item {{ request()->routeIs('citizens.index') || (request()->routeIs('citizens.*') && !request()->routeIs('citizens.ids.*') && !request()->routeIs('citizens.demographics') && !request()->routeIs('citizens.inactive')) ? 'active' : '' }}">
+                    <li class="menu-item {{ request()->routeIs('citizens.index') || (request()->routeIs('citizens.*') && !request()->routeIs('citizens.ids.*') && !request()->routeIs('citizens.demographics') && !request()->routeIs('citizens.inactive') && !request()->routeIs('citizens.registrations.*') && !request()->routeIs('citizens.updates.*')) ? 'active' : '' }}">
                         <a href="{{ route('citizens.index') }}" class="menu-link">
                             <span class="menu-text">Citizens</span>
                         </a>
@@ -76,6 +82,26 @@
                     <li class="menu-item {{ request()->routeIs('citizens.inactive') ? 'active' : '' }}">
                         <a href="{{ route('citizens.inactive') }}" class="menu-link">
                             <span class="menu-text">Archive</span>
+                        </a>
+                    </li>
+                    @endif
+                    @if($canRegs)
+                    <li class="menu-item {{ request()->routeIs('citizens.registrations.*') ? 'active' : '' }}">
+                        <a href="{{ route('citizens.registrations.index') }}" class="menu-link">
+                            <span class="menu-text">Registrations</span>
+                            @if($pendingRegs)
+                            <span class="badge bg-warning text-white rounded-full px-1.5 text-[10px] ms-auto">{{ $pendingRegs }}</span>
+                            @endif
+                        </a>
+                    </li>
+                    @endif
+                    @if($canUpdates)
+                    <li class="menu-item {{ request()->routeIs('citizens.updates.*') ? 'active' : '' }}">
+                        <a href="{{ route('citizens.updates.index') }}" class="menu-link">
+                            <span class="menu-text">Detail Updates</span>
+                            @if($pendingUpdates)
+                            <span class="badge bg-warning text-white rounded-full px-1.5 text-[10px] ms-auto">{{ $pendingUpdates }}</span>
+                            @endif
                         </a>
                     </li>
                     @endif

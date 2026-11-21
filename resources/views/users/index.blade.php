@@ -25,6 +25,22 @@
     <p class="text-sm text-success font-medium">{{ session('success') }}</p>
 </div>
 @endif
+@if(session('reset_link'))
+<div class="mb-4 p-4 rounded-lg bg-warning/10 border border-warning/30 flex gap-3">
+    <i class="mgc_key_2_line text-warning text-xl mt-0.5 shrink-0"></i>
+    <div class="flex-1 min-w-0 space-y-2">
+        <p class="text-sm text-gray-800 dark:text-gray-100 font-medium">
+            The email to {{ session('reset_link.name') }} could not be sent (email is not set up on this server).
+            Give them this link instead — it works once, for 60 minutes:
+        </p>
+        <div class="flex items-center gap-2">
+            <input type="text" readonly value="{{ session('reset_link.url') }}" id="reset-url" class="form-input text-xs w-full" onclick="this.select()">
+            <button type="button" class="btn btn-sm bg-primary text-white shrink-0" onclick="copyResetLink(this)"><i class="mgc_copy_2_line"></i> Copy</button>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400">Don't post it anywhere public — whoever opens it can set the password.</p>
+    </div>
+</div>
+@endif
 @if(session('error'))
 <div class="mb-4 p-4 rounded-lg bg-danger/10 border border-danger/30 flex gap-3">
     <i class="mgc_alert_line text-danger text-xl mt-0.5 shrink-0"></i>
@@ -92,13 +108,26 @@
                             </td>
                             <td class="px-5 py-3 text-right whitespace-nowrap">
                                 <div class="flex justify-end gap-1">
-                                    @can('users.edit')
+                                    @php $lockedForMe = !$canAssignRoles && $role?->name === $roleGiver; @endphp
+                                    @if($lockedForMe)
+                                    <span class="p-1.5 text-gray-300 dark:text-gray-600" title="Only a Super Admin can change this account"><i class="mgc_lock_line text-base"></i></span>
+                                    @endif
+                                    @if(!$lockedForMe && auth()->user()->can('users.edit'))
                                     <button onclick="editUser({{ $user->id }}, {{ json_encode($user->name) }}, {{ json_encode($user->email) }}, {{ json_encode($role?->name ?? '') }}, {{ json_encode($user->landing_route ?? '') }})"
                                             class="p-1.5 rounded text-gray-400 hover:text-primary hover:bg-primary/10 transition" title="Edit">
                                         <i class="mgc_edit_line text-base"></i>
                                     </button>
-                                    @endcan
-                                    @if($user->id !== auth()->id() && auth()->user()->can('users.edit'))
+                                    @endif
+                                    @if(!$lockedForMe && auth()->user()->can('users.reset'))
+                                    <form action="{{ route('users.reset-password', $user) }}" method="POST" id="reset-{{ $user->id }}">
+                                        @csrf
+                                        <button type="button" onclick="confirmReset({{ $user->id }}, @js($user->name), @js($user->email))"
+                                                class="p-1.5 rounded text-gray-400 hover:text-info hover:bg-info/10 transition" title="Reset password">
+                                            <i class="mgc_key_2_line text-base"></i>
+                                        </button>
+                                    </form>
+                                    @endif
+                                    @if(!$lockedForMe && $user->id !== auth()->id() && auth()->user()->can('users.edit'))
                                     <form action="{{ route('users.toggle', $user) }}" method="POST">
                                         @csrf @method('PATCH')
                                         <button type="submit"
@@ -179,12 +208,21 @@
 
                     <div>
                         <label class="form-label">Role</label>
+                        @if($canAssignRoles)
                         <select name="role" id="inp-user-role" class="form-select">
                             <option value="">— No Role —</option>
                             @foreach($roles as $role)
                             <option value="{{ $role->name }}">{{ $role->name }}</option>
                             @endforeach
                         </select>
+                        @else
+                        {{-- Not sent (disabled); only drives the landing-page list and the label below. --}}
+                        <input type="hidden" id="inp-user-role" value="" disabled>
+                        <div class="form-input bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                            <i class="mgc_lock_line"></i><span id="inp-user-role-label">No role</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">Only the Super Admin can give or change roles.</p>
+                        @endif
                     </div>
 
                     <div>
@@ -228,6 +266,36 @@
 <script>
 let editingUserId = null;
 
+// Reset password: confirm, then email the user a link to set a new password.
+function confirmReset(id, name, email) {
+    Swal.fire({
+        title: 'Reset password?',
+        html: `We'll email <b>${name.replace(/</g, '&lt;')}</b> a link to set a new password:<br>`
+            + `<span style="color:#3e60d5">${email.replace(/</g, '&lt;')}</span><br><br>`
+            + `<small>Their current password keeps working until they set the new one. The link works for 60 minutes.</small>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '<i class="mgc_mail_send_line"></i> Send reset email',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+        didOpen: () => {
+            document.querySelector('.swal2-confirm').style.setProperty('background-color', '#3e60d5', 'important');
+            document.querySelector('.swal2-cancel').style.setProperty('background-color', '#6c757d', 'important');
+        },
+    }).then(r => {
+        if (!r.isConfirmed) return;
+        Swal.fire({ title: 'Sending…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        document.getElementById('reset-' + id).submit();
+    });
+}
+
+function copyResetLink(btn) {
+    const input = document.getElementById('reset-url');
+    const done = () => { btn.innerHTML = '<i class="mgc_check_line"></i> Copied'; setTimeout(() => btn.innerHTML = '<i class="mgc_copy_2_line"></i> Copy', 1500); };
+    if (navigator.clipboard) navigator.clipboard.writeText(input.value).then(done, () => { input.select(); document.execCommand('copy'); done(); });
+    else { input.select(); document.execCommand('copy'); done(); }
+}
+
 // role name => permission names it grants
 const ROLE_PERMISSIONS = @json($rolePermissions);
 
@@ -260,7 +328,9 @@ function filterLandingOptions() {
     const hint = document.getElementById('landing-hint');
     hint.textContent = role
         ? 'Where this user lands right after they log in. Only pages the selected role can access are listed.'
-        : 'Select a role first — pages requiring permissions will appear once a role is chosen.';
+        : (roleEl.type === 'hidden'
+            ? 'This user has no role yet — more pages appear once the Super Admin gives one.'
+            : 'Select a role first — pages requiring permissions will appear once a role is chosen.');
 }
 
 // The form is only rendered for users who can create/edit accounts, so bind
@@ -283,6 +353,8 @@ function editUser(id, name, email, role, landingRoute) {
     document.getElementById('inp-user-password').value = '';
     document.getElementById('inp-user-password-confirm').value = '';
     document.getElementById('inp-user-role').value = role ?? '';
+    const roleLabel = document.getElementById('inp-user-role-label');
+    if (roleLabel) roleLabel.textContent = role || 'No role';
     document.getElementById('inp-user-landing').value = landingRoute ?? '';
     // Re-filter for this user's role; clears the landing page if the role lost access to it.
     filterLandingOptions();
@@ -307,6 +379,9 @@ function cancelUserEdit() {
     form.action = '{{ route('users.store') }}';
     document.getElementById('user-form-method').value = 'POST';
     form.reset();
+    document.getElementById('inp-user-role').value = '';
+    const roleLabel = document.getElementById('inp-user-role-label');
+    if (roleLabel) roleLabel.textContent = 'No role';
     filterLandingOptions();
 
     document.getElementById('inp-user-password').setAttribute('required', true);

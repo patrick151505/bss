@@ -71,6 +71,7 @@ class User extends Authenticatable
             'documents.dashboard'   => ['label' => 'Documents',          'permission' => 'documents.view'],
             'birthdays.index'       => ['label' => 'Birthdays',          'permission' => 'birthdays.view'],
             'settings.index'        => ['label' => 'Settings',           'permission' => null],
+            'kiosk.home'            => ['label' => 'Kiosk screen',       'permission' => 'kiosk.use'],
         ];
     }
 
@@ -105,5 +106,11 @@ class User extends Authenticatable
         }
 
         return $landing;
+    }
+
+    /** Forgot password: send the barangay-branded email instead of Laravel's default. */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPasswordLink($token));
     }
 }

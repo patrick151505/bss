@@ -166,14 +166,52 @@
 
             {{-- Step 1: Confirm details --}}
             <div class="step-body hidden" data-step="1">
-                <div class="flex items-center gap-4 mb-5">
-                    <div id="confirm-avatar"
-                         class="w-20 h-20 rounded-full shrink-0 overflow-hidden bg-primary/10 flex items-center justify-center text-2xl text-primary font-bold border-4 border-primary/20">
+                <div class="flex items-center gap-4 mb-3">
+                    <div class="relative shrink-0">
+                        <div id="confirm-avatar"
+                             class="w-20 h-20 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-2xl text-primary font-bold border-4 border-primary/20">
+                        </div>
+                        <div id="photo-saving" class="hidden absolute inset-0 rounded-full bg-black/50 items-center justify-center text-white">
+                            <i class="mgc_loading_3_line animate-spin text-xl"></i>
+                        </div>
                     </div>
-                    <div>
+                    <div class="min-w-0">
                         <p id="confirm-name" class="text-lg font-bold text-gray-800 dark:text-gray-100"></p>
                         <p id="confirm-id" class="text-xs text-gray-400"></p>
-                        <p id="confirm-address" class="text-sm text-gray-500 mt-0.5"></p>
+                        <p id="confirm-address" class="text-sm text-gray-500 dark:text-gray-400 mt-0.5"></p>
+                    </div>
+                </div>
+
+                {{-- ID photo: take one with the camera or upload a file. Saved as the citizen's profile photo. --}}
+                <div class="mb-5 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1.5" style="margin-right:auto">
+                            <i class="mgc_pic_line text-primary"></i> ID photo
+                            <span id="photo-status" class="text-xs font-normal"></span>
+                        </span>
+                        <button type="button" id="photo-camera-btn" class="btn btn-sm border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+                            <i class="mgc_camera_line"></i> Take photo
+                        </button>
+                        <button type="button" id="photo-upload-btn" class="btn btn-sm border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+                            <i class="mgc_upload_2_line"></i> Upload photo
+                        </button>
+                        <input type="file" id="photo-file" accept="image/jpeg,image/png" class="hidden">
+                        <input type="file" id="photo-file-camera" accept="image/*" capture="user" class="hidden">
+                    </div>
+                    <p id="photo-error" class="hidden text-xs text-danger mt-2"></p>
+
+                    {{-- Live camera (laptop webcam / phone camera) --}}
+                    <div id="camera-panel" class="hidden mt-3">
+                        <div class="relative mx-auto w-full max-w-xs rounded-lg overflow-hidden bg-black" style="aspect-ratio:1/1">
+                            <video id="camera-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                            {{-- Face guide --}}
+                            <div class="absolute rounded-full border-2 border-dashed pointer-events-none" style="inset:12%;border-color:rgba(255,255,255,.6)"></div>
+                        </div>
+                        <div class="flex justify-center gap-2 mt-3">
+                            <button type="button" id="camera-cancel" class="btn btn-sm border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">Cancel</button>
+                            <button type="button" id="camera-switch" class="btn btn-sm border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hidden" title="Switch camera"><i class="mgc_refresh_2_line"></i></button>
+                            <button type="button" id="camera-capture" class="btn btn-sm bg-primary text-white flex items-center gap-1.5"><i class="mgc_camera_line"></i> Capture</button>
+                        </div>
                     </div>
                 </div>
                 <table class="w-full text-sm border border-gray-100 dark:border-gray-700 rounded-lg overflow-hidden">
@@ -398,6 +436,7 @@ function openModal() {
     loadRecentCitizens();   // pre-pick: show 5 most recently updated
 }
 function closeModal() {
+    stopCamera();
     modal.classList.add('hidden');
     modal.classList.remove('flex');
 }
@@ -425,7 +464,7 @@ function gotoStep(n) {
     stepBodies.forEach(b => b.classList.toggle('hidden', parseInt(b.dataset.step) !== n));
 }
 
-document.querySelectorAll('.step-back').forEach(b => b.addEventListener('click', () => gotoStep(0)));
+document.querySelectorAll('.step-back').forEach(b => b.addEventListener('click', () => { stopCamera(); gotoStep(0); }));
 
 // ── Citizen search in modal ───────────────────────────────────────────
 const resultsEl  = document.getElementById('modal-citizen-results');
@@ -511,6 +550,8 @@ function showConfirmSkeleton() {
 
 function pickCitizen(id) {
     selectedCitizenId = id;
+    photoError('');
+    document.getElementById('photo-status').textContent = '';
     showConfirmSkeleton();
     gotoStep(1);
 
@@ -523,12 +564,8 @@ function pickCitizen(id) {
 }
 
 function fillConfirm(c) {
-    const avatarEl = document.getElementById('confirm-avatar');
-    if (c.profile) {
-        avatarEl.innerHTML = `<img src="${esc(c.profile)}" class="w-full h-full object-cover">`;
-    } else {
-        avatarEl.textContent = (c.full_name?.trim()[0] ?? '?').toUpperCase();
-    }
+    selectedCitizenName = c.full_name || '';
+    showAvatar(c.profile);
     document.getElementById('confirm-name').textContent    = c.full_name;
     document.getElementById('confirm-id').textContent      = 'QR: ' + (c.qrcode || '—');
     document.getElementById('confirm-address').textContent = c.address || '—';
@@ -548,6 +585,143 @@ function fillConfirm(c) {
 }
 
 // Validity is set barangay-wide in Settings; the server applies it on generate.
+
+// ── ID photo: take with camera or upload ──────────────────────────────
+// Resized in the browser (max 800px JPEG) so phone photos upload fast, then
+// saved straight away as the citizen's profile photo — the ID prints it.
+const PHOTO_BASE = '{{ url('citizens/ids/photo') }}';
+let selectedCitizenName = '';
+let camStream = null, camFacing = 'user';
+
+function showAvatar(url) {
+    const avatarEl = document.getElementById('confirm-avatar');
+    const status   = document.getElementById('photo-status');
+    if (url) {
+        avatarEl.innerHTML = `<img src="${esc(url)}" class="w-full h-full object-cover">`;
+        status.className = 'text-xs font-normal text-success';
+        status.textContent = '· on file';
+    } else {
+        avatarEl.textContent = (selectedCitizenName.trim()[0] ?? '?').toUpperCase();
+        status.className = 'text-xs font-normal text-warning';
+        status.textContent = '· none yet — the ID will print without a photo';
+    }
+}
+
+function photoError(msg) {
+    const el = document.getElementById('photo-error');
+    el.textContent = msg || '';
+    el.classList.toggle('hidden', !msg);
+}
+
+function setPhotoSaving(on) {
+    const ov = document.getElementById('photo-saving');
+    ov.classList.toggle('hidden', !on);
+    ov.classList.toggle('flex', on);
+    ['photo-camera-btn', 'photo-upload-btn', 'generate-btn'].forEach(id => {
+        const b = document.getElementById(id);
+        b.disabled = on; b.classList.toggle('opacity-60', on);
+    });
+}
+
+// Draw a source (image or video frame) onto a canvas, max 800px, as a JPEG blob.
+function toJpeg(source, sw, sh, square) {
+    let sx = 0, sy = 0;
+    if (square) {              // camera: centre square crop, like an ID photo
+        const s = Math.min(sw, sh);
+        sx = (sw - s) / 2; sy = (sh - s) / 2; sw = sh = s;
+    }
+    const scale = Math.min(1, 800 / Math.max(sw, sh));
+    const c = document.createElement('canvas');
+    c.width = Math.round(sw * scale); c.height = Math.round(sh * scale);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    if (square && camFacing === 'user' && source.tagName === 'VIDEO') {
+        ctx.translate(c.width, 0); ctx.scale(-1, 1);   // un-mirror the selfie preview
+    }
+    ctx.drawImage(source, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    return new Promise(res => c.toBlob(res, 'image/jpeg', 0.9));
+}
+
+function savePhoto(blob) {
+    if (!selectedCitizenId || !blob) return;
+    photoError('');
+    setPhotoSaving(true);
+    const fd = new FormData();
+    fd.append('photo', blob, 'photo.jpg');
+    fetch(`${PHOTO_BASE}/${selectedCitizenId}`, {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
+        body: fd,
+    })
+    .then(async r => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.errors?.photo?.[0] || d.message || 'Could not save the photo.');
+        return d;
+    })
+    .then(d => showAvatar(d.url))
+    .catch(e => photoError(e.message))
+    .finally(() => setPhotoSaving(false));
+}
+
+function fromFile(file) {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { photoError('Choose a JPG or PNG picture.'); return; }
+    const img = new Image();
+    img.onload = () => { toJpeg(img, img.naturalWidth, img.naturalHeight, false).then(savePhoto); URL.revokeObjectURL(img.src); };
+    img.onerror = () => photoError('That picture could not be opened. Try a JPG or PNG.');
+    img.src = URL.createObjectURL(file);
+}
+
+document.getElementById('photo-upload-btn').addEventListener('click', () => document.getElementById('photo-file').click());
+['photo-file', 'photo-file-camera'].forEach(id => {
+    document.getElementById(id).addEventListener('change', e => { fromFile(e.target.files[0]); e.target.value = ''; });
+});
+
+// Live camera. Browsers only allow it on HTTPS (or localhost); otherwise fall
+// back to the phone's camera through a file input.
+function stopCamera() {
+    camStream?.getTracks().forEach(t => t.stop());
+    camStream = null;
+    document.getElementById('camera-panel').classList.add('hidden');
+}
+
+function startCamera() {
+    photoError('');
+    if (!navigator.mediaDevices?.getUserMedia) {
+        document.getElementById('photo-file-camera').click();
+        return;
+    }
+    stopCamera();
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: camFacing, width: { ideal: 1280 }, height: { ideal: 1280 } }, audio: false })
+        .then(stream => {
+            camStream = stream;
+            const v = document.getElementById('camera-video');
+            v.srcObject = stream;
+            v.style.transform = camFacing === 'user' ? 'scaleX(-1)' : '';
+            document.getElementById('camera-panel').classList.remove('hidden');
+            navigator.mediaDevices.enumerateDevices().then(ds => {
+                const cams = ds.filter(d => d.kind === 'videoinput').length;
+                document.getElementById('camera-switch').classList.toggle('hidden', cams < 2);
+            }).catch(() => {});
+        })
+        .catch(err => {
+            photoError(err.name === 'NotAllowedError'
+                ? 'Camera access was blocked. Allow the camera for this site in the browser, or use Upload photo.'
+                : 'No camera found. Use Upload photo instead.');
+        });
+}
+
+document.getElementById('photo-camera-btn').addEventListener('click', startCamera);
+document.getElementById('camera-cancel').addEventListener('click', stopCamera);
+document.getElementById('camera-switch').addEventListener('click', () => {
+    camFacing = camFacing === 'user' ? 'environment' : 'user';
+    startCamera();
+});
+document.getElementById('camera-capture').addEventListener('click', () => {
+    const v = document.getElementById('camera-video');
+    if (!v.videoWidth) return;
+    toJpeg(v, v.videoWidth, v.videoHeight, true).then(blob => { stopCamera(); savePhoto(blob); });
+});
 
 // ── Generate ID ───────────────────────────────────────────────────────
 document.getElementById('generate-btn').addEventListener('click', () => {

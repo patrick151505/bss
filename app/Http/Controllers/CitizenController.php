@@ -495,7 +495,7 @@ class CitizenController extends Controller
     public function show(Citizen $citizen)
     {
         $citizen->load(['civilStatus', 'addressZone', 'approvalStatus', 'approvedBy', 'relation', 'tags',
-            'activeHold.placedBy', 'holds.placedBy', 'holds.liftedBy']);
+            'activeHold.placedBy', 'holds.placedBy', 'holds.liftedBy', 'holds.blotter']);
 
         $encrypted = [
             'mname', 'bplace', 'contact', 'email', 'complete_address',
@@ -519,10 +519,44 @@ class CitizenController extends Controller
         $inventoryReleases = $citizen->inventoryReleases()->with(['items.item', 'releasedBy'])->orderByDesc('created_at')->get();
         $documentRequests  = $citizen->documentRequests()->with('documentType')->orderByDesc('created_at')->get();
 
+        // Everything in the Activity Logs about this citizen (only for users who may see the logs).
+        $activity = auth()->user()->can('activity_logs.view')
+            ? $this->citizenActivity($citizen, $documentRequests->pluck('id'))
+            : null;
+
         return view('citizens.show', compact(
             'citizen', 'currentFamily', 'currentHousehold',
-            'eventAttendances', 'eventWins', 'inventoryReleases', 'documentRequests'
+            'eventAttendances', 'eventWins', 'inventoryReleases', 'documentRequests', 'activity'
         ));
+    }
+
+    /**
+     * Activity log entries about one citizen, newest first: the citizen record
+     * itself (edits, photo, tags, hold, archive), Barangay ID release, and
+     * the citizen's document requests, health check-ups and blotter cases.
+     */
+    private function citizenActivity(Citizen $citizen, $documentIds)
+    {
+        $healthIds  = auth()->user()->can('health.view')
+            ? \App\Models\HealthCheckup::where('citizen_id', $citizen->id)->pluck('id')
+            : collect();
+        $blotterIds = \App\Models\BlotterParty::where('citizen_id', $citizen->id)->pluck('blotter_id')->unique();
+
+        // subject_type casing differs between older and newer entries ("Citizen" / "citizen"),
+        // so match case-insensitively.
+        $type = fn($q, string $t, $ids) => $q->orWhere(fn($w) => $w->whereRaw('LOWER(subject_type) = ?', [strtolower($t)])->whereIn('subject_id', $ids));
+
+        return ActivityLog::with('user')
+            ->where(function ($q) use ($citizen, $documentIds, $healthIds, $blotterIds, $type) {
+                $type($q, 'citizen', [$citizen->id]);
+                $type($q, 'citizen_id', [$citizen->id]);
+                if ($documentIds->isNotEmpty()) $type($q, 'document_request', $documentIds);
+                if ($healthIds->isNotEmpty())   $type($q, 'HealthCheckup', $healthIds);
+                if ($blotterIds->isNotEmpty())  $type($q, 'blotter', $blotterIds);
+            })
+            ->orderByDesc('created_at')->orderByDesc('id')
+            ->limit(200)
+            ->get();
     }
 
     private function safeDecrypt(?string $value): ?string
@@ -985,7 +1019,7 @@ class CitizenController extends Controller
             $counts['events'] = $citizen->eventAttendances()->count() + $citizen->eventWins()->count();
             foreach ($att as $a) {
                 $add('events', 'mgc_calendar_line', 'Attended ' . ($a->event?->title ?? 'an event'),
-                    ['qr' => 'Checked in by QR scan', 'manual' => 'Checked in manually', 'bulk' => 'Added in bulk'][$a->method] ?? null,
+                    ['qr' => 'Checked in by QR scan', 'manual' => 'Checked in manually', 'bulk' => 'Added in bulk', 'kiosk' => 'Checked in at the kiosk'][$a->method] ?? null,
                     null, 'info', $a->time_in, $a->event ? route('events.show', $a->event) : null);
             }
             foreach ($wins as $w) {

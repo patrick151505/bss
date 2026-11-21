@@ -30,9 +30,11 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 ### 1. Login & User Accounts
 **Features**
 - Log in and log out with email and password, with a "remember me" option.
-- Forgot password: sends a reset link by email.
+- Forgot password (link on the login page): sends a barangay-branded email with a link to set a new password (works once, for 60 minutes).
 - Each user can edit their own name, email and password (My Profile).
 - Administrator can add users, assign their role, edit them, and switch them active or inactive.
+- **Reset password** (key button in Users, needs the Users → reset permission): emails the user a link to set a new password. If email isn't set up, the admin gets the link to copy and hand over.
+- **Only the Super Admin gives roles.** Other users with the Users permissions can add users and edit names, emails and passwords, but the role field is locked for them, and Super Admin accounts are locked too (no edit, no deactivate). A Super Admin cannot remove the Super Admin role from their own account.
 - Each user can be given their own start page after login (for example, a document clerk can land directly on Document Requests).
 
 **Roles:** everyone (own profile); Super Admin or anyone with the Users permissions (managing users).
@@ -98,6 +100,7 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 **Features**
 - Create households with address (zone, block, lot, street, house number).
 - Add one or more families inside a household and add members to each family.
+- **Citizen pickers open ready to pick**: New Household (household head), Add Family (family head) and Add Member list every citizen not yet in a household straight away, 8 per page with pages, with the count shown; typing narrows the list. Citizens already in a family are left out.
 - Set or remove the household head, and remove members.
 - Household list with search, summary counts and a details view.
 - Archive and restore households.
@@ -114,6 +117,9 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 **Features**
 - Generate a Barangay ID for a citizen, with a validity date (validity period is set in Settings).
 - Print the ID card (front and back) with the citizen's photo, details and a scannable QR code.
+- **ID photo while creating an ID**: on the Confirm Details step, **Take photo** (webcam or phone camera, square crop with a face guide, front/back camera switch) or **Upload photo** (JPG/PNG). Photos are resized in the browser before upload, saved as the citizen's profile photo (replacing the old one), and logged in Activity Logs. Shows a warning when the citizen has no photo yet.
+- **Sign with pen** on the print page: the citizen signs in a pad on screen with a signature pad, pen tablet (pen pressure gives a natural line), touchscreen or mouse. Black or blue ink, thickness, undo and clear. The signature is saved as a clean transparent image trimmed to the ink and placed on the card, same as an uploaded signature.
+- **Print setup** on the print page: *ID card printer* prints each side on its own CR80 card page (3.375 × 2.125 in, no margins); *Plain paper* prints at actual size on A4/Letter with cut lines. Front + back, front only or back only (for single-sided card printers). **Fine-tune fit** moves the card left/right and up/down in mm and adjusts the size in %, remembered on that computer.
 - Upload or remove each citizen's signature for the card.
 - **ID Template Designer**: upload front and back backgrounds and arrange where each detail appears, with a live preview using a real citizen. Printing follows the saved design exactly.
 - Advanced styling options in the designer are limited to the Super Admin.
@@ -126,9 +132,13 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 
 ### 7. Birthdays
 **Features**
-- List citizens with birthdays in a chosen **month** or **quarter**, with today's celebrants highlighted.
-- Filter by voters, PWD, senior citizens, solo parents and tags.
-- Summary bar with counts for the selected period.
+- **Month strip**: all 12 months with the number of celebrants in each (following the filters), quarter buttons (Q1–Q4) and previous / next arrows.
+- **Day bar**: under the month strip, pick a single day of that month (e.g. April 20); each day shows its number of celebrants. The list, summary and export follow the chosen day, and previous / next then move one day at a time (Feb 29 included).
+- **Summary**: celebrants in the period, today, the next 7 days, milestones, and male / female split.
+- **Today** and **Next 7 days** cards (whatever month is selected): photo, the age each person turns, area, a call button, and "+N more" on busy days.
+- **Milestones** are marked: turning 18 (can register to vote), 60 (senior citizen) and 80, 85, 90, 95, 100 (Centenarians Act cash gift).
+- The list is **grouped by day** (today's group highlighted) and shows **Turns N** with the birth year; names open the citizen profile. It loads 50 at a time with page numbers, and phones get a card view. A column picker (remembered per browser) adds gender, civil status, email, occupation, voter / precinct and emergency contact.
+- Filter by voters (voters only by default), PWD, senior citizens, solo parents and tags. Filters apply as soon as they change and show as removable chips.
 - **Export** to **CSV (Excel)** or **PDF**, with optional extra columns. The export follows the filters.
 
 **Roles:** separate Birthdays permissions: view and export.
@@ -144,9 +154,10 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 - Case status: Pending, Ongoing, Scheduled, Settled, Referred, Dismissed or Closed, with settled date and "referred to".
 - **Case actions**: hearings, summons, mediation, conciliation, investigation and others, each with schedule, venue, who conducted it, attendance of both sides, notes, photos and outcome. Changes to an action are kept as a version history.
 - **Print** the blotter report on the barangay's official paper (letterhead chosen in Settings).
+- **Hold a party from the case**: a complainant or respondent linked to a citizen record can be put on hold (or the hold lifted) right on the case page, blocking them from being issued documents. The reason is filled in with the case number and can be edited. The hold shows on the case and in the citizen's Hold History with a link back to the case, and both histories record it.
 - Search and filter the case list.
 
-**Roles:** view and print (all roles); add and edit (Staff, Super Admin); delete (Super Admin).
+**Roles:** view and print (all roles); add and edit (Staff, Super Admin); delete (Super Admin); placing or lifting a hold needs the citizens *hold* permission (Super Admin by default).
 
 **Status: Complete**
 
@@ -176,6 +187,8 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 - **Vital signs**: blood pressure, temperature, pulse, respiratory rate, oxygen saturation, blood sugar (fasting or random), weight and height, with **BMI calculated automatically**. Each reading gets a flag as you type, for example *High (stage 2)*, *Fever* or *Overweight*. The flags follow common adult screening guides and are not a diagnosis.
 - **Consultation notes**: complaint, findings, advice or treatment, where the patient was referred, and a follow-up date.
 - **Medicines from Inventory**: only items in a category marked **Use for medicine** (Inventory → Categories) can be picked. Pick items in stock and enter the quantity and how to take them. Stock is deducted when you save. For a citizen this also creates a released Inventory release, so it appears under Inventory → Releases and in the citizen's history. If there isn't enough stock, nothing is saved. Medicines can't be changed after saving; to fix a mistake, use a stock adjustment in Inventory.
+- **Prescription (reseta)** for medicines not available at the station: write each medicine (generic name, strength, form — suggestions come from Inventory medicine items and earlier resetas), the quantity (e.g. #21) and how to take it (Sig). Saved with the check-up and can be changed later; nothing comes out of stock. The prescriber is **Attended by**, with optional PRC licence and PTR numbers (remembered from the staff member's last reseta). Anyone who can add or edit check-ups can write one (no Dispense permission needed).
+- **Print reseta**: a prescription slip with the barangay header, patient name, age, sex, address and date, ℞ with the numbered medicines and Sig, follow-up date, and the signature line with licence and PTR numbers. Paper size: half letter (default), A5, letter or A4, remembered on that computer.
 - **Save & next patient** button for busy check-up days.
 - **Print** a check-up record: patient details, vital signs with their flags, consultation notes, medicines given, and signature lines for the health worker and the patient. It prints on the paper chosen in Settings → Print Paper (or the plain barangay header).
 - **Check-up page**: the readings with their flags, the medicines given, and the patient's other check-ups so changes in BP, weight and so on can be compared.
@@ -193,7 +206,7 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 **Features**
 - **Document types** (for example Clearance, Indigency, Residency): name, short code, number prefix, color, fee or free, whether approval is needed, extra fields to fill in, and common purposes. Types can be switched on or off. A sample gallery helps set up new types.
 - **Document text** with fill-in placeholders: the citizen's name, age, birthday, address, photo and QR code; the barangay name, city, province, captain's name and signature; and the document number, purpose and official receipt (OR) number. Staff can be allowed to adjust the wording per request.
-- **Paper templates** (letterhead backgrounds): paper size, orientation and margins, with saved versions so an older design can be brought back.
+- **Paper templates** (letterhead backgrounds): paper size, orientation and margins, with saved versions so an older design can be brought back. Each document type picks a template and either **Latest** (always the template's current version, switching automatically when a new version is saved) or a pinned version that stays fixed.
 - **Requests**: pick a citizen and a document type, preview it, then save. Citizens on hold are blocked.
 - **Walk-ins** (people who are not registered residents): a Walk-in button on the request page saves a minimal record (name, birthday, optional contact and ID presented, with Data Privacy consent) and gives them a reference number (e.g. WI-00125). They are not counted as residents anywhere else. The system reads each document's wording and asks only for the personal details that document prints (e.g. Clearance: birthplace, gender, civil status, address, resident since). Details are kept, so a return visit only asks for what is still missing. Duplicate walk-ins and registered residents are detected. Each document type can allow or refuse walk-ins.
 - **Missing-details warning**: when a registered citizen's record lacks something the chosen document prints (e.g. no address), staff are warned before issuing, with a link to update the profile.
@@ -287,10 +300,17 @@ The sidebar, buttons and the citizen activity pop-up only show what the role all
 **Features**
 - Record of actions taken in the system: who did it, when, what kind of record, and details.
 - Filter by action, record type (including Ordinances & Resolutions), date range and staff member. Ordinance entries link to the measure.
+- **Citizen Activity tab** (citizen view page, History card): every log entry about that citizen — profile edits with each field from old to new, photo, tags, hold, archive, Barangay ID release, and entries for their document requests, health check-ups (if the user can view health) and blotter cases — newest first, grouped by day, with the staff member and time, and links to the record. Latest 200 entries; link to the full Activity Logs.
 
 **Roles:** anyone with the activity log permission (all three default roles can view).
 
 **Status: Partially working.** Logged: citizens (including archive, restore, hold and exports), households, blotter, ordinances and resolutions, health check-ups, print paper, events and raffle, winners, ID generation, birthday exports, tags, officials, paper templates, settings and document voiding. Not logged: document creation, approval and release; inventory; users and roles; zones/addresses; document type changes; ID template changes.
+
+
+### 17. Across the whole system
+- **Toast notifications** (top-right) after every create, update and delete: titled Created / Updated / Deleted / Saved from the message, with a countdown that pauses on hover and a close button. Form validation problems show as one error toast listing them. Background saves that fail (no permission, session expired, too many tries, server error) show an error toast. Duplicate green success boxes on the page are hidden; red error boxes stay.
+- **Loading bar** at the top of the page while a page opens, a form saves or a search runs.
+- **Hidden from search engines** (robots.txt, noindex headers and meta tags).
 
 ---
 
@@ -316,7 +336,7 @@ The sidebar, buttons and the citizen activity pop-up only show what the role all
 - **Attendance export** (attendance sheets): not built.
 - **Separate QR card page per citizen** (`/citizens/{id}/qr`): not built. The QR code is printed on the Barangay ID card instead.
 - **Household socioeconomic fields** (4Ps, indigent): not built as fields. Citizen tags can be used for this.
-- **Birthdays**: the 7-day "upcoming birthdays" view and the birthday greeting card printout are not built. Month and quarter views exist instead.
+- **Birthdays**: the birthday greeting card printout is not built.
 - **Inventory**: asset depreciation and "assigned to / location" are not built.
 - **Blotter**: separate settlement agreement and document generation are not built. Status "Settled" and the printed blotter report exist.
 - **Roles** named Barangay Secretary, Health Worker and SK Officer do not exist. They can be created as custom roles.

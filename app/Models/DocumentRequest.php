@@ -20,6 +20,9 @@ class DocumentRequest extends Model
         'doc_number',
         'citizen_id',
         'created_by',
+        'source',
+        'kiosk_id',
+        'queue_no',
         'purpose',
         'status',
         'custom_fields',
@@ -70,6 +73,11 @@ class DocumentRequest extends Model
     public function approvedBy()
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function kiosk()
+    {
+        return $this->belongsTo(Kiosk::class, 'kiosk_id');
     }
 
     public function createdBy()
@@ -274,9 +282,7 @@ class DocumentRequest extends Model
             'occupation'   => $citizen?->occupation ?? '',
             'year_stay'    => $citizen?->year_stay?->format('F Y') ?? '',
             'qrcode'       => $citizen?->qrcode ?? '',
-            'profile_photo_link' => $citizen?->profile
-                                ? asset(str_replace('public/', 'storage/', $citizen->profile))
-                                : '',
+            'profile_photo_link' => $citizen?->profile_url ?? '',   // ?v=… so a retaken photo isn't served from cache
 
             // ── Date issued (at time of render) ──────────────────────
             'date_day'     => $now->format('d'),
@@ -345,7 +351,7 @@ class DocumentRequest extends Model
         // Handle {{ profile_photo [width,height] }} with custom dimensions
         // e.g. {{ profile_photo [80,100] }} or {{ profile_photo [120] }} (square)
         if ($citizen?->profile) {
-            $src = asset(str_replace('public/', 'storage/', $citizen->profile));
+            $src = $citizen->profile_url;
             $body = preg_replace_callback(
                 '/\{\{\s*profile_photo\s*\[(\d+)(?:,(\d+))?\]\s*\}\}/',
                 function ($m) use ($src) {

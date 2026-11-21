@@ -47,6 +47,7 @@ class DocumentType extends Model
         'is_active',
         'sort_order',
         'allow_walkin',
+        'allow_kiosk',
     ];
 
     protected $casts = [
@@ -54,6 +55,7 @@ class DocumentType extends Model
         'requires_approval' => 'boolean',
         'allow_body_edit'   => 'boolean',
         'allow_walkin'      => 'boolean',
+        'allow_kiosk'       => 'boolean',
         'is_active'         => 'boolean',
         'fee'               => 'decimal:2',
     ];

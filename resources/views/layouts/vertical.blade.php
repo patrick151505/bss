@@ -38,6 +38,8 @@
 
 <body>
 
+    @include('layouts.shared/top-loader')
+
     <div class="flex wrapper">
 
         @include('layouts.shared/sidebar')
@@ -82,6 +84,8 @@
     @vite(['resources/js/app.js'])
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    {{-- Toasts for every create / update / delete (session flashes, form errors, failed saves). Before page scripts so they can call Toast.*. --}}
+    @include('layouts.shared/toast')
     @stack('inline-scripts')
 
     <script>

@@ -8,6 +8,8 @@
         ['route' => 'documents.templates.index', 'pattern' => 'documents.templates.*',      'icon' => 'mgc_paper_line',        'label' => 'Paper Templates',    'can' => 'documents.view'],
         ['route' => 'settings.print-paper',      'pattern' => 'settings.print-paper*',      'icon' => 'mgc_print_line',        'label' => 'Print Paper',        'can' => 'settings.view'],
         ['route' => 'citizens.ids.template.designer', 'pattern' => 'citizens.ids.template.*', 'icon' => 'mgc_IDcard_line',    'label' => 'ID Template',        'can' => 'citizen_ids.template'],
+        ['route' => 'settings.registration-links', 'pattern' => 'settings.registration-links*', 'icon' => 'mgc_link_line',      'label' => 'Registration Links', 'role' => 'Super Admin'],
+        ['route' => 'settings.kiosks',           'pattern' => 'settings.kiosks*',           'icon' => 'mgc_computer_line',     'label' => 'Kiosks',             'role' => 'Super Admin'],
         ['route' => 'settings.updates',          'pattern' => 'settings.updates',           'icon' => 'mgc_rocket_line',       'label' => 'Updates',            'can' => 'settings.view', 'badge' => true],
     ];
     $appVersion = config('app.version');
@@ -16,6 +18,9 @@
     <ul class="space-y-1">
         @foreach($settingsNav as $item)
         @if(isset($item['can']) && !auth()->user()?->can($item['can']))
+            @continue
+        @endif
+        @if(isset($item['role']) && !auth()->user()?->hasRole($item['role']))
             @continue
         @endif
         <li>

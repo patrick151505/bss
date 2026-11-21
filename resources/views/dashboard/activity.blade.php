@@ -57,28 +57,26 @@
         <p class="text-2xl font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $kpi['blotters_open'] }}">{{ $kpi['blotters_open'] }}</p>
         <p class="text-xs text-gray-500 mt-1">Open Blotter Cases</p>
         <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-1 text-xs text-gray-400">
-            <i class="mgc_calendar_line text-warning"></i>
-            <span><strong class="text-gray-700 dark:text-gray-300">{{ $kpi['events_upcoming'] }}</strong> upcoming events</span>
+            <i class="mgc_add_circle_line text-warning"></i>
+            <span><strong class="text-gray-700 dark:text-gray-300">{{ $kpi['blotters_week'] }}</strong> filed this week</span>
         </div>
     </div>
 
-    {{-- Budget --}}
+    {{-- Events --}}
     <div class="card p-5 anim-card">
         <div class="flex items-center justify-between mb-3">
             <div class="w-11 h-11 rounded-xl bg-success/10 flex items-center justify-center">
-                <i class="mgc_wallet_3_line text-success text-xl"></i>
+                <i class="mgc_calendar_line text-success text-xl"></i>
             </div>
-            @if($kpi['budget_pending'] > 0)
-            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-orange-100 text-orange-700">
-                {{ $kpi['budget_pending'] }} pending
+            <span class="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700">
+                {{ $kpi['events_month'] }} this mo
             </span>
-            @endif
         </div>
-        <p class="text-2xl font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $kpi['budget_paid'] }}" data-prefix="₱">{{ "₱".number_format($kpi['budget_paid'], 0) }}</p>
-        <p class="text-xs text-gray-500 mt-1">Total Disbursed (Paid)</p>
+        <p class="text-2xl font-bold text-gray-800 dark:text-gray-100" data-countup="{{ $kpi['events_upcoming'] }}">{{ $kpi['events_upcoming'] }}</p>
+        <p class="text-xs text-gray-500 mt-1">Upcoming Events</p>
         <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-1 text-xs text-gray-400">
-            <i class="mgc_check_circle_line text-success"></i>
-            <span>Across all vouchers this year</span>
+            <i class="mgc_document_2_line text-success"></i>
+            <span><strong class="text-gray-700 dark:text-gray-300">{{ $kpi['docs_today'] }}</strong> document requests today</span>
         </div>
     </div>
 
@@ -161,54 +159,8 @@
     </div>
 </div>
 
-{{-- ── Budget Voucher Charts ────────────────────────────────────────── --}}
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-    {{-- Bar: Top vouchers by amount --}}
-    <div class="card">
-        <div class="card-header">
-            <h4 class="card-title">Top Vouchers by Amount</h4>
-            <p class="text-xs text-gray-400 mt-0.5">Highest disbursements across all statuses</p>
-        </div>
-        <div class="p-4">
-            <div id="voucherBarChart" class="h-[280px]"></div>
-        </div>
-    </div>
-
-    {{-- Donut: Total disbursed by status --}}
-    <div class="card">
-        <div class="card-header">
-            <h4 class="card-title">Vouchers by Status</h4>
-            <p class="text-xs text-gray-400 mt-0.5">Total amount grouped by payment status</p>
-        </div>
-        <div class="p-4 flex flex-col items-center">
-            <div id="voucherDonutChart" class="h-[200px] w-full"></div>
-            <div class="mt-4 w-full space-y-2">
-                @php
-                    $statusColorMap = [
-                        'paid'      => '#0acf97',
-                        'approved'  => '#727cf5',
-                        'draft'     => '#ffbc00',
-                        'cancelled' => '#fa5c7c',
-                    ];
-                @endphp
-                @foreach($voucherDonut ?? [] as $row)
-                <div class="flex items-center justify-between text-xs">
-                    <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:{{ $statusColorMap[$row->status] ?? '#6b7280' }}"></span>
-                        <span class="text-gray-600 dark:text-gray-400 capitalize">{{ $row->status }}</span>
-                    </div>
-                    <span class="font-semibold text-gray-700 dark:text-gray-300">₱{{ number_format($row->total, 0) }}</span>
-                </div>
-                @endforeach
-            </div>
-        </div>
-    </div>
-
-</div>
-
 {{-- ── ROW 4: Recent Tables ────────────────────────────────────────── --}}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
     {{-- Recent Document Requests --}}
     <div class="card">
@@ -289,46 +241,6 @@
                     </tr>
                     @empty
                     <tr><td colspan="2" class="text-center py-8 text-gray-400 text-xs">No blotter cases yet.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    {{-- Recent Budget Vouchers --}}
-    <div class="card">
-        <div class="card-header">
-            <div class="flex items-center justify-between">
-                <h4 class="card-title">Budget Vouchers</h4>
-                <a href="{{ route('budget.transactions.index') }}" class="text-xs text-primary hover:underline">View all</a>
-            </div>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="table min-w-full text-sm">
-                <tbody>
-                    @forelse($recentVouchers as $v)
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                        <td class="px-4 py-3">
-                            <p class="font-semibold text-gray-800 dark:text-gray-200 text-xs">{{ $v->voucher_no }}</p>
-                            <p class="text-[11px] text-gray-400 truncate max-w-[150px]">{{ $v->payee }}</p>
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                            @php
-                                $vc = match($v->status) {
-                                    'paid'      => 'bg-green-100 text-green-700',
-                                    'approved'  => 'bg-blue-100 text-blue-700',
-                                    'cancelled' => 'bg-red-100 text-red-700',
-                                    default     => 'bg-yellow-100 text-yellow-700',
-                                };
-                            @endphp
-                            <p class="text-xs font-bold text-gray-700 dark:text-gray-300">₱{{ number_format($v->amount, 0) }}</p>
-                            <span class="inline-flex items-center py-0.5 px-2 rounded-full text-[10px] font-semibold {{ $vc }}">
-                                {{ ucfirst($v->status) }}
-                            </span>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr><td colspan="2" class="text-center py-8 text-gray-400 text-xs">No vouchers yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -520,49 +432,6 @@ document.addEventListener('DOMContentLoaded', function () {
     @else
     document.getElementById('moduleChart').innerHTML = '<div class="flex items-center justify-center h-full text-gray-400 text-sm">No data yet</div>';
     @endif
-
-    // ── Voucher Bar Chart ─────────────────────────────────────────
-    new ApexCharts(document.getElementById('voucherBarChart'), {
-        chart: { type: 'bar', height: 280, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
-        series: [{ name: 'Amount (₱)', data: {!! json_encode($voucherBarAmounts) !!} }],
-        xaxis: {
-            categories: {!! json_encode($voucherBarLabels) !!},
-            labels: { style: { fontSize: '10px' }, trim: true, maxHeight: 60 },
-        },
-        yaxis: {
-            labels: {
-                style: { fontSize: '10px' },
-                formatter: val => '₱' + Number(val).toLocaleString(),
-            },
-        },
-        colors: {!! json_encode($voucherBarColors) !!},
-        plotOptions: { bar: { borderRadius: 5, columnWidth: '55%', distributed: true } },
-        legend: { show: false },
-        dataLabels: { enabled: false },
-        grid: { borderColor: '#f0f0f0', strokeDashArray: 3 },
-        tooltip: {
-            y: { formatter: val => '₱' + Number(val).toLocaleString() },
-        },
-    }).render();
-
-    // ── Voucher Donut Chart ───────────────────────────────────────
-    new ApexCharts(document.getElementById('voucherDonutChart'), {
-        chart: { type: 'donut', height: 200, fontFamily: 'Inter, sans-serif' },
-        series: {!! json_encode($voucherDonutAmounts) !!},
-        labels: {!! json_encode($voucherDonutLabels) !!},
-        colors: {!! json_encode($voucherDonutColors) !!},
-        legend: { show: false },
-        dataLabels: { enabled: false },
-        plotOptions: { pie: { donut: { size: '65%', labels: {
-            show: true,
-            total: {
-                show: true,
-                label: 'Total',
-                formatter: w => '₱' + Number(w.globals.seriesTotals.reduce((a, b) => a + b, 0)).toLocaleString(),
-            },
-        } } } },
-        tooltip: { y: { formatter: val => '₱' + Number(val).toLocaleString() } },
-    }).render();
 
     // ── Auto-refresh every 60s ────────────────────────────────────
     setTimeout(() => location.reload(), 60000);

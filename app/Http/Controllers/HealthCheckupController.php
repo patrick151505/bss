@@ -69,14 +69,21 @@ class HealthCheckupController extends Controller
         $canDispense = $request->user()->can('health.dispense');
         $rows = $canDispense ? $this->medicineRows($request->input('medicines', [])) : [];
 
-        $checkup = DB::transaction(function () use ($data, $rows) {
+        $rx = $this->prescriptionRows($request->input('prescriptions', []));
+
+        $checkup = DB::transaction(function () use ($data, $rows, $rx) {
             $checkup = HealthCheckup::create($data + ['created_by' => auth()->id(), 'updated_by' => auth()->id()]);
             if ($rows) $this->dispense($checkup, $rows);
+            $this->savePrescription($checkup, $rx);
             return $checkup;
         });
 
+        $notes = array_filter([
+            $rows ? count($rows) . ' medicine' . (count($rows) > 1 ? 's' : '') . ' given' : null,
+            $rx ? count($rx) . ' on prescription' : null,
+        ]);
         ActivityLog::record('created', 'HealthCheckup', $checkup->id, "Recorded check-up for {$checkup->patientName()}"
-            . ($rows ? ' (' . count($rows) . ' medicine' . (count($rows) > 1 ? 's' : '') . ' given)' : ''));
+            . ($notes ? ' (' . implode(', ', $notes) . ')' : ''));
 
         if ($request->input('after') === 'another') {
             return redirect()->route('health.create')->with('success', "Check-up for {$checkup->patientName()} saved.");
@@ -86,7 +93,7 @@ class HealthCheckupController extends Controller
 
     public function show(HealthCheckup $checkup)
     {
-        $checkup->load(['citizen', 'medicines', 'release', 'creator']);
+        $checkup->load(['citizen', 'medicines', 'prescriptions', 'release', 'creator']);
         // Earlier and later visits of the same patient, for trends.
         $history = $checkup->citizen_id
             ? HealthCheckup::where('citizen_id', $checkup->citizen_id)->whereKeyNot($checkup->id)
@@ -107,9 +114,19 @@ class HealthCheckupController extends Controller
         return view('health.print', compact('checkup', 'settings', 'paper'));
     }
 
+    /** Printable prescription (reseta) for medicines to buy outside. */
+    public function prescription(HealthCheckup $checkup)
+    {
+        $checkup->load(['citizen.addressZone', 'prescriptions']);
+        abort_if($checkup->prescriptions->isEmpty(), 404);
+        $settings = \App\Models\Setting::instance();
+
+        return view('health.prescription', compact('checkup', 'settings'));
+    }
+
     public function edit(HealthCheckup $checkup)
     {
-        $checkup->load(['citizen', 'medicines']);
+        $checkup->load(['citizen', 'medicines', 'prescriptions']);
         return view('health.edit', [
             'checkup'       => $checkup,
             'patient'       => $checkup->citizen ? $this->patientJson($checkup->citizen) : null,
@@ -120,8 +137,16 @@ class HealthCheckupController extends Controller
     public function update(Request $request, HealthCheckup $checkup)
     {
         $data = $this->validated($request);
-        $checkup->update($data + ['updated_by' => auth()->id()]);
-        ActivityLog::record('updated', 'HealthCheckup', $checkup->id, "Updated check-up of {$checkup->patientName()}");
+        $rx = $this->prescriptionRows($request->input('prescriptions', []));
+        $before = $checkup->prescriptions()->count();
+
+        DB::transaction(function () use ($checkup, $data, $rx) {
+            $checkup->update($data + ['updated_by' => auth()->id()]);
+            $this->savePrescription($checkup, $rx);
+        });
+
+        ActivityLog::record('updated', 'HealthCheckup', $checkup->id, "Updated check-up of {$checkup->patientName()}"
+            . ($before !== count($rx) ? ' (prescription: ' . count($rx) . ' medicine' . (count($rx) === 1 ? '' : 's') . ')' : ''));
 
         return redirect()->route('health.show', $checkup)->with('success', 'Changes saved.');
     }
@@ -206,6 +231,12 @@ class HealthCheckupController extends Controller
             'medicines.*.item_id'     => ['nullable', 'integer'],
             'medicines.*.quantity'    => ['nullable', 'integer', 'min:1', 'max:10000'],
             'medicines.*.instructions'=> ['nullable', 'string', 'max:255'],
+            'prescriber_license'        => ['nullable', 'string', 'max:50'],
+            'prescriber_ptr'            => ['nullable', 'string', 'max:50'],
+            'prescriptions'             => ['nullable', 'array', 'max:30'],
+            'prescriptions.*.medicine'  => ['nullable', 'string', 'max:255'],
+            'prescriptions.*.quantity'  => ['nullable', 'string', 'max:50'],
+            'prescriptions.*.sig'       => ['nullable', 'string', 'max:255'],
         ], [
             'patient_name.required_without' => 'Pick a citizen, or type the walk-in patient’s name.',
             'bp_systolic.required_with'     => 'Enter both numbers of the blood pressure (e.g. 120 / 80).',
@@ -214,10 +245,12 @@ class HealthCheckupController extends Controller
         ], [
             'bp_systolic' => 'blood pressure (upper)', 'bp_diastolic' => 'blood pressure (lower)',
             'o2_sat' => 'oxygen saturation', 'resp_rate' => 'respiratory rate', 'weight_kg' => 'weight', 'height_cm' => 'height',
+            'prescriber_license' => 'licence number', 'prescriber_ptr' => 'PTR number',
+            'prescriptions.*.medicine' => 'prescription medicine', 'prescriptions.*.quantity' => 'prescription quantity', 'prescriptions.*.sig' => 'how to take',
         ]);
 
         $data = $request->only([
-            'citizen_id', 'checked_at', 'attended_by', 'bp_systolic', 'bp_diastolic', 'pulse', 'resp_rate',
+            'citizen_id', 'checked_at', 'attended_by', 'prescriber_license', 'prescriber_ptr', 'bp_systolic', 'bp_diastolic', 'pulse', 'resp_rate',
             'temperature', 'o2_sat', 'weight_kg', 'height_cm', 'blood_sugar',
             'complaint', 'findings', 'advice', 'referred_to', 'follow_up_on',
         ]);
@@ -228,6 +261,31 @@ class HealthCheckupController extends Controller
         $data['patient_age']  = $walkIn ? $request->patient_age : null;
         $data['patient_sex']  = $walkIn ? $request->patient_sex : null;
         return $data;
+    }
+
+    /** Clean the prescription rows: rows without a medicine name are dropped. */
+    private function prescriptionRows($rows): array
+    {
+        $out = [];
+        foreach ((array) $rows as $r) {
+            $name = trim((string) ($r['medicine'] ?? ''));
+            if ($name === '') continue;
+            $out[] = [
+                'medicine' => $name,
+                'quantity' => trim((string) ($r['quantity'] ?? '')) ?: null,
+                'sig'      => trim((string) ($r['sig'] ?? '')) ?: null,
+            ];
+        }
+        return $out;
+    }
+
+    /** Replace the check-up's prescription with these rows (nothing touches stock). */
+    private function savePrescription(HealthCheckup $checkup, array $rows): void
+    {
+        $checkup->prescriptions()->delete();
+        foreach ($rows as $i => $r) {
+            $checkup->prescriptions()->create($r + ['sort_order' => $i]);
+        }
     }
 
     /** Clean the submitted medicine rows; the same item twice is merged. */

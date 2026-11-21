@@ -792,7 +792,7 @@ function buildPager(total, current, fn) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function methodBadge(method) {
-    const map = { qr: 'bg-primary/15 text-primary', manual: 'bg-warning/15 text-warning', bulk: 'bg-success/15 text-success' };
+    const map = { qr: 'bg-primary/15 text-primary', manual: 'bg-warning/15 text-warning', bulk: 'bg-success/15 text-success', kiosk: 'bg-info/15 text-info' };
     return `<span class="text-xs font-semibold rounded-full px-2 py-0.5 ${map[method] || 'bg-gray-100 text-gray-500'}">${method}</span>`;
 }
 

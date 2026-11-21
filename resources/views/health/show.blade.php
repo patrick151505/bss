@@ -79,6 +79,11 @@
             <a href="{{ route('health.print', $C) }}" target="_blank" class="btn bg-primary/25 text-primary hover:bg-primary hover:text-white">
                 <i class="mgc_print_line me-1"></i>Print
             </a>
+            @if($C->prescriptions->isNotEmpty())
+            <a href="{{ route('health.prescription', $C) }}" target="_blank" class="btn bg-primary text-white">
+                <span class="font-serif me-1">℞</span>Print reseta
+            </a>
+            @endif
             @can('health.edit')
             <a href="{{ route('health.edit', $C) }}" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">
                 <i class="mgc_edit_line me-1"></i>Edit
@@ -199,6 +204,33 @@
                 </div>
                 @empty
                 <p class="text-sm text-gray-400">No medicines given from stock.</p>
+                @endforelse
+            </div>
+        </div>
+
+        {{-- Prescription (reseta): medicines to buy outside --}}
+        <div class="card">
+            <div class="card-header">
+                <div class="flex justify-between items-center gap-2">
+                    <h4 class="card-title"><span class="font-serif text-primary">℞</span> Prescription (reseta)</h4>
+                    @if($C->prescriptions->isNotEmpty())
+                    <a href="{{ route('health.prescription', $C) }}" target="_blank" class="text-xs text-primary hover:underline"><i class="mgc_print_line"></i> Print</a>
+                    @endif
+                </div>
+            </div>
+            <div class="p-6">
+                @forelse($C->prescriptions as $rx)
+                <div class="py-2 {{ $loop->last ? '' : 'border-b border-gray-100 dark:border-gray-700' }}">
+                    <div class="flex justify-between gap-2 text-sm">
+                        <span class="font-medium text-gray-800 dark:text-gray-100">{{ $loop->iteration }}. {{ $rx->medicine }}</span>
+                        <span class="text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ $rx->quantity }}</span>
+                    </div>
+                    @if($rx->sig)<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Sig: {{ $rx->sig }}</p>@endif
+                </div>
+                @empty
+                <p class="text-sm text-gray-400">No prescription.
+                    @can('health.edit')<a href="{{ route('health.edit', $C) }}" class="text-primary hover:underline">Add one</a> if the patient needs medicines not available here.@endcan
+                </p>
                 @endforelse
             </div>
         </div>

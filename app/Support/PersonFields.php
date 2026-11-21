@@ -30,6 +30,9 @@ class PersonFields
         'year_stay'        => ['label' => 'Resident since',   'input' => 'month',  'tags' => ['year_stay']],
     ];
 
+    /** Placeholders that print the person's photo. */
+    const PHOTO_TAGS = ['profile_photo', 'profile_photo_link'];
+
     /** Placeholders that print a QR code — walk-ins have none. */
     const QR_TAGS = ['qrcode', 'qr_image'];
 
@@ -47,6 +50,11 @@ class PersonFields
     {
         $tags = self::tagsUsed($type, $bodyOverride);
         return array_keys(array_filter(self::FIELDS, fn($f) => array_intersect($f['tags'], $tags)));
+    }
+
+    public static function usesPhoto(DocumentType $type, ?string $bodyOverride = null): bool
+    {
+        return (bool) array_intersect(self::PHOTO_TAGS, self::tagsUsed($type, $bodyOverride));
     }
 
     public static function usesQr(DocumentType $type, ?string $bodyOverride = null): bool

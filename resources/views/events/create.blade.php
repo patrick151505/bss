@@ -119,7 +119,7 @@
                 <span class="w-6 h-6 rounded-full bg-warning text-white text-xs flex items-center justify-center shrink-0">
                     <i class="mgc_star_line text-xs"></i>
                 </span>
-                <span class="text-sm font-semibold text-warning uppercase tracking-wide">Raffle Settings</span>
+                <span class="text-sm font-semibold text-warning uppercase tracking-wide">Check-in &amp; Raffle</span>
             </div>
             <div class="p-5 space-y-4">
                 <label class="flex items-start gap-3 cursor-pointer">
@@ -141,6 +141,14 @@
                         </div>
                     </label>
                 </div>
+                <label class="flex items-start gap-3 cursor-pointer pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <input type="checkbox" name="allow_kiosk" value="1"
+                        class="form-checkbox mt-0.5" {{ old('allow_kiosk') ? 'checked' : '' }}>
+                    <div>
+                        <p class="text-sm font-medium text-gray-800 dark:text-gray-100">Allow check-in at the kiosk</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Residents can scan their Barangay ID at the kiosk to join on the event day</p>
+                    </div>
+                </label>
             </div>
         </div>
 

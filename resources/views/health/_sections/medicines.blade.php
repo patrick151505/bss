@@ -22,16 +22,16 @@
             @endforelse
             <p class="text-xs text-gray-400 mt-3">Medicines can't be changed here because they already came out of stock. Use a stock adjustment in Inventory to correct a mistake.</p>
         @elseif(!$canDispense)
-            <p class="text-sm text-gray-400">You can't give medicines from stock. Ask someone with the “Dispense” permission, or write them in Advice.</p>
+            <p class="text-sm text-gray-400">You can't give medicines from stock. Ask someone with the “Dispense” permission, or write them on the prescription (reseta).</p>
         @elseif($medicineItems->isEmpty())
-            <p class="text-sm text-gray-400">No medicines in stock. Only items in a category marked “Use for medicine” are listed. @can('inventory_categories.view')<a href="{{ route('inventory.categories.index') }}" class="text-primary hover:underline">Set it in Inventory → Categories</a>@endcan</p>
+            <p class="text-sm text-gray-400">No medicines in stock — write what the patient needs on the prescription (reseta). Only items in a category marked “Use for medicine” are listed. @can('inventory_categories.view')<a href="{{ route('inventory.categories.index') }}" class="text-primary hover:underline">Set it in Inventory → Categories</a>@endcan</p>
         @else
             <div id="med-rows" class="space-y-3">
                 @foreach($medRows as $i => $row)
                 @include('health._med-row', ['i' => $i, 'row' => $row])
                 @endforeach
             </div>
-            <p class="text-xs text-gray-400 mt-3">Taken out of Inventory stock when you save.</p>
+            <p class="text-xs text-gray-400 mt-3">Taken out of Inventory stock when you save. Not available here? Put it on the prescription (reseta).</p>
         @endif
     </div>
 </div>

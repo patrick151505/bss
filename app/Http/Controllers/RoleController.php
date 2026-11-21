@@ -39,6 +39,7 @@ class RoleController extends Controller
             'users'         => 'Users',
             'roles'         => 'Roles',
             'activity_logs' => 'Activity Logs',
+            'kiosk'         => 'Kiosk',
             'issue_document'=> 'Document Types (Issue)',
         ];
 
@@ -78,7 +79,7 @@ class RoleController extends Controller
     ];
 
     /** Checkbox order within a row: view first, delete last. */
-    const ACTION_ORDER = [1 => 'view', 'create', 'generate', 'print', 'edit', 'approve', 'tag', 'signature', 'template', 'stock', 'export', 'archive', 'restore', 'hold', 'income', 'demographics', 'fees', 'void', 'delete'];
+    const ACTION_ORDER = [1 => 'view', 'create', 'generate', 'print', 'edit', 'reset', 'approve', 'tag', 'signature', 'template', 'stock', 'export', 'archive', 'restore', 'hold', 'income', 'demographics', 'fees', 'void', 'use', 'delete'];
 
     /** Short hints shown next to actions whose meaning isn't obvious. */
     public static function actionHint(string $permission): ?string
@@ -100,6 +101,8 @@ class RoleController extends Controller
             'inventory_schedule.edit'    => 'change, complete, cancel',
             'documents.fees'             => 'Fee Summary: possible income, fees collected, print',
             'health.dispense'            => 'give medicines from Inventory stock',
+            'users.reset'                => 'email a user a link to set a new password',
+            'kiosk.use'                  => 'open the self-service kiosk screen on any device',
             'legislation.approve'        => 'advance status: readings, approval, effectivity, veto; timeline notes',
         ][$permission] ?? null;
     }

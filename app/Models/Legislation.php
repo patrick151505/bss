@@ -64,6 +64,20 @@ class Legislation extends Model
         'Education & Youth', 'Livelihood', 'Disaster Risk Reduction', 'Other',
     ];
 
+    /**
+     * Built-in categories plus any custom ones staff have added (saved on a measure).
+     * Custom ones are listed alphabetically before "Other".
+     */
+    public static function categoryOptions(): array
+    {
+        $custom = static::query()->whereNotNull('category')->where('category', '!=', '')
+            ->distinct()->orderBy('category')->pluck('category')
+            ->reject(fn($c) => in_array($c, self::CATEGORIES, true))->values()->all();
+
+        $base = array_values(array_diff(self::CATEGORIES, ['Other']));
+        return array_merge($base, $custom, ['Other']);
+    }
+
     const AUTHOR_ROLES = ['author' => 'Author', 'co_author' => 'Co-author', 'sponsor' => 'Sponsor'];
 
     // ── Relations ──────────────────────────────────────────────────────────

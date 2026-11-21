@@ -63,7 +63,7 @@ class DocumentRequestController extends Controller
             'short_total' => (float) $money->short_total,
             'short_count' => (int) $money->short_count,
             'awaiting'    => (float) $money->awaiting,
-            'is_filtered' => collect($request->only(['search', 'type', 'purpose', 'status']))->filter(fn($v) => filled($v))->isNotEmpty()
+            'is_filtered' => collect($request->only(['search', 'type', 'purpose', 'status', 'source']))->filter(fn($v) => filled($v))->isNotEmpty()
                 || $this->dateRange($request) !== null,
         ];
 
@@ -229,6 +229,10 @@ class DocumentRequestController extends Controller
 
         if ($request->filled('purpose')) {
             $query->where('purpose', $request->purpose);
+        }
+
+        if (in_array($request->source, ['kiosk', 'counter'], true)) {
+            $query->where('source', $request->source);
         }
 
         if ($bounds = $this->dateRange($request)) {
@@ -446,7 +450,29 @@ class DocumentRequestController extends Controller
             'fields'  => \App\Support\PersonFields::describe($required, $citizen),
             'missing' => \App\Support\PersonFields::missing($type, $citizen),
             'qr'      => $citizen->is_walkin && \App\Support\PersonFields::usesQr($type),
+            // The document prints a photo: show the current one so staff can retake or replace it.
+            'photo'   => \App\Support\PersonFields::usesPhoto($type) ? ['url' => $citizen->profile_url] : null,
         ]);
+    }
+
+    // Photo taken or uploaded on the request form (residents and walk-ins alike).
+    // Saved as the person's profile photo, so the certificate prints it.
+    public function personPhoto(Request $request)
+    {
+        $request->validate([
+            'citizen_id' => 'required|integer',
+            'photo'      => 'required|image|mimes:jpeg,png,jpg|max:4096',
+        ]);
+        $citizen = Citizen::withWalkins()->findOrFail($request->citizen_id);
+        $old     = $citizen->replaceProfilePhoto($request->file('photo'));
+
+        ActivityLog::record(
+            'updated', 'citizen', $citizen->id,
+            "{$citizen->lname}, {$citizen->fname}: profile photo " . ($old ? 'changed' : 'added') . ' while requesting a document',
+            ['changed' => ['profile' => ['from' => $old ? 'Photo' : '—', 'to' => 'New photo']]]
+        );
+
+        return response()->json(['url' => $citizen->fresh()->profile_url]);
     }
 
     // For a walk-in: the type must allow walk-ins, and every detail the document
@@ -505,7 +531,7 @@ class DocumentRequestController extends Controller
     // input, applying each field's default_value (with placeholders resolved)
     // as a fallback when left blank. Shared by preview() and store() so both
     // apply exactly the same rules. Throws if a required field ends up blank.
-    private function buildCustomFields(DocumentType $type, Request $request, ?Citizen $citizen): array
+    public static function buildCustomFields(DocumentType $type, Request $request, ?Citizen $citizen): array
     {
         $customFields = [];
 
@@ -793,6 +819,8 @@ class DocumentRequestController extends Controller
             'approved_at' => now(),
         ]);
 
+        if ($documentRequest->source === 'kiosk') \App\Notifications\KioskDocumentRequested::markHandled($documentRequest->id);
+
         return back()->with('success', 'Request approved.');
     }
 
@@ -835,6 +863,8 @@ class DocumentRequestController extends Controller
             'amount_paid'  => $amountPaid,
             'released_at'  => now(),
         ]);
+
+        if ($documentRequest->source === 'kiosk') \App\Notifications\KioskDocumentRequested::markHandled($documentRequest->id);
 
         // Auto-open the print dialog once, right after releasing (one-time flash).
         return back()
@@ -883,6 +913,8 @@ class DocumentRequestController extends Controller
             'status'  => 'rejected',
             'remarks' => $request->remarks,
         ]);
+
+        if ($documentRequest->source === 'kiosk') \App\Notifications\KioskDocumentRequested::markHandled($documentRequest->id);
 
         return back()->with('success', 'Request rejected.');
     }

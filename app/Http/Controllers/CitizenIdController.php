@@ -114,6 +114,28 @@ class CitizenIdController extends Controller
         return response()->json(['id' => $citizenId->id]);
     }
 
+    /**
+     * Save a photo for the citizen while creating their ID. It becomes the
+     * citizen's profile photo (the ID prints that photo), stored the same way
+     * as on the citizen form: public/citizen/<qrcode>.<ext>.
+     */
+    public function uploadPhoto(Request $request, Citizen $citizen)
+    {
+        $request->validate([
+            'photo' => 'required|image|mimes:jpeg,png,jpg|max:4096',
+        ]);
+
+        $old = $citizen->replaceProfilePhoto($request->file('photo'));
+
+        \App\Models\ActivityLog::record(
+            'updated', 'citizen', $citizen->id,
+            "{$citizen->lname}, {$citizen->fname}: profile photo " . ($old ? 'changed' : 'added') . ' while creating a Barangay ID',
+            ['changed' => ['profile' => ['from' => $old ? 'Photo' : '—', 'to' => 'New photo']]]
+        );
+
+        return response()->json(['url' => $citizen->fresh()->profile_url]);
+    }
+
     public function print(CitizenId $citizenId)
     {
         $citizenId->load('citizen.addressZone', 'citizen.tags', 'generatedBy');

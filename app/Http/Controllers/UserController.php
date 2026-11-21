@@ -22,11 +22,43 @@ class UserController extends Controller
             fn ($role) => [$role->name => $role->permissions->pluck('name')->all()]
         );
 
-        return view('users.index', compact('users', 'roles', 'landingRoutes', 'rolePermissions'));
+        $canAssignRoles = $this->canAssignRoles();
+        $roleGiver      = self::ROLE_GIVER;
+
+        return view('users.index', compact('users', 'roles', 'landingRoutes', 'rolePermissions', 'canAssignRoles', 'roleGiver'));
+    }
+
+    /** Only the Super Admin may give, change or remove a user's role. */
+    const ROLE_GIVER = 'Super Admin';
+
+    private function canAssignRoles(): bool
+    {
+        return (bool) auth()->user()?->hasRole(self::ROLE_GIVER);
+    }
+
+    /**
+     * Without the Super Admin role: no role may be sent at all (the form doesn't
+     * show the field, so one arriving means a tampered request), and Super Admin
+     * accounts can't be edited or switched off — that would let someone take
+     * over the account that controls everything.
+     */
+    private function guardRoleChange(Request $request, ?User $target = null): void
+    {
+        if ($this->canAssignRoles()) {
+            return;
+        }
+        if ($target && $target->hasRole(self::ROLE_GIVER)) {
+            abort(403, 'Only a Super Admin can change a Super Admin account.');
+        }
+        $current = $target?->roles->first()?->name;
+        if ($request->has('role') && (string) $request->input('role') !== (string) $current) {
+            abort(403, 'Only the Super Admin can assign roles.');
+        }
     }
 
     public function store(Request $request)
     {
+        $this->guardRoleChange($request);
         $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email',
@@ -46,15 +78,27 @@ class UserController extends Controller
             'landing_route' => $request->landing_route ?: null,
         ]);
 
-        if ($request->role) {
+        if ($request->role && $this->canAssignRoles()) {
             $user->syncRoles([$request->role]);
         }
 
-        return back()->with('success', "User \"{$user->name}\" created.");
+        return back()->with('success', "User \"{$user->name}\" created."
+            . ($this->canAssignRoles() ? '' : ' Ask the Super Admin to give this user a role.'));
     }
 
     public function update(Request $request, User $user)
     {
+        $user->load('roles');
+        $this->guardRoleChange($request, $user);
+
+        // Without the Super Admin role the user keeps the role they have.
+        $role = $this->canAssignRoles() ? $request->input('role') : $user->roles->first()?->name;
+
+        // A Super Admin can't take the role off their own account (they would lock themselves out).
+        if ($user->id === auth()->id() && $user->hasRole(self::ROLE_GIVER) && $role !== self::ROLE_GIVER) {
+            return back()->with('error', 'You cannot remove the Super Admin role from your own account.');
+        }
+
         $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email,' . $user->id,
@@ -63,7 +107,7 @@ class UserController extends Controller
             'landing_route' => [
                 'nullable',
                 Rule::in(array_keys(User::landingRouteOptions())),
-                $this->landingRouteAllowedForRole($request->role),
+                $this->landingRouteAllowedForRole($role),
             ],
         ]);
 
@@ -78,7 +122,9 @@ class UserController extends Controller
         }
 
         $user->update($data);
-        $user->syncRoles($request->role ? [$request->role] : []);
+        if ($this->canAssignRoles()) {
+            $user->syncRoles($role ? [$role] : []);
+        }
 
         return back()->with('success', "User \"{$user->name}\" updated.");
     }
@@ -108,10 +154,41 @@ class UserController extends Controller
         };
     }
 
+    /**
+     * Email the user a one-time link to set a new password (valid for 60 minutes).
+     * If the email can't be sent (mail not set up), the admin gets the link to
+     * hand over instead.
+     */
+    public function sendResetLink(User $user)
+    {
+        if ($user->hasRole(self::ROLE_GIVER) && ! $this->canAssignRoles()) {
+            abort(403, 'Only a Super Admin can reset a Super Admin account.');
+        }
+
+        $token = \Illuminate\Support\Facades\Password::broker()->createToken($user);
+
+        try {
+            $user->notify(new \App\Notifications\ResetPasswordLink($token, auth()->user()->name));
+        } catch (\Throwable $e) {
+            report($e);
+            \App\Models\ActivityLog::record('updated', 'user', $user->id, "Password reset link made for {$user->name} (email could not be sent)");
+            return back()->with('reset_link', [
+                'name' => $user->name,
+                'url'  => \App\Notifications\ResetPasswordLink::urlFor($user, $token),
+            ]);
+        }
+
+        \App\Models\ActivityLog::record('updated', 'user', $user->id, "Password reset email sent to {$user->name} ({$user->email})");
+        return back()->with('success', "A reset password email was sent to {$user->email}. The link works for 60 minutes.");
+    }
+
     public function toggleActive(User $user)
     {
         if ($user->id === auth()->id()) {
             return back()->with('error', 'You cannot deactivate your own account.');
+        }
+        if ($user->hasRole(self::ROLE_GIVER) && ! $this->canAssignRoles()) {
+            abort(403, 'Only a Super Admin can change a Super Admin account.');
         }
 
         $active = !($user->is_active ?? true);

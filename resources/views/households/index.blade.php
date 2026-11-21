@@ -61,6 +61,27 @@
 @media (min-width: 1024px) {
     #detail-drawer-close { display: none; }
     #detail-backdrop     { display: none; }
+
+    /* Household list takes 3/4, the selected household 1/4. */
+    #hh-layout { grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); }
+
+    /* The wide list shows household cards side by side. */
+    #household-list:has(.hh-card) {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+        gap: 12px;
+        align-items: start;
+    }
+    #household-list:has(.hh-card) > * { margin-top: 0 !important; }
+
+    /* Families sit side by side when the panel has room, one per row when it doesn't. */
+    #family-list:has(.family-block) {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+        align-items: start;
+    }
+    #family-list .family-block { border-bottom: 1px solid rgb(243 244 246); border-right: 1px solid rgb(243 244 246); }
+    [data-mode="dark"] #family-list .family-block { border-color: rgb(55 65 81); }
 }
 </style>
 @endsection
@@ -108,7 +129,7 @@
 </div>
 
 {{-- ── Two-column layout ──────────────────────────────────────────────────── --}}
-<div class="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-5 items-start">
+<div id="hh-layout" class="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-5 items-start">
 
     {{-- ══ LEFT: Household list ══════════════════════════════════════════════ --}}
     <div>
@@ -292,14 +313,14 @@
             {{-- STEP 1: Select household head --}}
             <div id="step-1" class="p-5">
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    Search and select the citizen who will be the <span class="font-semibold text-gray-700 dark:text-gray-200">Household Head</span>.
+                    Pick the <span class="font-semibold text-gray-700 dark:text-gray-200">Household Head</span> from citizens not yet in a household, or search by name.
                 </p>
                 <div class="relative mb-3">
                     <i class="mgc_search_line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                    <input type="text" id="step1-search" class="form-input pl-9 w-full" placeholder="Search citizen by name…" autocomplete="off">
+                    <input type="text" id="step1-search" class="form-input pl-9 w-full" placeholder="Search unassigned citizens by name…" autocomplete="off">
                 </div>
                 <div id="step1-results" class="border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden min-h-[200px]">
-                    <div class="p-8 text-center text-gray-400 text-sm">Type a name to search citizens</div>
+                    <div class="p-8 text-center text-gray-400 text-sm">Loading unassigned citizens…</div>
                 </div>
                 <div id="step1-selected" class="hidden mt-3 flex items-center gap-3 p-3 rounded-xl bg-success/10 border border-success/30">
                     <div class="w-9 h-9 rounded-full overflow-hidden bg-success/20 flex items-center justify-center shrink-0" id="step1-photo"></div>
@@ -521,7 +542,7 @@
         <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700 shrink-0">
             <div class="relative">
                 <i class="mgc_search_line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                <input type="text" id="picker-search" class="form-input pl-9 w-full" placeholder="Search by name…">
+                <input type="text" id="picker-search" class="form-input pl-9 w-full" placeholder="Search unassigned citizens by name…">
             </div>
         </div>
         <div class="overflow-y-auto flex-1" id="picker-results"></div>
@@ -1048,7 +1069,8 @@ function openWizard() {
 
     // Reset step 1
     document.getElementById('step1-search').value = '';
-    document.getElementById('step1-results').innerHTML = '<div class="p-8 text-center text-gray-400 text-sm">Type a name to search citizens</div>';
+    document.getElementById('step1-results').innerHTML = skeletonPickerRows(5);
+    loadStep1Citizens('');   // unassigned citizens, ready to pick
     document.getElementById('step1-selected').classList.add('hidden');
     document.getElementById('hh-citizen-id').value = '';
 
@@ -1229,17 +1251,14 @@ function showWizardError(msg) {
 let step1Timer = null;
 document.getElementById('step1-search').addEventListener('input', function () {
     clearTimeout(step1Timer);
+    // Fewer than 2 letters → back to the full unassigned list.
     const q = this.value.trim();
-    if (q.length < 2) {
-        document.getElementById('step1-results').innerHTML = '<div class="p-8 text-center text-gray-400 text-sm">Type at least 2 characters</div>';
-        return;
-    }
     document.getElementById('step1-results').innerHTML = skeletonPickerRows(3);
-    step1Timer = setTimeout(() => loadStep1Citizens(q), 350);
+    step1Timer = setTimeout(() => loadStep1Citizens(q.length < 2 ? '' : q), 350);
 });
 
 function loadStep1Citizens(search, page = 1) {
-    fetch(ROUTES.filterCitizens + '?' + new URLSearchParams({ search, page, callback: 'selectCitizenForWizard' }))
+    fetch(ROUTES.filterCitizens + '?' + new URLSearchParams({ search, page, callback: 'selectCitizenForWizard', unassigned: 1 }))
         .then(r => r.text()).then(html => {
             document.getElementById('step1-results').innerHTML = html;
         });
@@ -1340,7 +1359,8 @@ document.getElementById('btn-change-head').addEventListener('click', () => {
     document.getElementById('hh-citizen-id').value = '';
     document.getElementById('step1-selected').classList.add('hidden');
     document.getElementById('step1-search').value = '';
-    document.getElementById('step1-results').innerHTML = '<div class="p-8 text-center text-gray-400 text-sm">Type a name to search citizens</div>';
+    document.getElementById('step1-results').innerHTML = skeletonPickerRows(5);
+    loadStep1Citizens('');
     document.getElementById('btn-step-next').disabled = true;
 });
 
@@ -1491,7 +1511,7 @@ function openCitizenPicker(mode, familyId = null) {
 }
 
 function loadCitizenPicker(page = 1) {
-    const params = new URLSearchParams({ search: pickerSearch, page });
+    const params = new URLSearchParams({ search: pickerSearch, page, unassigned: 1 });
     fetch(ROUTES.filterCitizens + '?' + params)
         .then(r => r.text()).then(html => {
             document.getElementById('picker-results').innerHTML = html;

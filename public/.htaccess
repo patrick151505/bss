@@ -1,7 +1,17 @@
+# Keep everything out of search engines, including files the web server
+# serves directly (uploaded photos, images, CSS/JS) without going through Laravel.
+<IfModule mod_headers.c>
+    Header always set X-Robots-Tag "noindex, nofollow, noarchive, nosnippet, noimageindex"
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
-        Options -MultiViews -Indexes
+        Options -MultiViews
     </IfModule>
+
+    # Never list folder contents (e.g. /storage/registrations/ would show every
+    # uploaded photo). Kept outside the mod_negotiation check so it always applies.
+    Options -Indexes
 
     # Allow the web server to follow the storage symlink (public/storage ->
     # storage/app/public). Without this, LiteSpeed/Apache 404s on uploaded

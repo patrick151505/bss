@@ -1,7 +1,8 @@
 <meta charset="utf-8">
 <title>{{ $title ?? '' }} | Barangay Smart System</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+<meta name="googlebot" content="noindex, nofollow"><meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description">
 <meta content="coderthemes" name="author">
 <meta name="csrf-token" content="{{ csrf_token() }}">
 

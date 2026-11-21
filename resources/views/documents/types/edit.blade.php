@@ -303,6 +303,17 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                         </span>
                     </label>
                 </div>
+                <div class="flex items-start gap-3">
+                    <input type="checkbox" name="allow_kiosk" id="allow_kiosk" value="1"
+                           class="form-checkbox mt-0.5" {{ old('allow_kiosk', $type->allow_kiosk ?? false) ? 'checked' : '' }}>
+                    <label for="allow_kiosk" class="text-sm text-gray-600 dark:text-gray-300">
+                        Offer at the kiosk
+                        <span class="block text-xs text-gray-400">
+                            Residents can request it themselves at the barangay hall kiosk by scanning their Barangay ID.
+                            It always waits for approval, and staff print it at the counter.
+                        </span>
+                    </label>
+                </div>
             </div>
 
             {{-- Fee Settings --}}
@@ -490,7 +501,8 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                     <i class="mgc_paper_line text-primary"></i> Paper Template
                 </h6>
                 <p class="text-xs text-gray-400 leading-relaxed">
-                    Select a template and pin the exact version to use. New requests will always use the pinned version.
+                    Select a template, then choose <strong>Latest</strong> to always follow the template's current version,
+                    or pin an exact version so new requests keep using it even after the template changes.
                     <a href="{{ route('documents.templates.index') }}" class="text-primary underline">Manage templates →</a>
                 </p>
 
@@ -557,10 +569,31 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                 <div id="versions_{{ $tpl->id }}"
                      class="{{ $isSelected ? '' : 'hidden' }} ml-3 pl-3 border-l-2 border-primary/30 space-y-1.5">
                     <p class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-1">Pin a version</p>
+                    @php
+                        // "latest" (or empty) = follow the template's current version; otherwise a version id.
+                        $curVer = (string) old('document_template_version_id', $type->document_template_version_id ?? 'latest');
+                        $latestSelected = $isSelected && in_array($curVer, ['latest', ''], true);
+                    @endphp
+
+                    {{-- Latest: follows the template's current version automatically --}}
+                    <label class="cursor-pointer block">
+                        <input type="radio" name="document_template_version_id" value="latest"
+                               class="sr-only peer tpl-ver-radio" data-tpl="{{ $tpl->id }}" data-current="{{ $tpl->current_version_id }}"
+                               {{ $latestSelected ? 'checked' : '' }}>
+                        <div class="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 peer-checked:border-primary peer-checked:bg-primary/5 transition">
+                            <div class="w-8 h-10 rounded border border-dashed border-primary/40 flex items-center justify-center shrink-0 bg-primary/5">
+                                <i class="mgc_refresh_2_line text-primary text-sm"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">Latest</span>
+                                <p class="text-[10px] text-gray-400">Always the current version (now v{{ $tpl->currentVersion?->version }}) — switches automatically when a new version is saved</p>
+                            </div>
+                        </div>
+                    </label>
+
                     @foreach($tpl->versions as $ver)
                     @php
-                        $verSelected = (string) old('document_template_version_id', $type->document_template_version_id) === (string) $ver->id
-                            || ($isSelected && $type->document_template_version_id === null && $ver->id === $tpl->current_version_id);
+                        $verSelected = $isSelected && $curVer === (string) $ver->id;
                     @endphp
                     <label class="cursor-pointer block">
                         <input type="radio" name="document_template_version_id" value="{{ $ver->id }}"
@@ -896,7 +929,9 @@ const PAPER_SIZES = {
 
 function getPaperSettings() {
     const checked = document.querySelector('.tpl-ver-radio:checked');
-    if (checked && versionMap[checked.value]) return versionMap[checked.value];
+    // "Latest" previews the template's current version.
+    const verId = checked && (checked.value === 'latest' ? checked.dataset.current : checked.value);
+    if (verId && versionMap[verId]) return versionMap[verId];
     return { bg: '', size: 'letter', orient: 'portrait', padTop: 50, padBot: 20, padLeft: 50, padRight: 50 };
 }
 

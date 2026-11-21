@@ -145,7 +145,7 @@ class BlotterController extends Controller
 
     public function show(Blotter $blotter)
     {
-        $blotter->load(['parties.citizen', 'actions.creator', 'actions.versions.savedBy']);
+        $blotter->load(['parties.citizen.activeHold.placedBy', 'parties.citizen.activeHold.blotter', 'actions.creator', 'actions.versions.savedBy']);
 
         $logs = ActivityLog::where('subject_type', 'blotter')
             ->where('subject_id', $blotter->id)

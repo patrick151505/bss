@@ -32,16 +32,21 @@ class PasswordResetLinkController extends Controller
             'email' => 'required|email',
         ]);
 
-        // We will send the password reset link to this user. Once we have attempted
-        // to send the link, we will examine the response then see the message we
-        // need to show to the user. Finally, we'll send out a proper response.
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+        // Same answer whether or not the email has an account, so this page can't
+        // be used to find out who has one. Asking again within a minute is ignored.
+        try {
+            $status = Password::sendResetLink($request->only('email'));
+        } catch (\Throwable $e) {
+            report($e);
+            return back()->withInput($request->only('email'))
+                ->withErrors(['email' => 'The email could not be sent right now. Please ask your administrator to reset your password.']);
+        }
 
-        return $status == Password::RESET_LINK_SENT
-                    ? back()->with('status', __($status))
-                    : back()->withInput($request->only('email'))
-                            ->withErrors(['email' => __($status)]);
+        if ($status === Password::RESET_LINK_SENT || $status === Password::INVALID_USER) {
+            return back()->with('status', 'If that email has an account, a link to set a new password is on its way. Check your inbox (and spam folder). The link works for 60 minutes.');
+        }
+
+        return back()->withInput($request->only('email'))
+            ->withErrors(['email' => 'A link was sent a moment ago. Please wait a minute before asking again.']);
     }
 }

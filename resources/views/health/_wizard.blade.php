@@ -11,13 +11,13 @@
         ['key' => 'patient', 'label' => 'Patient',      'sub' => 'Who and when',       'icon' => 'mgc_user_3_line'],
         ['key' => 'vitals',  'label' => 'Vital signs',  'sub' => 'Measurements',       'icon' => 'mgc_heartbeat_line'],
         ['key' => 'consult', 'label' => 'Consultation', 'sub' => 'Complaint & advice', 'icon' => 'mgc_clipboard_line'],
-        $hasMeds ? ['key' => 'meds', 'label' => 'Medicines', 'sub' => 'From Inventory', 'icon' => 'mgc_box_3_line'] : null,
+        ['key' => 'meds', 'label' => 'Medicines', 'sub' => 'Given & reseta', 'icon' => 'mgc_box_3_line'],
         ['key' => 'review',  'label' => 'Review',       'sub' => 'Check and save',     'icon' => 'mgc_file_check_line'],
     ]));
     // Which step each server-side error belongs to.
     $errorStep = function (string $field) {
         return match (true) {
-            str_starts_with($field, 'medicines')                                              => 'meds',
+            str_starts_with($field, 'medicines') || str_starts_with($field, 'prescri')        => 'meds',
             in_array($field, ['citizen_id', 'patient_name', 'patient_age', 'patient_sex', 'checked_at', 'attended_by']) => 'patient',
             in_array($field, ['complaint', 'findings', 'advice', 'referred_to', 'follow_up_on']) => 'consult',
             default                                                                            => 'vitals',
@@ -77,12 +77,13 @@
     @include('health._sections.consult')
 </div>
 
-{{-- ── Step 4: medicines (only for roles that may dispense) ── --}}
-@if($hasMeds)
+{{-- ── Step 4: medicines given from stock (roles that may dispense) + prescription (reseta) ── --}}
 <div class="wizard-step hidden" data-step="meds">
-    <div class="max-w-3xl">@include('health._sections.medicines')</div>
+    <div class="max-w-3xl space-y-6">
+        @include('health._sections.medicines')
+        @include('health._sections.prescription')
+    </div>
 </div>
-@endif
 
 {{-- ── Step 5: review ── --}}
 <div class="wizard-step hidden" data-step="review">
@@ -114,9 +115,7 @@
             <div class="card">
                 <div class="card-header flex justify-between items-center">
                     <h4 class="card-title">Medicines given</h4>
-                    @if($hasMeds)
                     <button type="button" data-goto="meds" class="text-sm text-primary hover:underline"><i class="mgc_edit_line me-1"></i>Edit</button>
-                    @endif
                 </div>
                 <div class="p-6" id="rv-meds">
                     @unless($hasMeds)
@@ -124,11 +123,18 @@
                         @if($canDispense)
                         No medicines in stock. Only items in a category marked “Use for medicine” are listed. @can('inventory_categories.view')<a href="{{ route('inventory.categories.index') }}" class="text-primary hover:underline">Set it in Inventory → Categories</a>@endcan
                         @else
-                        You can’t give medicines from stock. Ask someone with the “Dispense” permission, or write them in Advice.
+                        You can’t give medicines from stock. Ask someone with the “Dispense” permission, or write them on the prescription (reseta).
                         @endif
                     </p>
                     @endunless
                 </div>
+            </div>
+            <div class="card">
+                <div class="card-header flex justify-between items-center">
+                    <h4 class="card-title"><span class="font-serif text-primary">℞</span> Prescription (reseta)</h4>
+                    <button type="button" data-goto="meds" class="text-sm text-primary hover:underline"><i class="mgc_edit_line me-1"></i>Edit</button>
+                </div>
+                <div class="p-6" id="rv-rx"></div>
             </div>
             <div id="rv-alerts" class="card p-6 hidden">
                 <h4 class="card-title mb-3">Needs attention</h4>
@@ -358,8 +364,21 @@ document.addEventListener('DOMContentLoaded', () => {
             + row('Referred to', text(valOf('referred_to')))
             + row('Follow-up on', valOf('follow_up_on') ? esc(new Date(valOf('follow_up_on') + 'T00:00').toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' })) : text(''));
 
+        const rx = [...form.querySelectorAll('#rx-rows .rx-row')].map(r => ({
+            name: r.querySelector('.rx-medicine').value.trim(),
+            qty:  r.querySelector('[name$="[quantity]"]').value.trim(),
+            sig:  r.querySelector('[name$="[sig]"]').value.trim(),
+        })).filter(x => x.name);
+        q('#rv-rx').innerHTML = rx.length
+            ? rx.map((x, n) => `<div class="py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                    <div class="flex justify-between gap-2 text-sm"><span class="font-medium text-gray-800 dark:text-gray-100">${n + 1}. ${esc(x.name)}</span>
+                    <span class="text-gray-600 dark:text-gray-300 whitespace-nowrap">${esc(x.qty)}</span></div>
+                    ${x.sig ? `<p class="text-xs text-gray-500 dark:text-gray-400">Sig: ${esc(x.sig)}</p>` : ''}</div>`).join('')
+              + '<p class="text-xs text-gray-400 mt-3">Print it from the check-up page after saving.</p>'
+            : '<p class="text-sm text-gray-400">None.</p>';
+
         const medBox = q('#rv-meds');
-        if (form.querySelector('.med-row') !== null || STEPS.includes('meds')) {
+        if (@json($hasMeds)) {   // otherwise the box keeps its "can't give from stock" note
             const meds = [...form.querySelectorAll('.med-row')].map(r => {
                 const it = r.querySelector('.med-item');
                 return it.value ? { name: it.selectedOptions[0].text.replace(/\s*\(.*left\)$/, ''), qty: r.querySelector('.med-qty').value,

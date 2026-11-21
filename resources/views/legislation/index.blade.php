@@ -97,7 +97,7 @@
                 <label class="text-xs text-gray-500 dark:text-gray-400 font-medium block mb-1.5">Category</label>
                 <select name="category" class="form-select text-sm">
                     <option value="">All categories</option>
-                    @foreach(\App\Models\Legislation::CATEGORIES as $c)
+                    @foreach(\App\Models\Legislation::categoryOptions() as $c)
                     <option value="{{ $c }}" @selected(request('category') === $c)>{{ $c }}</option>
                     @endforeach
                 </select>

@@ -18,6 +18,11 @@ class AppServiceProvider extends ServiceProvider
         });
 
         View::composer('layouts.shared.topbar', function ($view) {
+            $user = auth()->user();
+            $hasTable = $user && \Illuminate\Support\Facades\Schema::hasTable('notifications');
+            $view->with('bellNotifications', $hasTable ? $user->unreadNotifications()->latest()->limit(8)->get() : collect());
+            $view->with('bellUnread', $hasTable ? $user->unreadNotifications()->count() : 0);
+
             if (!auth()->user()?->can('inventory_items.view')) {
                 $view->with('lowStockItems', collect());
                 return;

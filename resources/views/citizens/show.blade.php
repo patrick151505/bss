@@ -376,6 +376,10 @@
             if ($healthCheckups !== null) {
                 $profileTabs[] = ['id' => 'tab-health', 'label' => 'Health', 'icon' => 'mgc_heartbeat_line', 'count' => $healthCheckups->count(), 'color' => 'success'];
             }
+            // Activity log: only for users who may see the Activity Logs.
+            if ($activity !== null) {
+                $profileTabs[] = ['id' => 'tab-activity', 'label' => 'Activity', 'icon' => 'mgc_history_line', 'count' => $activity->count(), 'color' => 'primary'];
+            }
         @endphp
 
         <div class="card">
@@ -436,8 +440,8 @@
                                 <td class="px-4 py-3">
                                     @php $method = $ea->method ?? 'manual'; @endphp
                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium
-                                        {{ $method === 'qr' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
-                                        <i class="{{ $method === 'qr' ? 'mgc_qrcode_line' : 'mgc_edit_line' }}"></i>
+                                        {{ $method === 'qr' ? 'bg-primary/10 text-primary' : ($method === 'kiosk' ? 'bg-info/10 text-info' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300') }}">
+                                        <i class="{{ $method === 'qr' ? 'mgc_qrcode_line' : ($method === 'kiosk' ? 'mgc_computer_line' : 'mgc_edit_line') }}"></i>
                                         {{ strtoupper($method) }}
                                     </span>
                                 </td>
@@ -758,6 +762,108 @@
             </div>
             @endif
 
+            {{-- ── Tab: Activity log (everything recorded about this citizen) ── --}}
+            @if($activity !== null)
+            @php
+                $actColors = [
+                    'created' => 'bg-success/15 text-success', 'registered' => 'bg-success/15 text-success',
+                    'updated' => 'bg-info/15 text-info', 'income_updated' => 'bg-info/15 text-info',
+                    'deleted' => 'bg-danger/15 text-danger', 'archived' => 'bg-danger/15 text-danger', 'voided' => 'bg-danger/15 text-danger',
+                    'restored' => 'bg-primary/15 text-primary', 'released' => 'bg-primary/15 text-primary', 'approved' => 'bg-success/15 text-success',
+                    'hold' => 'bg-warning/15 text-warning', 'hold_placed' => 'bg-warning/15 text-warning', 'hold_lifted' => 'bg-success/15 text-success',
+                ];
+                $areaOf = function ($log) {
+                    return match (strtolower($log->subject_type)) {
+                        'citizen'          => ['Profile', 'mgc_user_3_line', null],
+                        'citizen_id'       => ['Barangay ID', 'mgc_idcard_line', null],
+                        'document_request' => ['Document', 'mgc_file_line', \Illuminate\Support\Facades\Route::has('documents.requests.show') ? route('documents.requests.show', $log->subject_id) : null],
+                        'healthcheckup'    => ['Health', 'mgc_heartbeat_line', route('health.show', $log->subject_id)],
+                        'blotter'          => ['Blotter', 'mgc_shield_line', route('blotters.show', $log->subject_id)],
+                        default            => [\Illuminate\Support\Str::headline($log->subject_type), 'mgc_history_line', null],
+                    };
+                };
+                $fieldName = fn($k) => [
+                    'fname' => 'First name', 'mname' => 'Middle name', 'lname' => 'Last name', 'bday' => 'Birthday', 'bplace' => 'Birthplace',
+                    'is_verify' => 'Verified', 'is_pwd' => 'PWD', 'is_soloparents' => 'Solo parent', 'voters' => 'Voter', 'pricinct_no' => 'Precinct no.',
+                    'ic_fullname' => 'Emergency contact', 'ic_contact' => 'Emergency contact no.', 'ic_address' => 'Emergency contact address',
+                    'ic_relationship' => 'Emergency contact relation', 'year_stay' => 'Resident since', 'profile' => 'Photo',
+                ][$k] ?? \Illuminate\Support\Str::headline($k);
+                $val = fn($v) => is_array($v) ? implode(', ', array_map(fn($x) => is_scalar($x) ? $x : json_encode($x), $v)) : (string) ($v ?? '—');
+                $activityByDay = $activity->groupBy(fn($l) => $l->created_at->format('Y-m-d'));
+            @endphp
+            <div id="tab-activity" class="profile-tab-panel hidden">
+                @if($activity->isEmpty())
+                    <div class="flex flex-col items-center gap-2 py-12 text-gray-400">
+                        <i class="mgc_history_line text-4xl"></i>
+                        <p class="text-sm">No activity recorded for this citizen yet.</p>
+                    </div>
+                @else
+                <div class="p-4 space-y-5">
+                    @foreach($activityByDay as $dayKey => $logs)
+                    @php $d = \Carbon\Carbon::parse($dayKey); @endphp
+                    <div>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                            {{ $d->isToday() ? 'Today' : ($d->isYesterday() ? 'Yesterday' : $d->format('l, M d, Y')) }}
+                        </p>
+                        <ol class="relative border-s border-gray-200 dark:border-gray-700 ms-2 space-y-3">
+                            @foreach($logs as $log)
+                            @php
+                                [$area, $icon, $link] = $areaOf($log);
+                                $props   = is_array($log->properties) ? $log->properties : [];
+                                $changed = isset($props['changed']) && is_array($props['changed']) ? $props['changed'] : [];
+                                $extra   = collect($props)->except(['changed', 'details', 'module'])->filter(fn($v) => is_scalar($v) && $v !== '');
+                            @endphp
+                            <li class="ms-5">
+                                <span style="inset-inline-start:-9px" class="absolute mt-1 w-[18px] h-[18px] rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 flex items-center justify-center">
+                                    <i class="{{ $icon }} text-[10px] text-gray-500 dark:text-gray-400"></i>
+                                </span>
+                                <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase {{ $actColors[$log->action] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">{{ str_replace('_', ' ', $log->action) }}</span>
+                                    <span class="text-[11px] text-gray-400">{{ $area }}</span>
+                                    <span class="text-[11px] text-gray-400 ms-auto whitespace-nowrap" title="{{ $log->created_at->format('M d, Y h:i A') }}">
+                                        {{ $log->created_at->format('h:i A') }} · {{ $log->user?->name ?? 'System' }}
+                                    </span>
+                                </div>
+                                <p class="text-sm text-gray-700 dark:text-gray-200 mt-0.5">
+                                    {{ $log->description }}
+                                    @if($link)<a href="{{ $link }}" class="text-xs text-primary hover:underline ms-1">Open</a>@endif
+                                </p>
+                                @if($changed)
+                                <ul class="mt-1.5 text-xs space-y-0.5">
+                                    @foreach($changed as $field => $ch)
+                                    <li class="text-gray-500 dark:text-gray-400">
+                                        <span class="font-medium text-gray-600 dark:text-gray-300">{{ $fieldName($field) }}:</span>
+                                        @if(is_array($ch) && array_key_exists('from', $ch))
+                                            <span class="line-through decoration-danger/60">{{ $val($ch['from']) }}</span>
+                                            <i class="mgc_arrow_right_line align-middle"></i>
+                                            <span class="text-gray-700 dark:text-gray-200">{{ $val($ch['to'] ?? null) }}</span>
+                                        @else
+                                            {{ $val($ch) }}
+                                        @endif
+                                    </li>
+                                    @endforeach
+                                </ul>
+                                @elseif($extra->isNotEmpty())
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    {{ $extra->map(fn($v, $k) => $fieldName($k) . ': ' . $v)->implode(' · ') }}
+                                </p>
+                                @endif
+                            </li>
+                            @endforeach
+                        </ol>
+                    </div>
+                    @endforeach
+                    @if($activity->count() >= 200)
+                    <p class="text-xs text-gray-400 text-center">Showing the latest 200 entries.</p>
+                    @endif
+                    <div class="text-center">
+                        <a href="{{ route('activity-logs.index', ['subject_type' => 'citizen', 'subject_id' => $citizen->id]) }}" class="text-xs text-primary hover:underline">Open in Activity Logs →</a>
+                    </div>
+                </div>
+                @endif
+            </div>
+            @endif
+
         </div>{{-- end profiling card --}}
 
     </div>
@@ -878,6 +984,11 @@
                     </div>
                     <p class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">{{ $h->reason }}</p>
                     <p class="text-xs text-gray-400 mt-1">Placed by {{ $h->placedBy->name ?? 'Unknown' }} · {{ $h->placed_at->format('M d, Y g:i A') }}</p>
+                    @if($h->blotter)
+                        <a href="{{ route('blotters.show', $h->blotter_id) }}" class="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5">
+                            <i class="mgc_gavel_line"></i> From blotter case {{ $h->blotter->blotter_no }}
+                        </a>
+                    @endif
                     @unless($h->isActive())
                         <p class="text-xs text-gray-400">Lifted by {{ $h->liftedBy->name ?? 'Unknown' }} · {{ $h->lifted_at->format('M d, Y g:i A') }}</p>
                         @if($h->lift_note)

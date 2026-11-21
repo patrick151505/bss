@@ -148,11 +148,47 @@
                                 <i class="mgc_phone_line shrink-0"></i>{{ $party->contact }}
                             </p>
                             @endif
+                            @php $partyHold = $party->citizen?->activeHold; @endphp
+                            @if($partyHold)
+                            <div class="mt-2 p-2 rounded-lg bg-danger/5 border border-danger/30">
+                                <p class="text-xs font-semibold text-danger flex items-center gap-1">
+                                    <i class="mgc_lock_line"></i> On hold — cannot be issued documents
+                                </p>
+                                <p class="text-xs text-gray-700 dark:text-gray-300 mt-0.5 whitespace-pre-line">{{ $partyHold->reason }}</p>
+                                <p class="text-[10px] text-gray-400 mt-0.5">
+                                    {{ $partyHold->placedBy->name ?? 'Unknown' }} · {{ $partyHold->placed_at->format('M d, Y g:i A') }}
+                                    @if($partyHold->blotter && $partyHold->blotter_id !== $blotter->id)
+                                        · from <a href="{{ route('blotters.show', $partyHold->blotter_id) }}" class="text-primary hover:underline">{{ $partyHold->blotter->blotter_no }}</a>
+                                    @endif
+                                </p>
+                            </div>
+                            @endif
                             @if($party->citizen_id)
-                            <a href="{{ route('citizens.show', $party->citizen_id) }}"
-                               class="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1">
-                                <i class="mgc_external_link_line text-[10px]"></i> Profile
-                            </a>
+                            <div class="flex flex-wrap items-center gap-3 mt-1">
+                                <a href="{{ route('citizens.show', $party->citizen_id) }}"
+                                   class="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                    <i class="mgc_external_link_line text-[10px]"></i> Profile
+                                </a>
+                                @can('citizens.hold')
+                                    @if($partyHold)
+                                    <button type="button"
+                                        onclick="openLiftHold({{ $party->citizen_id }}, @js($party->name), @js($partyHold->reason))"
+                                        class="inline-flex items-center gap-1 text-xs text-success hover:underline">
+                                        <i class="mgc_unlock_line text-[11px]"></i> Lift hold
+                                    </button>
+                                    @elseif($party->citizen)
+                                    <button type="button"
+                                        onclick="openPlaceHold({{ $party->citizen_id }}, @js($party->name), @js(strtolower($label)))"
+                                        class="inline-flex items-center gap-1 text-xs text-danger hover:underline">
+                                        <i class="mgc_lock_line text-[11px]"></i> Hold
+                                    </button>
+                                    @endif
+                                @endcan
+                            </div>
+                            @else
+                                @can('citizens.hold')
+                                <p class="text-[10px] text-gray-400 mt-1">Not linked to a citizen record, so a hold cannot be placed.</p>
+                                @endcan
                             @endif
                         </div>
                     </div>
@@ -613,6 +649,8 @@
                         'action_updated' => ['mgc_edit_2_line',      'text-primary',  'bg-primary/10'],
                         'action_deleted' => ['mgc_delete_line',      'text-danger',   'bg-danger/10'],
                         'deleted'        => ['mgc_delete_line',      'text-danger',   'bg-danger/10'],
+                        'hold_placed'    => ['mgc_lock_line',        'text-danger',   'bg-danger/10'],
+                        'hold_lifted'    => ['mgc_unlock_line',      'text-success',  'bg-success/10'],
                     ];
                     [$icon, $iconColor, $iconBg] = $iconMap[$log->action] ?? ['mgc_information_line','text-gray-400','bg-gray-100'];
                 @endphp
@@ -653,6 +691,61 @@
     </button>
     <p id="lightbox-counter" class="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/60"></p>
 </div>
+
+@can('citizens.hold')
+{{-- ══ PLACE HOLD MODAL ══ --}}
+<div id="place-hold-modal" class="hidden fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-3 overflow-y-auto" onclick="if (event.target === this) closeModal('place-hold-modal')">
+    <form id="place-hold-form" method="POST" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-full sm:max-w-lg mt-16">
+        @csrf
+        <input type="hidden" name="blotter_id" value="{{ $blotter->id }}">
+        <div class="flex justify-between items-center py-3 px-4 border-b dark:border-gray-700">
+            <h3 class="font-bold text-gray-800 dark:text-white"><i class="mgc_lock_line me-1 text-danger"></i> Place on Hold</h3>
+            <button type="button" onclick="closeModal('place-hold-modal')"><i class="mgc_close_line text-xl text-gray-500 dark:text-gray-400"></i></button>
+        </div>
+        <div class="p-4 space-y-3">
+            <p class="text-sm text-gray-600 dark:text-gray-300">
+                While on hold, <strong id="place-hold-name"></strong> cannot be issued any document until the hold is lifted.
+                Staff who select this citizen for a document will see the reason below.
+            </p>
+            <div>
+                <label for="place-hold-reason" class="text-sm font-medium text-gray-700 dark:text-gray-200 block mb-1.5">Reason <span class="text-danger">*</span></label>
+                <textarea id="place-hold-reason" name="reason" rows="4" required maxlength="1000" class="form-input w-full"></textarea>
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 py-3 px-4 border-t dark:border-gray-700">
+            <button type="button" onclick="closeModal('place-hold-modal')" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
+            <button type="submit" class="btn bg-danger text-white"><i class="mgc_lock_line me-1"></i> Place Hold</button>
+        </div>
+    </form>
+</div>
+
+{{-- ══ LIFT HOLD MODAL ══ --}}
+<div id="lift-hold-modal" class="hidden fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-3 overflow-y-auto" onclick="if (event.target === this) closeModal('lift-hold-modal')">
+    <form id="lift-hold-form" method="POST" class="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-full sm:max-w-lg mt-16">
+        @csrf
+        @method('DELETE')
+        <div class="flex justify-between items-center py-3 px-4 border-b dark:border-gray-700">
+            <h3 class="font-bold text-gray-800 dark:text-white"><i class="mgc_unlock_line me-1 text-success"></i> Lift Hold — <span id="lift-hold-name"></span></h3>
+            <button type="button" onclick="closeModal('lift-hold-modal')"><i class="mgc_close_line text-xl text-gray-500 dark:text-gray-400"></i></button>
+        </div>
+        <div class="p-4 space-y-3">
+            <div class="p-3 rounded-lg bg-danger/5 border border-danger/30">
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Current hold reason</p>
+                <p id="lift-hold-reason" class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line"></p>
+            </div>
+            <div>
+                <label for="lift-hold-note" class="text-sm font-medium text-gray-700 dark:text-gray-200 block mb-1.5">Note <span class="text-xs font-normal text-gray-400">(optional)</span></label>
+                <textarea id="lift-hold-note" name="lift_note" rows="3" maxlength="1000" class="form-input w-full"
+                    placeholder="e.g. Case settled before the Lupon."></textarea>
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 py-3 px-4 border-t dark:border-gray-700">
+            <button type="button" onclick="closeModal('lift-hold-modal')" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">Cancel</button>
+            <button type="submit" class="btn bg-success text-white"><i class="mgc_unlock_line me-1"></i> Lift Hold</button>
+        </div>
+    </form>
+</div>
+@endcan
 
 {{-- ══ ADD ACTION MODAL ══ --}}
 <div id="add-action-modal" class="hidden fixed inset-0 z-50 flex flex-col bg-white dark:bg-gray-900 overflow-y-auto">
@@ -949,6 +1042,27 @@ function setupPhotoPreviews(inputId, previewId) {
 // ── Modal ─────────────────────────────────────────────────────────
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.body.style.overflow = ''; }
 function openModal(id)  { document.getElementById(id).classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+
+// ── Hold a party (blocks document issuance) ───────────────────────
+const holdUrlTemplate = @js(route('citizens.hold.store', ['citizen' => '__ID__']));
+const blotterNo = @js($blotter->blotter_no);
+
+function openPlaceHold(citizenId, name, role) {
+    document.getElementById('place-hold-form').action = holdUrlTemplate.replace('__ID__', citizenId);
+    document.getElementById('place-hold-name').textContent = name;
+    const reason = document.getElementById('place-hold-reason');
+    reason.value = `Blotter case ${blotterNo} (${role}) — must settle the case before any document is issued.`;
+    openModal('place-hold-modal');
+    reason.focus();
+}
+
+function openLiftHold(citizenId, name, reason) {
+    document.getElementById('lift-hold-form').action = holdUrlTemplate.replace('__ID__', citizenId);
+    document.getElementById('lift-hold-name').textContent = name;
+    document.getElementById('lift-hold-reason').textContent = reason;
+    document.getElementById('lift-hold-note').value = '';
+    openModal('lift-hold-modal');
+}
 
 function toggleVersions(id) {
     const el       = document.getElementById(id);

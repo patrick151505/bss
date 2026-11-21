@@ -10,12 +10,23 @@ use Illuminate\Support\Facades\DB;
 
 class BirthdayController extends Controller
 {
+    /** Celebrants per page in the list. */
+    public const PER_PAGE = 50;
+
+    /** Faces shown per day in the Today / Next 7 days cards (the rest is "+N more"). */
+    public const FACES_PER_DAY = 8;
+
     /** Fields pre-selected in the export modal (and used when none are sent). */
     public const DEFAULT_EXPORT_FIELDS = ['citizen_id', 'fullname', 'birthday', 'age', 'full_address', 'contact'];
 
     public function index(Request $request)
     {
         [$period, $months, $periodLabel] = $this->resolvePeriod($request->get('month'));
+        // Optional day within a single month (e.g. April 20).
+        $day = $this->resolveDay($request->get('day'), $months);
+        if ($day) {
+            $periodLabel .= ' ' . $day;
+        }
         // Defaults to voters only, like the Citizens list. The filter form
         // always sends `voters` (empty string for "All"), so only a first,
         // unfiltered visit gets the default.
@@ -25,26 +36,54 @@ class BirthdayController extends Controller
         $soloparents = (string) $request->get('is_soloparents', '');
         $tags        = $this->tagIds($request->get('tags'));
 
-        $citizens = $this->buildQuery($months, $voters, $is_pwd, $senior, $soloparents, $tags)->get();
+        $filters  = [$voters, $is_pwd, $senior, $soloparents, $tags];
+        // Large barangays have thousands of celebrants a month: page the list, count in SQL.
+        $citizens = $this->buildQuery($months, ...$filters)->when($day, fn($q) => $q->whereDay('bday', $day))
+            ->paginate(self::PER_PAGE)->withQueryString();
+        $inPeriod = fn() => $this->filteredQuery(...$filters)->whereIn(DB::raw('MONTH(bday)'), $months)
+            ->when($day, fn($q) => $q->whereDay('bday', $day));
+
+        // Celebrants per day of the selected month, for the day picker.
+        $dayCounts = count($months) === 1
+            ? $this->filteredQuery(...$filters)->whereMonth('bday', $months[0])
+                ->selectRaw('DAY(bday) d, COUNT(*) n')->groupByRaw('DAY(bday)')
+                ->pluck('n', 'd')->map(fn($n) => (int) $n)->all()
+            : [];
 
         $todayDay   = now()->day;
         $todayMonth = now()->month;
         // True when the selected month/quarter contains today.
         $isCurrentMonth = in_array($todayMonth, $months, true);
 
+        // Celebrants per month (same filters) for the month strip.
+        $monthCounts = $this->filteredQuery(...$filters)
+            ->selectRaw('MONTH(bday) m, COUNT(*) n')->whereNotNull('bday')->groupByRaw('MONTH(bday)')
+            ->pluck('n', 'm')->map(fn($n) => (int) $n)->all();
+
+        // Today and the next 7 days, whatever period is selected (same filters).
+        $todayList = $this->onDays([now()], ...$filters);
+        $upcoming  = $this->onDays(collect(range(1, 7))->map(fn($d) => now()->addDays($d))->all(), ...$filters)
+            ->sortBy(fn($c) => $this->nextBirthday($c)->timestamp)->values();
+
         $stats = [
-            'total'   => $citizens->count(),
-            'today'   => $isCurrentMonth
-                            ? $citizens->filter(fn($c) => $c->bday && $c->bday->month === $todayMonth && $c->bday->day === $todayDay)->count()
-                            : 0,
-            'male'    => $citizens->where('gender', 1)->count(),
-            'female'  => $citizens->where('gender', 0)->count(),
+            'total'      => $citizens->total(),
+            'today'      => $todayList->count(),
+            'upcoming'   => $upcoming->count(),
+            'male'       => $inPeriod()->where('gender', 1)->count(),
+            'female'     => $inPeriod()->where('gender', 0)->count(),
+            'milestones' => $inPeriod()->whereRaw('YEAR(CURDATE()) - YEAR(bday) IN (' . implode(',', array_keys(self::MILESTONES)) . ')')->count(),
         ];
 
         return view('birthdays.index', [
+            'monthCounts'    => $monthCounts,
+            'todayList'      => $todayList,
+            'upcoming'       => $upcoming,
             'citizens'       => $citizens,
             'stats'          => $stats,
             'month'          => $period,
+            'day'            => $day,
+            'dayCounts'      => $dayCounts,
+            'daysInMonth'    => count($months) === 1 ? self::daysIn($months[0]) : 0,
             'periodLabel'    => $periodLabel,
             'isQuarter'      => count($months) > 1,
             'voters'         => $voters,
@@ -64,16 +103,21 @@ class BirthdayController extends Controller
     public function export(Request $request)
     {
         [$period, $months, $periodLabel] = $this->resolvePeriod($request->input('month'));
+        $day = $this->resolveDay($request->input('day'), $months);
+        if ($day) {
+            $periodLabel .= ' ' . $day;
+        }
         $voters      = (string) $request->input('voters', '');
         $is_pwd      = (string) $request->input('is_pwd', '');
         $senior      = (string) $request->input('senior', '');
         $soloparents = (string) $request->input('is_soloparents', '');
         $tags        = $this->tagIds($request->input('tags'));
 
-        $query     = $this->buildQuery($months, $voters, $is_pwd, $senior, $soloparents, $tags);
+        $query     = $this->buildQuery($months, $voters, $is_pwd, $senior, $soloparents, $tags)
+            ->when($day, fn($q) => $q->whereDay('bday', $day));
         $format    = $request->input('format', 'csv');
         $monthName = $periodLabel;
-        $filename  = 'birthdays_' . strtolower(count($months) > 1 ? $period : $periodLabel) . '_' . date('Y');
+        $filename  = 'birthdays_' . strtolower(str_replace(' ', '-', count($months) > 1 ? $period : $periodLabel)) . '_' . date('Y');
 
         $exportCount = $query->count();
         ActivityLog::record(
@@ -84,6 +128,7 @@ class BirthdayController extends Controller
                 'format'       => $format,
                 'record_count' => $exportCount,
                 'month'        => $period,
+                'day'          => $day,
                 'filters'      => array_filter(
                     ['voters' => $voters, 'is_pwd' => $is_pwd, 'senior' => $senior, 'is_soloparents' => $soloparents, 'tags' => $tags ? Tag::whereIn('id', $tags)->pluck('name')->implode(', ') : ''],
                     fn($v) => $v !== ''
@@ -188,6 +233,25 @@ class BirthdayController extends Controller
         return [(string) $month, [$month], \Carbon\Carbon::create(null, $month, 1)->format('F')];
     }
 
+    /** Days in a month, counting Feb 29 so leap-day birthdays can be picked. */
+    public static function daysIn(int $month): int
+    {
+        return \Carbon\Carbon::create(2024, $month, 1)->daysInMonth;
+    }
+
+    /**
+     * The "day" filter: a day number valid for the single selected month,
+     * or null (no day filter, or a quarter is selected).
+     */
+    private function resolveDay($value, array $months): ?int
+    {
+        $day = (int) $value;
+        if (count($months) !== 1 || $day < 1 || $day > self::daysIn($months[0])) {
+            return null;
+        }
+        return $day;
+    }
+
     /**
      * Normalise the "tags" filter to a list of positive tag ids.
      */
@@ -196,10 +260,71 @@ class BirthdayController extends Controller
         return array_values(array_unique(array_filter(array_map('intval', (array) $value), fn($id) => $id > 0)));
     }
 
+    /**
+     * Ages worth a mention in the list:
+     *  18 — adult, can register as a voter; 60 — senior citizen;
+     *  80/85/90/95/100 — cash gift under the Expanded Centenarians Act (RA 11982).
+     */
+    public const MILESTONES = [
+        18  => 'Turns 18 — can register as a voter',
+        60  => 'Turns 60 — senior citizen',
+        80  => 'Turns 80 — Centenarians Act cash gift',
+        85  => 'Turns 85 — Centenarians Act cash gift',
+        90  => 'Turns 90 — Centenarians Act cash gift',
+        95  => 'Turns 95 — Centenarians Act cash gift',
+        100 => 'Turns 100 — centenarian',
+    ];
+
+    /** The age a citizen turns on their birthday this year. */
+    public static function turning(Citizen $c): ?int
+    {
+        return $c->bday ? (int) now()->year - (int) $c->bday->year : null;
+    }
+
+    /** Milestone note for this year's birthday, or null. */
+    public static function milestone(Citizen $c): ?string
+    {
+        $t = self::turning($c);
+        return $t !== null ? (self::MILESTONES[$t] ?? null) : null;
+    }
+
+    /** The citizen's next birthday on or after today (Feb 29 falls on Feb 28 in other years). */
+    private function nextBirthday(Citizen $c): \Carbon\Carbon
+    {
+        $year = now()->year;
+        $make = fn($y) => \Carbon\Carbon::create($y, $c->bday->month, min($c->bday->day, \Carbon\Carbon::create($y, $c->bday->month, 1)->daysInMonth))->startOfDay();
+        $next = $make($year);
+        return $next->lt(now()->startOfDay()) ? $make($year + 1) : $next;
+    }
+
+    /** Active citizens (same filters) whose birthday falls on any of these dates. */
+    private function onDays(array $dates, string $voters, string $is_pwd, string $senior, string $soloparents, array $tags = [])
+    {
+        return $this->filteredQuery($voters, $is_pwd, $senior, $soloparents, $tags)
+            ->with(['addressZone'])
+            ->select(['id', 'fname', 'mname', 'lname', 'suffix', 'bday', 'profile', 'contact', 'address'])
+            ->where(function ($q) use ($dates) {
+                foreach ($dates as $d) {
+                    $q->orWhere(fn($w) => $w->whereMonth('bday', $d->month)->whereDay('bday', $d->day));
+                }
+            })
+            ->orderBy('lname')->get();
+    }
+
     private function buildQuery(array $months, string $voters, string $is_pwd, string $senior, string $soloparents, array $tags = [])
     {
-        return Citizen::with(['addressZone', 'civilStatus', 'tags'])
+        return $this->filteredQuery($voters, $is_pwd, $senior, $soloparents, $tags)
+            ->with(['addressZone', 'civilStatus', 'tags'])
             ->whereIn(DB::raw('MONTH(bday)'), $months)
+            ->orderByRaw('MONTH(bday)')
+            ->orderByRaw('DAY(bday)')
+            ->orderBy('lname');
+    }
+
+    /** Active citizens with the page filters applied (no period, no ordering). */
+    private function filteredQuery(string $voters, string $is_pwd, string $senior, string $soloparents, array $tags = [])
+    {
+        return Citizen::query()
             ->where('is_active', 1)
             ->when($voters !== '', fn($q) => $q->where('voters', $voters))
             ->when($is_pwd !== '', fn($q) => $q->where('is_pwd', $is_pwd))
@@ -207,10 +332,7 @@ class BirthdayController extends Controller
             ->when($senior === '0', fn($q) => $q->whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) < 60'))
             ->when($soloparents !== '', fn($q) => $q->where('is_soloparents', $soloparents))
             // Matches citizens carrying ANY of the selected tags (same as the Citizens list).
-            ->when($tags, fn($q) => $q->whereHas('tags', fn($t) => $t->whereIn('eb_tags.id', $tags)))
-            ->orderByRaw('MONTH(bday)')
-            ->orderByRaw('DAY(bday)')
-            ->orderBy('lname');
+            ->when($tags, fn($q) => $q->whereHas('tags', fn($t) => $t->whereIn('eb_tags.id', $tags)));
     }
 
     private function buildFullAddress(Citizen $c): string

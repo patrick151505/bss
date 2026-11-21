@@ -156,6 +156,30 @@ class Citizen extends Model
      * Re-uploads reuse the same filename, so the file's modified time is
      * appended to make the browser fetch the new photo instead of a cached one.
      */
+    /**
+     * Save an uploaded picture as this person's profile photo, stored as
+     * public/citizen/<qrcode>.<ext> (walk-ins: citizen-<id>.<ext>). Used by the
+     * Barangay ID page and the document request form. Returns the old path.
+     */
+    public function replaceProfilePhoto(\Illuminate\Http\UploadedFile $file): ?string
+    {
+        $ext  = strtolower($file->extension() ?: 'jpg');
+        $ext  = $ext === 'jpeg' ? 'jpg' : $ext;
+        $base = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $this->qrcode) ?: 'citizen-' . $this->id;
+        $path = 'public/citizen/' . $base . '.' . $ext;
+
+        $old = $this->profile;
+        $file->storeAs('public/citizen', $base . '.' . $ext);
+        // A different extension than before leaves the old file behind — remove it.
+        if ($old && $old !== $path && \Illuminate\Support\Facades\Storage::exists($old)) {
+            \Illuminate\Support\Facades\Storage::delete($old);
+        }
+
+        $this->profile = $path;
+        $this->save();
+        return $old;
+    }
+
     public function getProfileUrlAttribute(): ?string
     {
         if (! $this->profile) {

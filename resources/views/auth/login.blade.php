@@ -9,6 +9,8 @@
 
 <body>
 
+@include('layouts.shared/top-loader')
+
 <div class="bg-gradient-to-r from-rose-100 to-teal-100 dark:from-gray-700 dark:via-gray-900 dark:to-black">
 
 
@@ -21,6 +23,12 @@
                         <img class="block dark:hidden" style="height:3.5rem;" src="{{ asset('images/logo-dark.png') }}" alt="">
                         <img class="hidden dark:block" style="height:3.5rem;" src="{{ asset('images/logo-light.png') }}" alt="">
                     </a>
+
+                    @if(session('status'))
+                    <div class="mb-4 p-3 rounded-md bg-success/10 border border-success/30 text-sm text-success font-medium flex gap-2">
+                        <i class="mgc_check_circle_line text-lg shrink-0"></i><span>{{ session('status') }}</span>
+                    </div>
+                    @endif
 
                     <form method="POST" action="{{ route('login') }}">
                         @csrf
@@ -41,11 +49,11 @@
 
                         <div class="flex items-center justify-between mb-4">
                             <div class="flex items-center">
-                                <input type="checkbox" class="form-checkbox rounded" id="checkbox-signin">
+                                <input type="checkbox" class="form-checkbox rounded" id="checkbox-signin" name="remember" value="1">
                                 <label class="ms-2" for="checkbox-signin">Remember me</label>
                             </div>
-                            <a href=""
-                               class="text-sm text-primary border-b border-dashed border-primary">Forget Password ?</a>
+                            <a href="{{ route('password.request') }}"
+                               class="text-sm text-primary border-b border-dashed border-primary">Forgot password?</a>
                         </div>
 
                         <div class="flex justify-center mb-6">

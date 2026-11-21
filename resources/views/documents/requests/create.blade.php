@@ -16,35 +16,7 @@
     }
 }
 
-/* Document typography reset for the review preview — restore normal defaults
-   inside the paper only, since the app's Tailwind Preflight zeroes p/heading
-   margins and list bullets globally. Matches the editor + printed document. */
-#review-paper p { margin: 0 0 5px 0; line-height: 1.4; }
-#review-paper h1 { font-size: 2em;    font-weight: bold; margin: 0.4em 0; line-height: 1.2; }
-#review-paper h2 { font-size: 1.5em;  font-weight: bold; margin: 0.4em 0; line-height: 1.2; }
-#review-paper h3 { font-size: 1.17em; font-weight: bold; margin: 0.4em 0; line-height: 1.2; }
-#review-paper h4 { font-size: 1em;    font-weight: bold; margin: 0.4em 0; line-height: 1.2; }
-#review-paper h5 { font-size: 0.83em; font-weight: bold; margin: 0.4em 0; }
-#review-paper h6 { font-size: 0.75em; font-weight: bold; margin: 0.4em 0; }
-#review-paper ul { list-style: disc;    margin: 0 0 10px 0; padding-left: 40px; }
-#review-paper ol { list-style: decimal; margin: 0 0 10px 0; padding-left: 40px; }
-#review-paper li { margin: 0; }
-#review-paper blockquote { margin: 0 0 10px 40px; }
-#review-paper strong, #review-paper b { font-weight: bold; }
-#review-paper em, #review-paper i { font-style: italic; }
-#review-paper u { text-decoration: underline; }
-#review-paper a { color: inherit; text-decoration: underline; }
-#review-paper hr { border: 0; border-top: 1px solid #999; margin: 12px 0; }
-#review-paper table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-#review-paper td, #review-paper th { border: 1px solid #d1d5db; padding: 3px 0px; vertical-align: top; }
-#review-paper th { background: #f3f4f6; font-weight: 600; }
-#review-paper table.no-border,
-#review-paper table.no-border td,
-#review-paper table.no-border th { border: none; background: transparent; }
-#review-paper table.no-border td.border,
-#review-paper table.no-border th.border,
-#review-paper td.border,
-#review-paper th.border { border-bottom: 1px solid #000; }
+@include('documents.requests._paper-css')
 </style>
 @endsection
 
@@ -264,6 +236,49 @@
                     </h6>
                     <p id="person-note" class="text-xs text-gray-500 dark:text-gray-400 mb-3"></p>
                     <div id="person-alert" class="hidden mb-3 p-3 rounded-lg text-sm"></div>
+
+                    {{-- Photo: shown when the document prints a profile photo. Take or upload a new one
+                         (residents and walk-ins); it is saved as the person's profile photo. --}}
+                    <div id="pp-box" class="hidden mb-4 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
+                                <img id="pp-img" src="" alt="" class="hidden w-full h-full object-cover">
+                                <i id="pp-empty" class="mgc_user_3_line text-2xl text-gray-400"></i>
+                                <div id="pp-saving" class="hidden absolute inset-0 bg-black/50 items-center justify-center text-white">
+                                    <i class="mgc_loading_3_line animate-spin text-xl"></i>
+                                </div>
+                            </div>
+                            <div class="min-w-0" style="margin-right:auto">
+                                <p class="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+                                    <i class="mgc_pic_line text-primary"></i> Photo
+                                </p>
+                                <p id="pp-status" class="text-xs"></p>
+                            </div>
+                            <button type="button" id="pp-camera-btn" class="btn btn-sm border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+                                <i class="mgc_camera_line"></i> <span id="pp-camera-label">Take photo</span>
+                            </button>
+                            <button type="button" id="pp-upload-btn" class="btn btn-sm border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+                                <i class="mgc_upload_2_line"></i> <span id="pp-upload-label">Upload photo</span>
+                            </button>
+                            {{-- No name attribute: these must not be sent with the request form --}}
+                            <input type="file" id="pp-file" accept="image/jpeg,image/png" class="hidden">
+                            <input type="file" id="pp-file-camera" accept="image/*" capture="user" class="hidden">
+                        </div>
+                        <p id="pp-error" class="hidden text-xs text-danger mt-2"></p>
+
+                        <div id="pp-camera-panel" class="hidden mt-3">
+                            <div class="relative mx-auto w-full max-w-xs rounded-lg overflow-hidden bg-black" style="aspect-ratio:1/1">
+                                <video id="pp-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                                <div class="absolute rounded-full border-2 border-dashed pointer-events-none" style="inset:12%;border-color:rgba(255,255,255,.6)"></div>
+                            </div>
+                            <div class="flex justify-center gap-2 mt-3">
+                                <button type="button" id="pp-camera-cancel" class="btn btn-sm border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300">Cancel</button>
+                                <button type="button" id="pp-camera-switch" class="btn btn-sm border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hidden" title="Switch camera"><i class="mgc_refresh_2_line"></i></button>
+                                <button type="button" id="pp-camera-capture" class="btn btn-sm bg-primary text-white flex items-center gap-1.5"><i class="mgc_camera_line"></i> Capture</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div id="person-fields" class="wi-grid"></div>
                 </div>
 
@@ -685,6 +700,133 @@ function selectWalkin(w) {
     checkPersonDetails();
 }
 
+// ── Photo for documents that print the profile photo ─────────────────
+// Saved straight away as the person's profile photo (resident or walk-in),
+// so the review preview and the printed certificate use it.
+const PERSON_PHOTO_URL = '{{ route('documents.requests.person-photo') }}';
+let ppStream = null, ppFacing = 'user';
+
+function ppShow(photo) {
+    ppStopCamera();
+    ppError('');
+    document.getElementById('pp-box').classList.toggle('hidden', !photo);
+    if (photo) ppSetImage(photo.url);
+}
+
+function ppSetImage(url) {
+    const img = document.getElementById('pp-img'), status = document.getElementById('pp-status');
+    img.classList.toggle('hidden', !url);
+    document.getElementById('pp-empty').classList.toggle('hidden', !!url);
+    if (url) img.src = url;
+    status.className = 'text-xs ' + (url ? 'text-success' : 'text-warning');
+    status.textContent = url
+        ? 'On file — this document prints it. Retake or upload a new one if it is outdated.'
+        : 'No photo yet — this document prints one. Take or upload a photo.';
+    document.getElementById('pp-upload-label').textContent = url ? 'Upload new' : 'Upload photo';
+    document.getElementById('pp-camera-label').textContent = url ? 'Retake photo' : 'Take photo';
+}
+
+function ppError(msg) {
+    const el = document.getElementById('pp-error');
+    el.textContent = msg || '';
+    el.classList.toggle('hidden', !msg);
+}
+
+function ppSaving(on) {
+    const ov = document.getElementById('pp-saving');
+    ov.classList.toggle('hidden', !on);
+    ov.classList.toggle('flex', on);
+    ['pp-camera-btn', 'pp-upload-btn'].forEach(id => {
+        const b = document.getElementById(id);
+        b.disabled = on; b.classList.toggle('opacity-60', on);
+    });
+}
+
+// Image or video frame → JPEG blob, max 800px (camera: centre square crop).
+function ppToJpeg(source, sw, sh, square) {
+    let sx = 0, sy = 0;
+    if (square) { const m = Math.min(sw, sh); sx = (sw - m) / 2; sy = (sh - m) / 2; sw = sh = m; }
+    const scale = Math.min(1, 800 / Math.max(sw, sh));
+    const c = document.createElement('canvas');
+    c.width = Math.round(sw * scale); c.height = Math.round(sh * scale);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    if (square && ppFacing === 'user' && source.tagName === 'VIDEO') { ctx.translate(c.width, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(source, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    return new Promise(res => c.toBlob(res, 'image/jpeg', 0.9));
+}
+
+function ppSave(blob) {
+    if (!selectedId || !blob) return;
+    ppError('');
+    ppSaving(true);
+    const fd = new FormData();
+    fd.append('citizen_id', selectedId);
+    fd.append('photo', blob, 'photo.jpg');
+    fetch(PERSON_PHOTO_URL, { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' }, body: fd })
+        .then(async r => {
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.errors?.photo?.[0] || d.message || 'Could not save the photo.');
+            return d;
+        })
+        .then(d => {
+            ppSetImage(d.url);
+            // Refresh the selected-person card's picture too, if it shows one.
+            document.querySelectorAll('#citizen-card img').forEach(i => { i.src = d.url; });
+        })
+        .catch(e => ppError(e.message))
+        .finally(() => ppSaving(false));
+}
+
+function ppFromFile(file) {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { ppError('Choose a JPG or PNG picture.'); return; }
+    const img = new Image();
+    img.onload = () => { ppToJpeg(img, img.naturalWidth, img.naturalHeight, false).then(ppSave); URL.revokeObjectURL(img.src); };
+    img.onerror = () => ppError('That picture could not be opened. Try a JPG or PNG.');
+    img.src = URL.createObjectURL(file);
+}
+
+function ppStopCamera() {
+    ppStream?.getTracks().forEach(t => t.stop());
+    ppStream = null;
+    document.getElementById('pp-camera-panel')?.classList.add('hidden');
+}
+
+// Live camera needs HTTPS (or localhost); otherwise use the phone camera via a file input.
+function ppStartCamera() {
+    ppError('');
+    if (!navigator.mediaDevices?.getUserMedia) { document.getElementById('pp-file-camera').click(); return; }
+    ppStopCamera();
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: ppFacing, width: { ideal: 1280 }, height: { ideal: 1280 } }, audio: false })
+        .then(stream => {
+            ppStream = stream;
+            const v = document.getElementById('pp-video');
+            v.srcObject = stream;
+            v.style.transform = ppFacing === 'user' ? 'scaleX(-1)' : '';
+            document.getElementById('pp-camera-panel').classList.remove('hidden');
+            navigator.mediaDevices.enumerateDevices().then(ds => {
+                document.getElementById('pp-camera-switch').classList.toggle('hidden', ds.filter(d => d.kind === 'videoinput').length < 2);
+            }).catch(() => {});
+        })
+        .catch(err => ppError(err.name === 'NotAllowedError'
+            ? 'Camera access was blocked. Allow the camera for this site in the browser, or use Upload.'
+            : 'No camera found. Use Upload instead.'));
+}
+
+document.getElementById('pp-upload-btn').addEventListener('click', () => document.getElementById('pp-file').click());
+['pp-file', 'pp-file-camera'].forEach(id => {
+    document.getElementById(id).addEventListener('change', e => { ppFromFile(e.target.files[0]); e.target.value = ''; });
+});
+document.getElementById('pp-camera-btn').addEventListener('click', ppStartCamera);
+document.getElementById('pp-camera-cancel').addEventListener('click', ppStopCamera);
+document.getElementById('pp-camera-switch').addEventListener('click', () => { ppFacing = ppFacing === 'user' ? 'environment' : 'user'; ppStartCamera(); });
+document.getElementById('pp-camera-capture').addEventListener('click', () => {
+    const v = document.getElementById('pp-video');
+    if (!v.videoWidth) return;
+    ppToJpeg(v, v.videoWidth, v.videoHeight, true).then(blob => { ppStopCamera(); ppSave(blob); });
+});
+
 // ── Details the chosen document needs from the chosen person ─────────
 let personCheckSeq = 0;
 async function checkPersonDetails() {
@@ -702,6 +844,7 @@ async function checkPersonDetails() {
     const note  = document.getElementById('person-note');
     fieldsBox.innerHTML = '';
     alert.className = 'hidden mb-3 p-3 rounded-lg text-sm';
+    ppShow(res.walkin && !res.allowed ? null : res.photo);
 
     if (res.walkin && !res.allowed) {
         alert.className = 'mb-3 p-3 rounded-lg text-sm bg-danger/10 border border-danger/30 text-danger';
@@ -713,7 +856,12 @@ async function checkPersonDetails() {
 
     if (!res.walkin) {
         // Registered citizen: only warn about gaps — their record is edited from the profile.
-        if (!res.missing.length) { section.classList.add('hidden'); return; }
+        if (!res.missing.length) {
+            // Nothing missing: keep the section only for the photo.
+            note.textContent = '';
+            section.classList.toggle('hidden', !res.photo);
+            return;
+        }
         const labels = res.fields.filter(f => f.missing).map(f => f.label).join(', ');
         alert.className = 'mb-3 p-3 rounded-lg text-sm bg-warning/10 border border-warning/30 text-gray-800 dark:text-gray-100';
         alert.innerHTML = `<i class="mgc_alert_line text-warning"></i> This citizen's record has no <strong>${escHtml(labels)}</strong>, which this document prints — it will show blank.
@@ -1025,6 +1173,7 @@ function clearCitizen() {
     selectedWalkin = null;
     document.getElementById('person-section').classList.add('hidden');
     document.getElementById('person-fields').innerHTML = '';
+    ppShow(null);
     document.getElementById('citizen_id').value = '';
     searchInput.value = '';
     document.getElementById('citizen-card').classList.add('hidden');

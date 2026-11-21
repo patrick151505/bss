@@ -219,6 +219,8 @@
                     <p class="text-gray-700 dark:text-gray-300">{{ $documentRequest->created_at->format('M d, Y g:i A') }}</p>
                     @if($documentRequest->createdBy)
                     <p class="text-xs text-gray-400">by {{ $documentRequest->createdBy->name }}</p>
+                    @elseif($documentRequest->source === 'kiosk')
+                    <p class="text-xs text-info font-medium"><i class="mgc_computer_line"></i> At the kiosk{{ $documentRequest->kiosk ? ' (' . $documentRequest->kiosk->name . ')' : '' }} · queue {{ $documentRequest->queue_no }}</p>
                     @endif
                 </div>
                 @if($documentRequest->approved_at)

@@ -34,6 +34,7 @@
     <div class="space-y-6">
         @include('health._sections.visit')
         @include('health._sections.medicines')
+        @include('health._sections.prescription')
     </div>
 </div>
 @endif

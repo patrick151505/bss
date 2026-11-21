@@ -20,6 +20,7 @@ class HealthCheckup extends Model
 
     protected $fillable = [
         'citizen_id', 'patient_name', 'patient_age', 'patient_sex', 'checked_at', 'attended_by',
+        'prescriber_license', 'prescriber_ptr',
         'bp_systolic', 'bp_diastolic', 'pulse', 'resp_rate', 'temperature', 'o2_sat',
         'weight_kg', 'height_cm', 'blood_sugar', 'sugar_fasting',
         'complaint', 'findings', 'advice', 'referred_to', 'follow_up_on',
@@ -48,6 +49,12 @@ class HealthCheckup extends Model
     public function medicines()
     {
         return $this->hasMany(HealthCheckupMedicine::class, 'checkup_id');
+    }
+
+    /** Prescription (reseta): medicines to buy outside, in the order written. */
+    public function prescriptions()
+    {
+        return $this->hasMany(HealthPrescription::class, 'checkup_id')->orderBy('sort_order')->orderBy('id');
     }
 
     public function release()

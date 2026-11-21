@@ -13,7 +13,7 @@ class Event extends Model
     protected $fillable = [
         'title', 'description', 'category', 'venue',
         'event_date', 'event_start', 'event_end',
-        'cover_photo', 'raffle_enabled', 'allow_winner_repeat', 'allowed_addresses', 'eligibility',
+        'cover_photo', 'raffle_enabled', 'allow_winner_repeat', 'allow_kiosk', 'allowed_addresses', 'eligibility',
         'status', 'reopened_at', 'user_id', 'date_created', 'date_updated',
     ];
 
@@ -23,6 +23,7 @@ class Event extends Model
         'date_updated'          => 'datetime',
         'raffle_enabled'        => 'integer',
         'allow_winner_repeat'   => 'integer',
+        'allow_kiosk'           => 'boolean',
         'reopened_at'           => 'datetime',
         'allowed_addresses'     => 'array',
         'eligibility'           => 'array',

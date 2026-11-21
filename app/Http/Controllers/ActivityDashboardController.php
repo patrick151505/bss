@@ -6,7 +6,6 @@ use App\Models\ActivityLog;
 use App\Models\Blotter;
 use App\Models\Citizen;
 use App\Models\DocumentRequest;
-use App\Models\BudgetTransaction;
 use App\Models\Event;
 use App\Models\User;
 use Carbon\Carbon;
@@ -34,12 +33,15 @@ class ActivityDashboardController extends Controller
                                         ->where('status', 'open')->count(),
             'total_citizens'    => Citizen::where('is_active', 1)->count(),
             'total_households'  => DB::table('eb_household')->count(),
-            'budget_paid'       => BudgetTransaction::where('status', 'paid')->sum('amount'),
-            'budget_pending'    => BudgetTransaction::whereIn('status', ['draft','approved'])->count(),
         ];
 
+        // Budget is left out of this dashboard: its log entries are hidden from the feed and charts.
+        $noBudget = fn($q) => $q->where(fn($w) => $w->whereNull('subject_type')
+            ->orWhereRaw("LOWER(subject_type) NOT LIKE 'budget%'"))
+            ->whereRaw("LOWER(COALESCE(description, '')) NOT LIKE '%voucher%'");
+
         // ── Activity Feed (last 30) ───────────────────────────────────
-        $feed = ActivityLog::with('user')
+        $feed = ActivityLog::with('user')->tap($noBudget)
             ->orderByDesc('created_at')
             ->limit(30)
             ->get();
@@ -66,24 +68,17 @@ class ActivityDashboardController extends Controller
             ->limit(8)
             ->get();
 
-        // ── Recent Budget Vouchers (last 8) ──────────────────────────
-        $recentVouchers = BudgetTransaction::with('fiscalYear')
-            ->orderByDesc('transaction_date')
-            ->orderByDesc('id')
-            ->limit(8)
-            ->get();
-
         // ── Weekly Activity Chart (last 7 days) ──────────────────────
         $weeklyLabels = [];
         $weeklyData   = [];
         for ($i = 6; $i >= 0; $i--) {
             $day = Carbon::today()->subDays($i);
             $weeklyLabels[] = $day->format('D M d');
-            $weeklyData[]   = ActivityLog::whereDate('created_at', $day)->count();
+            $weeklyData[]   = ActivityLog::tap($noBudget)->whereDate('created_at', $day)->count();
         }
 
         // ── Module Breakdown (donut) ──────────────────────────────────
-        $moduleBreakdown = ActivityLog::select('subject_type', DB::raw('COUNT(*) as total'))
+        $moduleBreakdown = ActivityLog::select('subject_type', DB::raw('COUNT(*) as total'))->tap($noBudget)
             ->whereNotNull('subject_type')
             ->where('created_at', '>=', Carbon::now()->subDays(30))
             ->groupBy('subject_type')
@@ -91,7 +86,7 @@ class ActivityDashboardController extends Controller
             ->get();
 
         // ── Action Type Breakdown ─────────────────────────────────────
-        $actionBreakdown = ActivityLog::select('action', DB::raw('COUNT(*) as total'))
+        $actionBreakdown = ActivityLog::select('action', DB::raw('COUNT(*) as total'))->tap($noBudget)
             ->where('created_at', '>=', Carbon::now()->subDays(30))
             ->groupBy('action')
             ->orderByDesc('total')
@@ -99,7 +94,11 @@ class ActivityDashboardController extends Controller
 
         // ── Staff Activity ────────────────────────────────────────────
         $staffActivity = User::select('users.id', 'users.name', 'users.email', 'users.is_active')
-            ->leftJoin('eb_activity_logs', 'users.id', '=', 'eb_activity_logs.user_id')
+            // Budget actions don't count here either.
+            ->leftJoin('eb_activity_logs', fn($j) => $j->on('users.id', '=', 'eb_activity_logs.user_id')
+                ->where(fn($w) => $w->whereNull('eb_activity_logs.subject_type')
+                    ->orWhereRaw("LOWER(eb_activity_logs.subject_type) NOT LIKE 'budget%'"))
+                ->whereRaw("LOWER(COALESCE(eb_activity_logs.description, '')) NOT LIKE '%voucher%'"))
             ->selectRaw('
                 COUNT(eb_activity_logs.id) as total_actions,
                 SUM(CASE WHEN DATE(eb_activity_logs.created_at) = CURDATE() THEN 1 ELSE 0 END) as today_actions,
@@ -115,6 +114,7 @@ class ActivityDashboardController extends Controller
                 DB::raw('HOUR(created_at) as hour'),
                 DB::raw('COUNT(*) as total')
             )
+            ->tap($noBudget)
             ->whereDate('created_at', $today)
             ->groupBy('hour')
             ->orderBy('hour')
@@ -128,48 +128,12 @@ class ActivityDashboardController extends Controller
             $hourlyValues[] = $hourlyData->get($h)?->total ?? 0;
         }
 
-        // ── Shared status→color map ───────────────────────────────────
-        $voucherStatusColors = [
-            'paid'      => '#0acf97',
-            'approved'  => '#727cf5',
-            'draft'     => '#ffbc00',
-            'cancelled' => '#fa5c7c',
-        ];
-
-        // ── Voucher Bar Chart (top 10 by amount) ─────────────────────
-        $voucherBar = BudgetTransaction::orderByDesc('amount')
-            ->limit(10)
-            ->get(['voucher_no', 'payee', 'amount', 'status']);
-
-        $voucherBarLabels  = $voucherBar->map(function ($v) {
-            return $v->voucher_no . ' — ' . \Illuminate\Support\Str::limit($v->payee, 20);
-        })->values()->toArray();
-
-        $voucherBarAmounts = $voucherBar->pluck('amount')->map(fn($a) => (float) $a)->values()->toArray();
-
-        $voucherBarColors  = $voucherBar->map(function ($v) use ($voucherStatusColors) {
-            return $voucherStatusColors[$v->status] ?? '#6b7280';
-        })->values()->toArray();
-
-        // ── Voucher Donut Chart (total amount by status) ──────────────
-        $voucherDonut = BudgetTransaction::select('status', DB::raw('SUM(amount) as total'))
-            ->groupBy('status')
-            ->orderByDesc('total')
-            ->get();
-
-        $voucherDonutLabels  = $voucherDonut->pluck('status')->map(fn($s) => ucfirst($s))->values()->toArray();
-        $voucherDonutAmounts = $voucherDonut->pluck('total')->map(fn($a) => (float) $a)->values()->toArray();
-        $voucherDonutColors  = $voucherDonut->map(function ($row) use ($voucherStatusColors) {
-            return $voucherStatusColors[$row->status] ?? '#6b7280';
-        })->values()->toArray();
-
         return view('dashboard.activity', compact(
             'kpi',
             'feed',
             'feedJson',
             'recentDocs',
             'recentBlotters',
-            'recentVouchers',
             'weeklyLabels',
             'weeklyData',
             'moduleBreakdown',
@@ -177,13 +141,6 @@ class ActivityDashboardController extends Controller
             'staffActivity',
             'hourlyLabels',
             'hourlyValues',
-            'voucherBarLabels',
-            'voucherBarAmounts',
-            'voucherBarColors',
-            'voucherDonut',
-            'voucherDonutLabels',
-            'voucherDonutAmounts',
-            'voucherDonutColors',
         ));
     }
 }

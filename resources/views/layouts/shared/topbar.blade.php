@@ -55,15 +55,57 @@
             <span class="flex items-center justify-center h-6 w-6">
                 <i class="mgc_notification_line text-2xl"></i>
             </span>
-            @if(isset($lowStockItems) && $lowStockItems->count() > 0)
-            <span class="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
-                {{ $lowStockItems->count() }}
+            @php $bellTotal = ($bellUnread ?? 0) + (isset($lowStockItems) ? $lowStockItems->count() : 0); @endphp
+            <span id="bell-badge" data-low="{{ isset($lowStockItems) ? $lowStockItems->count() : 0 }}" data-unread="{{ $bellUnread ?? 0 }}"
+                  class="absolute top-1 right-1 h-4 min-w-[1rem] px-1 items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none {{ $bellTotal ? 'flex' : 'hidden' }}">
+                {{ $bellTotal > 99 ? '99+' : $bellTotal }}
             </span>
-            @endif
         </button>
         <div class="fc-dropdown fc-dropdown-open:opacity-100 hidden opacity-0 w-80 z-50 mt-2 transition-[margin,opacity] duration-300 bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 rounded-lg">
 
+            {{-- Notifications (e.g. new online registrations) --}}
             <div class="px-4 py-3 border-b border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h6 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Notifications</h6>
+                @if(($bellUnread ?? 0) > 0)
+                <form method="POST" action="{{ route('notifications.read-all') }}">
+                    @csrf
+                    <button type="submit" class="text-xs text-primary hover:underline">Mark all read</button>
+                </form>
+                @endif
+            </div>
+            <div class="py-1 max-h-72 overflow-y-auto">
+                @forelse($bellNotifications ?? [] as $bn)
+                <a href="{{ route('notifications.open', $bn->id) }}" class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <i class="{{ $bn->data['icon'] ?? 'mgc_notification_line' }} text-primary"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-800 dark:text-gray-100">{{ $bn->data['title'] ?? 'Notification' }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $bn->data['message'] ?? '' }}</p>
+                        <div class="flex flex-wrap items-center gap-1 mt-1">
+                            @foreach($bn->data['groups'] ?? [] as $g)
+                            <span class="py-0.5 px-1.5 rounded-full text-[10px] font-medium bg-primary/25 text-sky-800">{{ $g }}</span>
+                            @endforeach
+                            <span class="text-[11px] text-gray-400">{{ $bn->created_at->diffForHumans() }}</span>
+                        </div>
+                    </div>
+                </a>
+                @empty
+                <div class="px-4 py-5 text-center text-gray-400">
+                    <i class="mgc_notification_line text-2xl mb-1 block opacity-50"></i>
+                    <p class="text-xs">No new notifications.</p>
+                </div>
+                @endforelse
+            </div>
+            @if(($bellUnread ?? 0) > 0 && auth()->user()?->can('citizens.approve'))
+            <a href="{{ route('citizens.registrations.index') }}"
+               class="px-4 py-2 border-t border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+                Review registrations <i class="mgc_arrow_right_line text-sm"></i>
+            </a>
+            @endif
+
+            @if(auth()->user()?->can('inventory_items.view'))
+            <div class="px-4 py-3 border-y border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <h6 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Low Stock Alerts</h6>
                 @if(isset($lowStockItems) && $lowStockItems->count() > 0)
                 <span class="inline-flex items-center gap-1.5 py-1 px-2 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -114,8 +156,40 @@
                class="px-4 py-2.5 border-t border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center gap-1.5 text-sm font-semibold text-primary hover:underline">
                 View All Items <i class="mgc_arrow_right_line text-sm"></i>
             </a>
+            @endif
         </div>
     </div>
+
+    {{-- Bell: check for new notifications once a minute (visible tab only — the host throttles busy IPs). --}}
+    <script>
+    (function () {
+        const badge = document.getElementById('bell-badge');
+        if (!badge) return;
+        const URL_UNREAD = @json(route('notifications.unread'));
+        const OPEN_BASE  = @json(url('notifications'));
+        let known = parseInt(badge.dataset.unread, 10) || 0;
+        async function check() {
+            if (document.hidden) return;
+            try {
+                const r = await fetch(URL_UNREAD, { headers: { Accept: 'application/json' } });
+                if (!r.ok || r.redirected) return;
+                const d = await r.json();
+                const total = d.count + (parseInt(badge.dataset.low, 10) || 0);
+                badge.textContent = total > 99 ? '99+' : total;
+                badge.classList.toggle('hidden', !total);
+                badge.classList.toggle('flex', !!total);
+                if (d.count > known && d.items.length && window.Toast) {
+                    const n = d.items[0];
+                    const el = Toast.info(n.message, { title: n.title, duration: 10000 });
+                    if (el) { el.style.cursor = 'pointer'; el.addEventListener('click', e => { if (!e.target.closest('.tst-x')) location.href = OPEN_BASE + '/' + n.id + '/open'; }); }
+                }
+                known = d.count;
+            } catch (e) {}
+        }
+        setInterval(check, 60000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    })();
+    </script>
 
     <!-- Light/Dark Toggle Button -->
     <div class="flex">

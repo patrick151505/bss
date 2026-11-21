@@ -72,6 +72,23 @@ Route::get('/storage/{path}', function (string $path) {
 
 
 
+// ── Public citizen self-registration (no login; link from Settings → Registration Links) ──
+Route::get('register/citizen/{token}', [\App\Http\Controllers\PublicRegistrationController::class, 'show'])->name('register.citizen');
+Route::post('register/citizen/{token}', [\App\Http\Controllers\PublicRegistrationController::class, 'store'])
+    ->middleware('throttle:10,1')->name('register.citizen.store');
+// ── Self-service kiosk: any device logged in with an account that has kiosk.use ──
+Route::prefix('kiosk')->name('kiosk.')->middleware(['auth', 'can:kiosk.use', 'throttle:120,1'])->group(function () {
+    Route::get('/',             [\App\Http\Controllers\KioskController::class, 'home'])->name('home');
+    Route::get('register',      [\App\Http\Controllers\KioskController::class, 'register'])->name('register');
+    Route::post('scan',         [\App\Http\Controllers\KioskController::class, 'scan'])->name('scan');
+    Route::post('preview',      [\App\Http\Controllers\KioskController::class, 'preview'])->name('preview');
+    Route::post('submit',       [\App\Http\Controllers\KioskController::class, 'submit'])->name('submit');
+    Route::post('update',       [\App\Http\Controllers\KioskController::class, 'updateDetails'])->name('update');
+    Route::post('join',         [\App\Http\Controllers\KioskController::class, 'join'])->name('join');
+    Route::get('events',        [\App\Http\Controllers\KioskController::class, 'events'])->name('events');
+});
+Route::get('register/citizen/{token}/done', [\App\Http\Controllers\PublicRegistrationController::class, 'done'])->name('register.citizen.done');
+
 // Route::group(['prefix' => '/', 'middleware'=>'auth'], function () {
 //     Route::get('', [RoutingController::class, 'index'])->name('root');
 //     Route::get('/home', fn()=>view('index'))->name('home');
@@ -88,12 +105,35 @@ Route::get('/storage/{path}', function (string $path) {
 Route::middleware('auth')->group(function () {
     Route::get('dashboard/activity', [\App\Http\Controllers\ActivityDashboardController::class, 'index'])->name('dashboard.activity');
 
+    // Top-bar bell: the signed-in user's own notifications.
+    Route::get('notifications/unread', [\App\Http\Controllers\NotificationController::class, 'unread'])->name('notifications.unread');
+    Route::post('notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'readAll'])->name('notifications.read-all');
+    Route::get('notifications/{id}/open', [\App\Http\Controllers\NotificationController::class, 'open'])->name('notifications.open');
+
     Route::post('citizens/export', [CitizenController::class, 'export'])->middleware('can:citizens.export')->name('citizens.export');
 
     // These lookups all return resident PII, so they require citizens.view —
     // being merely signed in is not enough.
     Route::get('citizens/demographics', [CitizenController::class, 'demographics'])
         ->middleware('can:citizens.demographics')->name('citizens.demographics');
+
+    // Detail changes asked for at the kiosk (declared before "citizens/{citizen}").
+    Route::middleware('can:citizens.edit')->prefix('citizens/updates')->name('citizens.updates.')->group(function () {
+        Route::get('/',                 [\App\Http\Controllers\CitizenUpdateRequestController::class, 'index'])->name('index');
+        Route::post('{update}/approve', [\App\Http\Controllers\CitizenUpdateRequestController::class, 'approve'])->name('approve');
+        Route::post('{update}/reject',  [\App\Http\Controllers\CitizenUpdateRequestController::class, 'reject'])->name('reject');
+    });
+
+    // Online registrations waiting for review (declared before "citizens/{citizen}").
+    Route::middleware('can:citizens.approve')->prefix('citizens/registrations')->name('citizens.registrations.')->group(function () {
+        Route::get('/',                      [\App\Http\Controllers\CitizenRegistrationController::class, 'index'])->name('index');
+        Route::get('{registration}',         [\App\Http\Controllers\CitizenRegistrationController::class, 'show'])->name('show');
+        Route::get('{registration}/proof/{group}/{side}', [\App\Http\Controllers\CitizenRegistrationController::class, 'proof'])
+            ->whereIn('group', ['pwd', 'solo', 'senior'])->name('proof');
+        Route::post('{registration}/update',  [\App\Http\Controllers\CitizenRegistrationController::class, 'update'])->name('update');
+        Route::post('{registration}/approve', [\App\Http\Controllers\CitizenRegistrationController::class, 'approve'])->name('approve');
+        Route::post('{registration}/reject',  [\App\Http\Controllers\CitizenRegistrationController::class, 'reject'])->name('reject');
+    });
 
     Route::middleware('can:citizens.view')->group(function () {
         Route::get('citizens/parent-search', [CitizenController::class, 'parentSearch'])->name('citizens.parent-search');
@@ -136,6 +176,10 @@ Route::middleware('auth')->group(function () {
     Route::post('citizens/ids', [CitizenIdController::class, 'store'])
         ->middleware('can:citizen_ids.generate')
         ->name('citizens.ids.store');
+    // Photo taken or uploaded while creating a Barangay ID (saved as the citizen's profile photo).
+    Route::post('citizens/ids/photo/{citizen}', [CitizenIdController::class, 'uploadPhoto'])
+        ->middleware('can:citizen_ids.generate')
+        ->name('citizens.ids.photo');
     Route::middleware('can:citizen_ids.signature')->group(function () {
         Route::post('citizens/ids/{citizenId}/upload-signature', [CitizenIdController::class, 'uploadSignature'])->name('citizens.ids.upload-signature');
         Route::post('citizens/ids/{citizenId}/remove-signature', [CitizenIdController::class, 'removeSignature'])->name('citizens.ids.remove-signature');
@@ -252,6 +296,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('health', \App\Http\Controllers\HealthCheckupController::class)->parameters(['health' => 'checkup'])->only(['create', 'store'])->middleware('can:health.create');
         Route::resource('health', \App\Http\Controllers\HealthCheckupController::class)->parameters(['health' => 'checkup'])->only(['index', 'show']);
         Route::get('health/{checkup}/print', [\App\Http\Controllers\HealthCheckupController::class, 'print'])->name('health.print');
+        Route::get('health/{checkup}/prescription', [\App\Http\Controllers\HealthCheckupController::class, 'prescription'])->name('health.prescription');
         Route::resource('health', \App\Http\Controllers\HealthCheckupController::class)->parameters(['health' => 'checkup'])->only(['edit', 'update'])->middleware('can:health.edit');
         Route::resource('health', \App\Http\Controllers\HealthCheckupController::class)->parameters(['health' => 'checkup'])->only(['destroy'])->middleware('can:health.delete');
     });
@@ -331,6 +376,16 @@ Route::middleware('auth')->group(function () {
     Route::get('settings', [SettingController::class, 'index'])->middleware('can:settings.view')->name('settings.index');
     Route::post('settings', [SettingController::class, 'update'])->middleware('can:settings.edit')->name('settings.update');
     Route::get('settings/updates', [SettingController::class, 'updates'])->middleware('can:settings.view')->name('settings.updates');
+    // Registration links for online citizen self-registration — Super Admin only (checked in the controller).
+    Route::get('settings/registration-links', [\App\Http\Controllers\RegistrationTokenController::class, 'index'])->name('settings.registration-links');
+    Route::post('settings/registration-links', [\App\Http\Controllers\RegistrationTokenController::class, 'store'])->name('settings.registration-links.store');
+    Route::patch('settings/registration-links/{token}/toggle', [\App\Http\Controllers\RegistrationTokenController::class, 'toggle'])->name('settings.registration-links.toggle');
+    Route::delete('settings/registration-links/{token}', [\App\Http\Controllers\RegistrationTokenController::class, 'destroy'])->name('settings.registration-links.destroy');
+    // Kiosk accounts + start screen pictures — Super Admin only (checked in the controller).
+    Route::get('settings/kiosks',                      [\App\Http\Controllers\KioskSettingsController::class, 'index'])->name('settings.kiosks');
+    Route::post('settings/kiosk-slides',               [\App\Http\Controllers\KioskSettingsController::class, 'slideStore'])->name('settings.kiosk-slides.store');
+    Route::patch('settings/kiosk-slides/{slide}',      [\App\Http\Controllers\KioskSettingsController::class, 'slideUpdate'])->name('settings.kiosk-slides.update');
+    Route::delete('settings/kiosk-slides/{slide}',     [\App\Http\Controllers\KioskSettingsController::class, 'slideDestroy'])->name('settings.kiosk-slides.destroy');
     Route::get('settings/print-paper', [SettingController::class, 'printPaper'])->middleware('can:settings.view')->name('settings.print-paper');
     Route::post('settings/print-paper', [SettingController::class, 'updatePrintPaper'])->middleware('can:settings.edit')->name('settings.print-paper.update');
 
@@ -481,6 +536,7 @@ Route::middleware('auth')->group(function () {
             Route::get('requests/walkins',                  [DocumentRequestController::class, 'walkinSearch'])->name('requests.walkins.search');
             Route::post('requests/walkins',                 [DocumentRequestController::class, 'walkinStore'])->name('requests.walkins.store');
             Route::get('requests/person-check',             [DocumentRequestController::class, 'personCheck'])->name('requests.person-check');
+            Route::post('requests/person-photo',            [DocumentRequestController::class, 'personPhoto'])->name('requests.person-photo');
         });
 
         Route::get('requests/{documentRequest}',            [DocumentRequestController::class, 'show'])->name('requests.show');
@@ -510,6 +566,7 @@ Route::middleware('auth')->group(function () {
     Route::get('users', [UserController::class, 'index'])->middleware('can:users.view')->name('users.index');
     Route::post('users', [UserController::class, 'store'])->middleware('can:users.create')->name('users.store');
     Route::put('users/{user}', [UserController::class, 'update'])->middleware('can:users.edit')->name('users.update');
+    Route::post('users/{user}/reset-password', [UserController::class, 'sendResetLink'])->middleware(['can:users.reset', 'throttle:10,1'])->name('users.reset-password');
     Route::patch('users/{user}/toggle', [UserController::class, 'toggleActive'])->middleware('can:users.edit')->name('users.toggle');
 
     Route::get('roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('roles.index');

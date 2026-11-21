@@ -288,7 +288,7 @@ class LegislationController extends Controller
             'series_year'     => ['required', 'integer', 'min:1950', 'max:2100'],
             'title'           => ['required', 'string', 'max:500'],
             'summary'         => ['nullable', 'string', 'max:5000'],
-            'category'        => ['nullable', 'string', 'max:100'],
+            'category'        => ['nullable', 'string', 'max:100', 'not_in:__new'],
             'status'          => ['nullable', Rule::in(array_keys(Legislation::STATUSES))],
             'date_introduced' => ['nullable', 'date'],
             'date_approved'   => ['nullable', 'date'],

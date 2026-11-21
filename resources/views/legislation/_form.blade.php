@@ -56,13 +56,33 @@
 
             <div class="grid sm:grid-cols-3 gap-4">
                 <div class="sm:col-span-1">
+                    @php
+                        $catOptions = Legislation::categoryOptions();
+                        $catCurrent = old('category', $L->category);
+                        // A category typed in but not saved yet (e.g. form came back with errors)
+                        $catTyped   = $catCurrent && !in_array($catCurrent, $catOptions, true) ? $catCurrent : null;
+                    @endphp
                     <label class="{{ $lbl }}">Category</label>
-                    <select name="category" class="form-select w-full">
+                    <select id="category-select" name="category" class="form-select w-full" @disabled($catTyped)>
                         <option value="">— None —</option>
-                        @foreach(Legislation::CATEGORIES as $c)
-                        <option value="{{ $c }}" @selected(old('category', $L->category) === $c)>{{ $c }}</option>
+                        @foreach($catOptions as $c)
+                        <option value="{{ $c }}" @selected($catCurrent === $c)>{{ $c }}</option>
                         @endforeach
+                        <option value="__new" @selected($catTyped)>+ Add new category…</option>
                     </select>
+                    <div id="category-new-wrap" class="mt-2 {{ $catTyped ? '' : 'hidden' }}">
+                        <div class="flex gap-2">
+                            <input type="text" id="category-new" name="category" maxlength="100"
+                                   value="{{ $catTyped }}" placeholder="New category name"
+                                   class="form-input w-full" @disabled(!$catTyped)>
+                            <button type="button" id="category-new-cancel" title="Back to the list"
+                                    class="btn btn-sm bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white">
+                                <i class="mgc_close_line"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">Saved with this measure and added to the category list.</p>
+                    </div>
+                    @error('category')<p class="text-xs text-danger mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div class="sm:col-span-2">
                     <label class="{{ $lbl }}">Summary <span class="text-xs font-normal text-gray-400 ml-1">what it does, in a few lines</span></label>
@@ -220,6 +240,28 @@
 
 @push('inline-scripts')
 <script>
+// Category: "+ Add new category…" swaps the dropdown for a text box (only one of the
+// two is enabled, so only one "category" value is submitted).
+(function () {
+    const sel = document.getElementById('category-select');
+    const wrap = document.getElementById('category-new-wrap');
+    const input = document.getElementById('category-new');
+    if (!sel) return;
+    sel.addEventListener('change', () => {
+        if (sel.value !== '__new') return;
+        sel.disabled = true;
+        input.disabled = false;
+        wrap.classList.remove('hidden');
+        input.focus();
+    });
+    document.getElementById('category-new-cancel').addEventListener('click', () => {
+        input.value = '';
+        input.disabled = true;
+        wrap.classList.add('hidden');
+        sel.disabled = false;
+        sel.value = '';
+    });
+})();
 let authorSeq = {{ count($authorRows) }};
 function addAuthorRow() {
     const node = document.getElementById('author-row-tpl').content.firstElementChild.cloneNode(true);

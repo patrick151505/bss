@@ -13,7 +13,7 @@ class DocumentTypeController extends Controller
     public function index()
     {
         $types = DocumentType::withCount(['requests', 'fields'])
-            ->with(['template' => fn($q) => $q->withCount('versions'), 'pinnedVersion'])
+            ->with(['template' => fn($q) => $q->withCount('versions')->with('currentVersion'), 'pinnedVersion'])
             ->orderBy('name')
             ->get();
 
@@ -310,6 +310,7 @@ HTML,
         if ($request->filled('color')) {
             $request->merge(['color' => strtolower(trim($request->input('color')))]);
         }
+        $this->normalizePaperPick($request);
 
         $data = $request->validate([
             'name'                 => 'required|string|max:255',
@@ -322,6 +323,7 @@ HTML,
             'requires_approval'    => 'boolean',
             'allow_body_edit'      => 'boolean',
             'allow_walkin'         => 'boolean',
+            'allow_kiosk'          => 'boolean',
             'template_body'        => 'nullable|string',
             'is_active'            => 'boolean',
             'document_template_id'         => 'nullable|exists:eb_document_templates,id',
@@ -339,6 +341,7 @@ HTML,
         $data['requires_approval'] = $request->boolean('requires_approval');
         $data['allow_body_edit']   = $request->boolean('allow_body_edit');
         $data['allow_walkin']      = $request->boolean('allow_walkin');
+        $data['allow_kiosk']       = $request->boolean('allow_kiosk');
         $data['is_active']         = $request->boolean('is_active');
         $data['fee']               = $data['is_paid'] ? ($data['fee'] ?? 0) : 0;
 
@@ -368,6 +371,7 @@ HTML,
         if ($request->filled('color')) {
             $request->merge(['color' => strtolower(trim($request->input('color')))]);
         }
+        $this->normalizePaperPick($request);
 
         $data = $request->validate([
             'name'                 => 'required|string|max:255',
@@ -380,6 +384,7 @@ HTML,
             'requires_approval'    => 'boolean',
             'allow_body_edit'      => 'boolean',
             'allow_walkin'         => 'boolean',
+            'allow_kiosk'          => 'boolean',
             'template_body'        => 'nullable|string',
             'is_active'            => 'boolean',
             'document_template_id'         => 'nullable|exists:eb_document_templates,id',
@@ -397,6 +402,7 @@ HTML,
         $data['requires_approval'] = $request->boolean('requires_approval');
         $data['allow_body_edit']   = $request->boolean('allow_body_edit');
         $data['allow_walkin']      = $request->boolean('allow_walkin');
+        $data['allow_kiosk']       = $request->boolean('allow_kiosk');
         $data['is_active']         = $request->boolean('is_active');
         $data['fee']               = $data['is_paid'] ? ($data['fee'] ?? 0) : 0;
         $documentType->update($data);
@@ -474,6 +480,27 @@ HTML,
                 'is_required'      => !empty($field['is_required']),
                 'sort_order'       => $i,
             ]);
+        }
+    }
+
+    /**
+     * Paper template picker: "latest" (or empty) = no pinned version, so requests
+     * follow the template's current version. A pinned version must belong to the
+     * chosen template; with no template there is no version either.
+     */
+    private function normalizePaperPick(Request $request): void
+    {
+        $tplId = $request->input('document_template_id');
+        $verId = $request->input('document_template_version_id');
+
+        if (! $tplId || $verId === 'latest' || $verId === '' || $verId === null) {
+            $request->merge(['document_template_version_id' => null]);
+            return;
+        }
+        $belongs = \App\Models\DocumentTemplateVersion::whereKey((int) $verId)
+            ->where('document_template_id', (int) $tplId)->exists();
+        if (! $belongs) {
+            $request->merge(['document_template_version_id' => null]);
         }
     }
 }

@@ -68,7 +68,8 @@ class HouseholdController extends Controller
         // The picker's cached result counts are keyed by search term, so they
         // cannot all be listed. Their 2-minute TTL bounds the staleness, and
         // the unsearched count (the common case) is cleared here explicitly.
-        Cache::forget('hh.picker.count.' . md5(''));
+        Cache::forget(self::pickerCountKey('', false));
+        Cache::forget(self::pickerCountKey('', true));   // unassigned count changes on every assign/remove
     }
 
     // ─── Paginated list (AJAX) ────────────────────────────────────────────────
@@ -622,16 +623,21 @@ class HouseholdController extends Controller
         $page   = max(1, (int) $request->input('page', 1));
         $limit  = 8;
 
+        // Pickers list only citizens not yet in any family/household, so the
+        // list opens ready to pick from (no typing needed). ?unassigned=0 shows everyone.
+        $unassigned = $request->input('unassigned', '1') !== '0';
+
         $base = Citizen::query()
             ->where('is_active', 1)
             ->where('approval_status', 1)
+            ->when($unassigned, fn($q) => $q->whereNull('familyId'))
             ->when($search, fn($q) => $q->searchName($search));
 
         // COUNT over a leading-wildcard LIKE has to scan every match (~145ms on
         // 23k rows), and the picker re-runs it on every keystroke. The result
         // only depends on the search term, so cache it briefly — paging through
         // the same search then costs nothing.
-        $cacheKey = 'hh.picker.count.' . md5((string) $search);
+        $cacheKey = self::pickerCountKey((string) $search, $unassigned);
         $total = Cache::remember($cacheKey, now()->addMinutes(2),
             fn () => (clone $base)->count());
 
@@ -644,7 +650,12 @@ class HouseholdController extends Controller
             ? $request->input('callback')
             : 'selectCitizen';
 
-        return view('households.partials.citizen-picker', compact('citizens', 'total', 'page', 'limit', 'search', 'callback'));
+        return view('households.partials.citizen-picker', compact('citizens', 'total', 'page', 'limit', 'search', 'callback', 'unassigned'));
+    }
+
+    private static function pickerCountKey(string $search, bool $unassigned): string
+    {
+        return 'hh.picker.count.' . ($unassigned ? 'u.' : '') . md5($search);
     }
 
     // ─── Get citizen address for auto-fill ───────────────────────────────────

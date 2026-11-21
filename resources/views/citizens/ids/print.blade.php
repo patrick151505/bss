@@ -291,33 +291,87 @@ body {
     max-width: 200px;
 }
 
-/* ─── Print ─────────────────────────────────────────────── */
-@php
-    // One sheet holds front + back stacked; size it to the cards' orientations.
-    $inch   = fn ($o, $dim) => ($o === 'portrait') === ($dim === 'w') ? 2.125 : 3.375;
-    $fo     = $useTemplate ? ($frontOrient ?? 'landscape') : 'landscape';
-    $bo     = $useTemplate ? ($backOrient  ?? 'landscape') : 'landscape';
-    $pageW  = max($inch($fo, 'w'), $inch($bo, 'w'));
-    $pageH  = $inch($fo, 'h') + $inch($bo, 'h') + 0.5;   // + 0.25in gap + 0.25in margins
-@endphp
-@page {
-    /* CR80 standard ID card(s), front above back */
-    size: {{ $pageW }}in {{ $pageH }}in;
-    margin: 0.125in 0;      /* top/bottom breathing room, no side margin */
+.btn-upload-alt { background: #fff; color: #4f46e5; border: 1px solid #c7d2fe; }
+.btn-upload-alt:hover { background: #eef2ff; }
+
+/* ─── Pen signing pad (screen only) ─────────────────────── */
+.sp-backdrop {
+    position: fixed; inset: 0; z-index: 1000; background: rgba(17,24,39,.55);
+    display: none; align-items: center; justify-content: center; padding: 16px;
 }
+.sp-backdrop.open { display: flex; }
+.sp-box {
+    background: #fff; border-radius: 14px; padding: 18px; width: 100%; max-width: 680px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.3); display: flex; flex-direction: column; gap: 12px;
+}
+.sp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.sp-title { font-size: 15px; font-weight: 700; color: #111827; }
+.sp-sub { font-size: 12px; color: #6b7280; margin-top: 2px; }
+.sp-x { background: none; border: none; font-size: 20px; color: #9ca3af; cursor: pointer; line-height: 1; }
+.sp-x:hover { color: #374151; }
+.sp-pad {
+    position: relative; width: 100%; aspect-ratio: 3 / 1; background: #fff;
+    border: 2px dashed #c7d2fe; border-radius: 10px; overflow: hidden;
+}
+.sp-pad canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.sp-line {
+    position: absolute; left: 6%; right: 6%; bottom: 24%; border-bottom: 1px solid #d1d5db;
+    pointer-events: none;
+}
+.sp-hint {
+    position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+    text-align: center; font-size: 13px; color: #c7c9d1; pointer-events: none;
+}
+.sp-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: #4b5563; }
+.sp-tools label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.sp-swatch { width: 18px; height: 18px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.sp-swatch.on { border-color: #4f46e5; box-shadow: 0 0 0 2px #fff inset; }
+.sp-tools input[type=range] { width: 90px; }
+.sp-spacer { flex: 1; }
+.sp-btn {
+    padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer;
+    border: 1px solid #d1d5db; background: #fff; color: #374151;
+}
+.sp-btn:hover { background: #f3f4f6; }
+.sp-btn-primary { background: #059669; border-color: #059669; color: #fff; }
+.sp-btn-primary:hover { background: #047857; }
+.sp-btn:disabled { opacity: .5; cursor: not-allowed; }
+.sp-msg { font-size: 12px; color: #dc2626; min-height: 1em; }
+@media print { .sp-backdrop { display: none !important; } }
+
+/* Print options in the controller */
+.print-opts { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #f0f0f0; padding-top: 12px; }
+.print-opts select, .print-opts input {
+    width: 100%; font-size: 11px; padding: 4px 6px; border: 1px solid #d1d5db;
+    border-radius: 6px; background: #fff; color: #1f2937;
+}
+.print-opts summary { font-size: 11px; color: #4f46e5; cursor: pointer; }
+.fit-grid { display: grid; grid-template-columns: 1fr 64px; gap: 4px 6px; align-items: center; margin-top: 6px; font-size: 11px; color: #4b5563; }
+.btn-reset { font-size: 10px; color: #6b7280; background: none; border: none; text-decoration: underline; cursor: pointer; text-align: left; padding: 0; }
+.po-hint { font-size: 10px; color: #6b7280; line-height: 1.4; max-width: 170px; }
+.po-hint b { display: inline; font-size: 10px; color: #374151; text-transform: none; letter-spacing: 0; margin: 0; }
+
+/* ─── Print ───────────────────────────────────────────────
+   Default = ID card printer: every side is its own CR80 page
+   (3.375 × 2.125 in), no margins. The script below rewrites
+   #print-style for "plain paper" and the fine-tune values. */
+@php
+    $fo = $useTemplate ? ($frontOrient ?? 'landscape') : 'landscape';
+    $bo = $useTemplate ? ($backOrient  ?? 'landscape') : 'landscape';
+    $cr80 = fn ($o) => $o === 'portrait' ? ['2.125in', '3.375in'] : ['3.375in', '2.125in'];
+    [$pfW, $pfH] = $cr80($fo);
+    [$pbW, $pbH] = $cr80($bo);
+@endphp
+</style>
+<style id="print-style">
+@page { size: {{ $pfW }} {{ $pfH }}; margin: 0; }
 @media print {
-    body {
-        background: #fff;
-        padding: 0;
-        margin: 0;
-        gap: 0.25in;
-        flex-direction: column;
-        align-items: center;
-        width: {{ $pageW }}in;
-    }
-    .controller { display: none !important; }
-    .card-label  { display: none !important; }
-    .id-card, .tpl-card { box-shadow: none; }
+    html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; display: block !important; min-height: 0 !important; }
+    .controller, .card-label { display: none !important; }
+    .cards-area { display: block; gap: 0; }
+    .card-wrap { width: {{ $pfW }}; height: {{ $pfH }}; overflow: hidden; }
+    .card-wrap-back { break-before: page; }
+    .id-card, .tpl-card { box-shadow: none !important; }
 }
 </style>
 </head>
@@ -340,7 +394,8 @@ body {
         <button class="btn-print-main" onclick="window.print()">🖨 Print</button>
         @can('citizen_ids.signature')
         <input type="file" id="sig-file" accept="image/*" style="display:none" onchange="handleSigUpload(this)">
-        <button class="btn-upload" onclick="document.getElementById('sig-file').click()">📷 Upload Signature</button>
+        <button class="btn-upload" onclick="openSignPad()">✍ Sign with pen</button>
+        <button class="btn-upload btn-upload-alt" onclick="document.getElementById('sig-file').click()">📷 Upload Signature</button>
         <button class="btn-remove" id="btn-remove" onclick="removeSig()" style="{{ $sigUrl ? '' : 'display:none' }}">✕ Remove</button>
         @endcan
     </div>
@@ -368,6 +423,42 @@ body {
         </div>
     </div>
 
+    {{-- Print setup — remembered on this computer (per printer). --}}
+    <div class="print-opts">
+        <div>
+            <b>Print on</b>
+            <select id="po-mode">
+                <option value="card">ID card printer (CR80)</option>
+                <option value="paper">Plain paper, cut out</option>
+            </select>
+        </div>
+        <div>
+            <b>Sides</b>
+            <select id="po-sides">
+                <option value="both">Front + back</option>
+                <option value="front">Front only</option>
+                <option value="back">Back only</option>
+            </select>
+        </div>
+        <details id="po-fit">
+            <summary>Fine-tune fit</summary>
+            <div class="fit-grid">
+                <label for="po-dx">Move right (mm)</label><input type="number" id="po-dx" step="0.5" value="0">
+                <label for="po-dy">Move down (mm)</label><input type="number" id="po-dy" step="0.5" value="0">
+                <label for="po-scale">Size (%)</label><input type="number" id="po-scale" step="0.5" min="80" max="120" value="100">
+            </div>
+            <button type="button" class="btn-reset" id="po-reset">Reset</button>
+        </details>
+        <p class="po-hint" id="po-hint-card">
+            In the print window: <b>Paper size</b> CR80 / ID card, <b>Margins</b> None,
+            <b>Scale</b> Default (100%), <b>Background graphics</b> on, headers and footers off.
+            Single-sided printer? Print <b>Front only</b>, turn the card over, then <b>Back only</b>.
+        </p>
+        <p class="po-hint" id="po-hint-paper" style="display:none">
+            Prints at actual size on A4 / Letter. Set <b>Scale</b> to Default (100%) — not “Fit to page” — and turn <b>Background graphics</b> on.
+        </p>
+    </div>
+
 </div>
 
 {{-- ── Cards ── --}}
@@ -381,7 +472,7 @@ body {
 {{-- ══════════════════════════════════════════════════════ --}}
 
 {{-- FRONT --}}
-<div>
+<div class="card-wrap card-wrap-front">
     <p class="card-label">Front</p>
     <div class="id-card" id="card-front">
 
@@ -456,7 +547,7 @@ body {
 </div>
 
 {{-- BACK --}}
-<div>
+<div class="card-wrap card-wrap-back">
     <p class="card-label">Back</p>
     <div class="id-card" id="card-back">
 
@@ -520,7 +611,7 @@ body {
 {{-- ══════════════════════════════════════════════════════ --}}
 
 @if($frontHtml !== '')
-<div>
+<div class="card-wrap card-wrap-front">
     <p class="card-label">Front</p>
     <div class="tpl-card tpl-front" id="card-front"
          style="width:{{ $frontW }};height:{{ $frontH }};position:relative;">
@@ -539,7 +630,7 @@ body {
 @endif
 
 @if($backHtml !== '')
-<div>
+<div class="card-wrap card-wrap-back">
     <p class="card-label">Back</p>
     <div class="tpl-card tpl-back" id="card-back"
          style="width:{{ $backW }};height:{{ $backH }};">
@@ -555,6 +646,41 @@ body {
 @endif
 
 </div>{{-- end .cards-area --}}
+
+@can('citizen_ids.signature')
+{{-- ── Pen signing pad (screen only) ── --}}
+<div class="sp-backdrop" id="sign-pad" role="dialog" aria-modal="true" aria-labelledby="sp-title">
+    <div class="sp-box">
+        <div class="sp-head">
+            <div>
+                <div class="sp-title" id="sp-title">Sign with pen</div>
+                <div class="sp-sub">{{ $c?->full_name ?? 'Citizen' }} signs in the box using a signature pad, pen tablet, touchscreen or mouse.</div>
+            </div>
+            <button type="button" class="sp-x" id="sp-close" aria-label="Close">✕</button>
+        </div>
+        <div class="sp-pad">
+            <div class="sp-line"></div>
+            <div class="sp-hint" id="sp-hint">Sign here</div>
+            <canvas id="sp-canvas"></canvas>
+        </div>
+        <div class="sp-tools">
+            <span>Ink</span>
+            <button type="button" class="sp-swatch on" data-color="#111827" style="background:#111827" title="Black" aria-label="Black ink"></button>
+            <button type="button" class="sp-swatch" data-color="#1d3fae" style="background:#1d3fae" title="Blue" aria-label="Blue ink"></button>
+            <label>Thickness <input type="range" id="sp-width" min="1.5" max="6" step="0.5" value="3"></label>
+            <span class="sp-spacer"></span>
+            <button type="button" class="sp-btn" id="sp-undo" disabled>↶ Undo</button>
+            <button type="button" class="sp-btn" id="sp-clear">Clear</button>
+        </div>
+        <div class="sp-msg" id="sp-msg"></div>
+        <div class="sp-tools">
+            <span class="sp-spacer"></span>
+            <button type="button" class="sp-btn" id="sp-cancel">Cancel</button>
+            <button type="button" class="sp-btn sp-btn-primary" id="sp-save" disabled>Use this signature</button>
+        </div>
+    </div>
+</div>
+@endcan
 
 <script>
 const UPLOAD_URL = '{{ route('citizens.ids.upload-signature', $citizenId) }}';
@@ -628,6 +754,244 @@ document.querySelectorAll('.move').forEach(function(btn) {
         el.style.left = left + 'px';
     });
 });
+
+// ── Pen signing pad ───────────────────────────────────────────
+// Works with signature pads / pen tablets (uses pen pressure), touchscreens
+// and a mouse. Saved as a transparent PNG trimmed to the ink, through the
+// same endpoint as Upload Signature.
+(function () {
+    var backdrop = document.getElementById('sign-pad');
+    if (!backdrop) return;
+    var canvas = document.getElementById('sp-canvas');
+    var ctx    = canvas.getContext('2d');
+    var hint   = document.getElementById('sp-hint');
+    var msg    = document.getElementById('sp-msg');
+    var btnSave = document.getElementById('sp-save');
+    var btnUndo = document.getElementById('sp-undo');
+    var color = '#111827', width = 3;
+    var strokes = [], current = null;
+
+    function resize() {
+        var r = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+        canvas.width  = Math.round(r.width * dpr);
+        canvas.height = Math.round(r.height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        redraw();
+    }
+
+    function drawStroke(st) {
+        ctx.strokeStyle = st.color; ctx.fillStyle = st.color;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        var p = st.pts;
+        if (p.length === 1) {
+            ctx.beginPath(); ctx.arc(p[0].x, p[0].y, st.width * p[0].w / 2, 0, Math.PI * 2); ctx.fill();
+            return;
+        }
+        // Segment by segment so the width can follow pen pressure; midpoints
+        // with quadratic curves keep the line smooth.
+        for (var i = 1; i < p.length; i++) {
+            var a = p[i - 1], b = p[i];
+            var m0 = i > 1 ? { x: (p[i - 2].x + a.x) / 2, y: (p[i - 2].y + a.y) / 2 } : a;
+            var m1 = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+            ctx.beginPath();
+            ctx.lineWidth = st.width * (a.w + b.w) / 2;
+            ctx.moveTo(m0.x, m0.y);
+            ctx.quadraticCurveTo(a.x, a.y, m1.x, m1.y);
+            ctx.stroke();
+        }
+    }
+
+    function redraw() {
+        var r = canvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, r.width, r.height);
+        strokes.forEach(drawStroke);
+        if (current) drawStroke(current);
+        var empty = !strokes.length && !current;
+        hint.style.display = empty ? '' : 'none';
+        btnSave.disabled = !strokes.length;
+        btnUndo.disabled = !strokes.length;
+    }
+
+    function point(e) {
+        var r = canvas.getBoundingClientRect();
+        // Pens report real pressure; mouse/touch report 0.5 (or 0) → normal width.
+        var pr = (e.pointerType === 'pen' && e.pressure > 0) ? e.pressure : 0.5;
+        return { x: e.clientX - r.left, y: e.clientY - r.top, w: 0.4 + pr * 1.2 };
+    }
+
+    canvas.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0 && e.pointerType === 'mouse') return;
+        e.preventDefault();
+        canvas.setPointerCapture(e.pointerId);
+        current = { color: color, width: width, pts: [point(e)] };
+        msg.textContent = '';
+        redraw();
+    });
+    canvas.addEventListener('pointermove', function (e) {
+        if (!current) return;
+        e.preventDefault();
+        var evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+        (evs.length ? evs : [e]).forEach(function (ev) { current.pts.push(point(ev)); });
+        redraw();
+    });
+    function end() {
+        if (!current) return;
+        strokes.push(current); current = null; redraw();
+    }
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+
+    // Render the ink at 3× onto a transparent canvas, trimmed to its bounds.
+    function exportBlob(cb) {
+        var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, maxW = 0;
+        strokes.forEach(function (st) {
+            st.pts.forEach(function (p) {
+                minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+                maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+            });
+            maxW = Math.max(maxW, st.width * 1.6);
+        });
+        var pad = maxW + 2, S = 3;
+        var w = Math.ceil(maxX - minX + pad * 2), h = Math.ceil(maxY - minY + pad * 2);
+        var out = document.createElement('canvas');
+        out.width = w * S; out.height = h * S;
+        var keep = ctx;
+        ctx = out.getContext('2d');
+        ctx.setTransform(S, 0, 0, S, (pad - minX) * S, (pad - minY) * S);
+        strokes.forEach(drawStroke);
+        ctx = keep;
+        out.toBlob(cb, 'image/png');
+    }
+
+    window.openSignPad = function () {
+        strokes = []; current = null; msg.textContent = '';
+        backdrop.classList.add('open');
+        resize();
+    };
+    function close() { backdrop.classList.remove('open'); }
+
+    document.getElementById('sp-close').addEventListener('click', close);
+    document.getElementById('sp-cancel').addEventListener('click', close);
+    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) close(); });
+    document.addEventListener('keydown', function (e) {
+        if (!backdrop.classList.contains('open')) return;
+        if (e.key === 'Escape') close();
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); strokes.pop(); redraw(); }
+    });
+    window.addEventListener('resize', function () { if (backdrop.classList.contains('open')) resize(); });
+
+    document.getElementById('sp-clear').addEventListener('click', function () { strokes = []; redraw(); });
+    btnUndo.addEventListener('click', function () { strokes.pop(); redraw(); });
+    backdrop.querySelectorAll('.sp-swatch').forEach(function (b) {
+        b.addEventListener('click', function () {
+            color = this.dataset.color;
+            backdrop.querySelectorAll('.sp-swatch').forEach(function (x) { x.classList.toggle('on', x === b); });
+        });
+    });
+    document.getElementById('sp-width').addEventListener('input', function () { width = parseFloat(this.value) || 3; });
+
+    btnSave.addEventListener('click', function () {
+        if (!strokes.length) return;
+        btnSave.disabled = true; btnSave.textContent = 'Saving…';
+        exportBlob(function (blob) {
+            var fd = new FormData();
+            fd.append('signature', blob, 'signature.png');
+            fd.append('_token', CSRF);
+            fetch(UPLOAD_URL, { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } })
+                .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+                .then(function (d) {
+                    applySigSrc(d.url);
+                    var rm = document.getElementById('btn-remove');
+                    if (rm) rm.style.display = '';
+                    close();
+                })
+                .catch(function () { msg.textContent = 'Could not save the signature. Check the connection and try again.'; })
+                .finally(function () { btnSave.disabled = false; btnSave.textContent = 'Use this signature'; });
+        });
+    });
+})();
+
+// ── Print setup (card printer / plain paper, sides, fine-tune) ─
+(function () {
+    var SIZES = {
+        front: { w: '{{ $pfW }}', h: '{{ $pfH }}' },
+        back:  { w: '{{ $pbW }}', h: '{{ $pbH }}' },
+    };
+    var KEY = 'idprint.setup.v1';
+    var DEF = { mode: 'card', sides: 'both', dx: 0, dy: 0, scale: 100 };
+    var s = Object.assign({}, DEF);
+    try { Object.assign(s, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+    s.sides = 'both';   // sides is per print job, never remembered
+
+    var $ = function (id) { return document.getElementById(id); };
+    var num = function (v, d) { v = parseFloat(v); return isFinite(v) ? v : d; };
+
+    function css() {
+        var hasFront = !!document.querySelector('.card-wrap-front');
+        var hasBack  = !!document.querySelector('.card-wrap-back');
+        var showFront = hasFront && s.sides !== 'back';
+        var showBack  = hasBack  && s.sides !== 'front';
+        var first = showFront ? SIZES.front : SIZES.back;
+        var fit = 'transform: translate(' + num(s.dx, 0) + 'mm,' + num(s.dy, 0) + 'mm) scale(' + (num(s.scale, 100) / 100) + ');'
+                + 'transform-origin: center center;';
+        var out = '@media print {'
+            + 'html,body{margin:0!important;padding:0!important;background:#fff!important;min-height:0!important;width:auto!important;}'
+            + '.controller,.card-label{display:none!important;}'
+            + '.id-card,.tpl-card{box-shadow:none!important;' + fit + '}'
+            + (showFront ? '' : '.card-wrap-front{display:none!important;}')
+            + (showBack  ? '' : '.card-wrap-back{display:none!important;}');
+
+        if (s.mode === 'paper') {
+            // Actual size on a normal sheet, a thin cut line around each card.
+            out += 'body{display:block!important;}'
+                + '.cards-area{display:flex!important;flex-direction:row;flex-wrap:wrap;gap:8mm;align-items:flex-start;justify-content:flex-start;}'
+                + '.card-wrap{break-inside:avoid;outline:0.2mm dashed #999;}'
+                + '}'
+                + '@page{size:auto;margin:12mm;}';
+        } else {
+            // One card per page, exactly CR80, no margins — what card printer drivers expect.
+            out += 'body{display:block!important;}'
+                + '.cards-area{display:block!important;gap:0!important;}'
+                + '.card-wrap{overflow:hidden;position:relative;}'
+                + '.card-wrap-front{page:idfront;width:' + SIZES.front.w + ';height:' + SIZES.front.h + ';}'
+                + '.card-wrap-back{page:idback;width:' + SIZES.back.w + ';height:' + SIZES.back.h + ';}'
+                + (showFront && showBack ? '.card-wrap-back{break-before:page;}' : '')
+                + '}'
+                + '@page{size:' + first.w + ' ' + first.h + ';margin:0;}'
+                + '@page idfront{size:' + SIZES.front.w + ' ' + SIZES.front.h + ';margin:0;}'
+                + '@page idback{size:' + SIZES.back.w + ' ' + SIZES.back.h + ';margin:0;}';
+        }
+        $('print-style').textContent = out;
+        $('po-hint-card').style.display  = s.mode === 'paper' ? 'none' : '';
+        $('po-hint-paper').style.display = s.mode === 'paper' ? '' : 'none';
+    }
+
+    function save() {
+        try { localStorage.setItem(KEY, JSON.stringify({ mode: s.mode, dx: s.dx, dy: s.dy, scale: s.scale })); } catch (e) {}
+    }
+
+    function load() {
+        $('po-mode').value  = s.mode;
+        $('po-sides').value = s.sides;
+        $('po-dx').value    = s.dx;
+        $('po-dy').value    = s.dy;
+        $('po-scale').value = s.scale;
+        if (num(s.dx, 0) || num(s.dy, 0) || num(s.scale, 100) !== 100) $('po-fit').open = true;
+    }
+
+    ['po-mode', 'po-sides', 'po-dx', 'po-dy', 'po-scale'].forEach(function (id) {
+        $(id).addEventListener('input', function () {
+            var k = id.slice(3);
+            s[k] = (k === 'mode' || k === 'sides') ? this.value : num(this.value, DEF[k]);
+            css(); save();
+        });
+    });
+    $('po-reset').addEventListener('click', function () {
+        s.dx = 0; s.dy = 0; s.scale = 100; load(); css(); save();
+    });
+
+    load(); css();
+})();
 
 // ── Height controller ─────────────────────────────────────────
 document.querySelectorAll('.resize').forEach(function(btn) {

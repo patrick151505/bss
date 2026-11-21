@@ -9,7 +9,7 @@ class CitizenHold extends Model
     protected $table = 'eb_citizen_holds';
 
     protected $fillable = [
-        'citizen_id', 'reason',
+        'citizen_id', 'reason', 'blotter_id',
         'placed_by', 'placed_at',
         'lifted_by', 'lifted_at', 'lift_note',
     ];
@@ -22,6 +22,12 @@ class CitizenHold extends Model
     public function citizen()
     {
         return $this->belongsTo(Citizen::class, 'citizen_id');
+    }
+
+    /** The blotter case the hold was placed from, if any. */
+    public function blotter()
+    {
+        return $this->belongsTo(Blotter::class, 'blotter_id');
     }
 
     public function placedBy()

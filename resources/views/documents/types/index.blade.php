@@ -126,7 +126,9 @@
         @if($type->template)
         @php
             $tpl = $type->template;
-            $ver = $type->pinnedVersion;  // the version THIS document type is pinned to
+            // The pinned version, or — on "Latest" — the template's current version.
+            $isLatest = ! $type->document_template_version_id;
+            $ver = $isLatest ? $tpl->currentVersion : $type->pinnedVersion;
         @endphp
         <div class="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
             {{-- Thumbnail of the pinned version --}}
@@ -144,12 +146,13 @@
                 <div class="flex items-center gap-1.5 flex-wrap">
                     <span class="text-xs font-medium text-gray-700 dark:text-gray-200 truncate">{{ $tpl->name }}</span>
                     @if($ver)
-                    <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                        Using v{{ $ver->version }}
+                    <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary"
+                          title="{{ $isLatest ? 'Follows the template’s current version' : 'Pinned to this version' }}">
+                        @if($isLatest)<i class="mgc_refresh_2_line"></i> Latest · v{{ $ver->version }}@else Pinned v{{ $ver->version }}@endif
                     </span>
                     <span class="text-[10px] text-gray-400">/ {{ $tpl->versions_count }} version(s)</span>
                     @else
-                    <span class="text-[10px] text-warning font-medium">No version pinned</span>
+                    <span class="text-[10px] text-warning font-medium">Template has no version yet</span>
                     @endif
                 </div>
                 <p class="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">

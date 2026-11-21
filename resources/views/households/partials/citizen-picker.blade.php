@@ -19,11 +19,22 @@
 @endphp
 
 @if($citizens->isEmpty())
-    <div class="py-12 text-center text-gray-400">
+    <div class="py-12 px-5 text-center text-gray-400">
         <i class="mgc_user_3_line text-4xl mb-2 block"></i>
+        @if($unassigned ?? false)
+        <p class="text-sm">No unassigned citizens{{ $search ? ' match "' . $search . '"' : '' }}.</p>
+        <p class="text-xs mt-1">Not listed? They may already belong to a family — open their profile to see where.</p>
+        @else
         <p class="text-sm">No citizens found{{ $search ? ' for "' . $search . '"' : '' }}.</p>
+        @endif
     </div>
 @else
+    @if($unassigned ?? false)
+    <div class="px-5 py-2 bg-gray-50 dark:bg-gray-700/40 border-b border-gray-100 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+        <i class="mgc_user_add_line text-primary"></i>
+        <span><span class="font-semibold text-gray-700 dark:text-gray-200">{{ number_format($total) }}</span> {{ $search ? 'matching' : '' }} {{ \Illuminate\Support\Str::plural('citizen', $total) }} not yet in a household</span>
+    </div>
+    @endif
     <div class="divide-y divide-gray-100 dark:divide-gray-700">
         @foreach($citizens as $citizen)
         @php
