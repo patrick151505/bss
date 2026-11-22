@@ -44,8 +44,10 @@ class KioskSettingsController extends Controller
 
         $order = (int) KioskSlide::max('sort_order');
         foreach ($request->file('images') as $file) {
+            $path = $file->store('public/kiosk');
             KioskSlide::create([
-                'image'      => $file->store('public/kiosk'),
+                // Resized to a JPG so phones can show it too (see KioskImage).
+                'image'      => \App\Support\KioskImage::optimize($path) ?? $path,
                 'caption'    => $request->input('caption'),
                 'sort_order' => ++$order,
                 'is_active'  => true,

@@ -17,7 +17,10 @@ class KioskAccountOnly
         $user = $request->user();
 
         if ($user && $user->hasRole('Kiosk') && !$user->hasRole('Super Admin')
-            && !$request->routeIs('kiosk.*', 'register.citizen*', 'login', 'logout')) {
+            // storage.serve: on hosts that serve /storage/* through PHP, the
+            // kiosk's own pictures and logo come through this public route.
+            // Blocking it sent the kiosk page back instead of the image.
+            && !$request->routeIs('kiosk.*', 'register.citizen*', 'login', 'logout', 'storage.serve')) {
             return $request->expectsJson()
                 ? response()->json(['message' => 'This account can only use the kiosk.'], 403)
                 : redirect()->route('kiosk.home');
