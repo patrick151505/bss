@@ -355,7 +355,7 @@
             @endif
 
             @if($canSystem && $settingsLanding)
-            <li class="menu-item {{ request()->routeIs('settings.index') || request()->routeIs('settings.update') || request()->routeIs('officials.*') || request()->routeIs('addresses.*') || request()->routeIs('users.*') || request()->routeIs('roles.*') || request()->routeIs('documents.templates.*') ? 'active' : '' }}">
+            <li class="menu-item {{ request()->routeIs('settings.index') || request()->routeIs('settings.update') || request()->routeIs('officials.*') || request()->routeIs('addresses.*') || request()->routeIs('users.*') || request()->routeIs('roles.*') || request()->routeIs('documents.templates.*') || request()->routeIs('settings.login-history') ? 'active' : '' }}">
                 <a href="{{ route($settingsLanding) }}" class="menu-link">
                     <span class="menu-icon"><i class="mgc_settings_4_line"></i></span>
                     <span class="menu-text">Settings</span>

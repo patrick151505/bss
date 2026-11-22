@@ -39,6 +39,7 @@ class RoleController extends Controller
             'users'         => 'Users',
             'roles'         => 'Roles',
             'activity_logs' => 'Activity Logs',
+            'login_logs'    => 'Login History',
             'kiosk'         => 'Kiosk',
             'issue_document'=> 'Document Types (Issue)',
         ];

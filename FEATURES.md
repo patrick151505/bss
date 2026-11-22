@@ -36,11 +36,14 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 - **Reset password** (key button in Users, needs the Users → reset permission): emails the user a link to set a new password. If email isn't set up, the admin gets the link to copy and hand over.
 - **Only the Super Admin gives roles.** Other users with the Users permissions can add users and edit names, emails and passwords, but the role field is locked for them, and Super Admin accounts are locked too (no edit, no deactivate). A Super Admin cannot remove the Super Admin role from their own account.
 - Each user can be given their own start page after login (for example, a document clerk can land directly on Document Requests).
+- **Inactive accounts cannot log in**: the login page says the account is deactivated, and the attempt is recorded in Login History.
+- The login page shows why a login failed (wrong email or password, locked for a few minutes, or account deactivated).
+- **Login History** (Login History button on Settings → Users, needs the Login History permission): every successful login (including "Remember me"), wrong password, attempt with an unknown email, lockout, blocked inactive account and log-out, with the date and time, account, device (e.g. "Chrome on Android") and IP address. Today's totals at the top; filter by what happened, account, date range, or search by name, email or IP; click an IP to see everything from it. The Users list shows each user's last login.
 
 **Roles:** everyone (own profile); Super Admin or anyone with the Users permissions (managing users).
 
 **Status: Partially working**
-- Switching a user to "inactive" **does not stop them from logging in**.
+- Switching a user to "inactive" stops new logins, but a user who is already logged in stays logged in until they log out.
 - The **public sign-up page is open**: anyone who finds it can create an account. A new account has no role, so it can only see the activity dashboard and its own profile, but the page should be turned off for a government system.
 - Password reset only works once the server's email sending is set up.
 - Two-step login (one-time codes) is switched on in a configuration file but has no screens, so it is not available.
@@ -290,6 +293,7 @@ The sidebar, buttons and the citizen activity pop-up only show what the role all
 - **Zones & Addresses**: add, edit and switch off zones or subdivisions.
 - **Officials**: list of barangay officials with position, description and display order.
 - Shortcuts to Users, Roles, Paper Templates and the ID Template Designer.
+- **Login History**: button on the Users page, see section 1.
 
 **Roles:** view (all roles); edit (Super Admin). Zones need the address permissions.
 

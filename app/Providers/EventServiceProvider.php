@@ -20,6 +20,11 @@ class EventServiceProvider extends ServiceProvider
         ],
     ];
 
+    /** Login History (Settings → Login History). */
+    protected $subscribe = [
+        \App\Listeners\RecordLoginActivity::class,
+    ];
+
     /**
      * Register any events for your application.
      */

@@ -30,6 +30,12 @@
                     </div>
                     @endif
 
+                    @if($errors->any())
+                    <div class="mb-4 p-3 rounded-md bg-danger/10 border border-danger/30 text-sm text-danger font-medium flex gap-2" role="alert">
+                        <i class="mgc_alert_line text-lg shrink-0"></i><span>{{ $errors->first() }}</span>
+                    </div>
+                    @endif
+
                     <form method="POST" action="{{ route('login') }}">
                         @csrf
 

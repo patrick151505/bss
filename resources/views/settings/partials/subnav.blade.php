@@ -3,7 +3,7 @@
         ['route' => 'settings.index',            'pattern' => 'settings.index',            'icon' => 'mgc_building_2_line',   'label' => 'General Info',       'can' => 'settings.view'],
         ['route' => 'officials.index',           'pattern' => 'officials.*',               'icon' => 'mgc_group_line',        'label' => 'Officials',          'can' => 'settings.view'],
         ['route' => 'addresses.index',           'pattern' => 'addresses.*',                'icon' => 'mgc_map_line',          'label' => 'Zones & Addresses',  'can' => 'addresses.view'],
-        ['route' => 'users.index',               'pattern' => 'users.*',                    'icon' => 'mgc_user_4_line'       ,'label' => 'Users',              'can' => 'users.view'],
+        ['route' => 'users.index',               'pattern' => ['users.*', 'settings.login-history'],                    'icon' => 'mgc_user_4_line'       ,'label' => 'Users',              'can' => 'users.view'],
         ['route' => 'roles.index',               'pattern' => 'roles.*',                    'icon' => 'mgc_shield_line',       'label' => 'Roles',              'can' => 'roles.view'],
         ['route' => 'documents.templates.index', 'pattern' => 'documents.templates.*',      'icon' => 'mgc_paper_line',        'label' => 'Paper Templates',    'can' => 'documents.view'],
         ['route' => 'settings.print-paper',      'pattern' => 'settings.print-paper*',      'icon' => 'mgc_print_line',        'label' => 'Print Paper',        'can' => 'settings.view'],

@@ -12,7 +12,12 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::with('roles')->orderBy('name')->get();
+        $users = User::with('roles')
+            ->addSelect(['last_login_at' => \App\Models\LoginLog::select('created_at')
+                ->whereColumn('user_id', 'users.id')->where('event', 'login')
+                ->orderByDesc('id')->limit(1)])
+            ->withCasts(['last_login_at' => 'datetime'])
+            ->orderBy('name')->get();
         $roles = Role::with('permissions')->orderBy('name')->get();
         $landingRoutes = User::landingRoutes();
 

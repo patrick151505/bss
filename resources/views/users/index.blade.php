@@ -66,7 +66,14 @@
         <div class="card">
             <div class="card-header flex items-center justify-between">
                 <h5 class="card-title"><i class="mgc_user_3_line me-2 text-primary"></i>Users</h5>
-                <span class="text-xs text-gray-400">{{ $users->count() }} users</span>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-gray-400">{{ $users->count() }} users</span>
+                    @can('login_logs.view')
+                    <a href="{{ route('settings.login-history') }}" class="btn btn-sm bg-primary/10 text-primary hover:bg-primary hover:text-white">
+                        <i class="mgc_login_line"></i> Login History
+                    </a>
+                    @endcan
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
@@ -84,6 +91,18 @@
                             <td class="px-5 py-3 whitespace-nowrap">
                                 <p class="font-medium text-gray-800 dark:text-gray-100">{{ $user->name }}</p>
                                 <p class="text-xs text-gray-400">{{ $user->email }}</p>
+                                <p class="text-[11px] text-gray-400 mt-0.5">
+                                    <i class="mgc_login_line"></i>
+                                    @if($user->last_login_at)
+                                        @can('login_logs.view')
+                                        <a href="{{ route('settings.login-history', ['user_id' => $user->id]) }}" class="hover:text-primary" title="{{ $user->last_login_at->format('M d, Y g:i A') }}">Last login {{ $user->last_login_at->diffForHumans() }}</a>
+                                        @else
+                                        <span title="{{ $user->last_login_at->format('M d, Y g:i A') }}">Last login {{ $user->last_login_at->diffForHumans() }}</span>
+                                        @endcan
+                                    @else
+                                        Not logged in yet
+                                    @endif
+                                </p>
                             </td>
                             <td class="px-5 py-3 whitespace-nowrap">
                                 @php $role = $user->roles->first(); @endphp

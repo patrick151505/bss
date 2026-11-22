@@ -378,6 +378,7 @@ Route::middleware('auth')->group(function () {
     Route::get('settings', [SettingController::class, 'index'])->middleware('can:settings.view')->name('settings.index');
     Route::post('settings', [SettingController::class, 'update'])->middleware('can:settings.edit')->name('settings.update');
     Route::get('settings/updates', [SettingController::class, 'updates'])->middleware('can:settings.view')->name('settings.updates');
+    Route::get('settings/login-history', [\App\Http\Controllers\LoginHistoryController::class, 'index'])->middleware('can:login_logs.view')->name('settings.login-history');
     // Registration links for online citizen self-registration — Super Admin only (checked in the controller).
     Route::get('settings/registration-links', [\App\Http\Controllers\RegistrationTokenController::class, 'index'])->name('settings.registration-links');
     Route::post('settings/registration-links', [\App\Http\Controllers\RegistrationTokenController::class, 'store'])->name('settings.registration-links.store');

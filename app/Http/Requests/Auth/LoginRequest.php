@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\LoginLog;
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -53,6 +55,18 @@ class LoginRequest extends FormRequest
     public function authenticate()
     {
         $this->ensureIsNotRateLimited();
+
+        // A deactivated account (Settings → Users) may not sign in, even with
+        // the right password. Checked first so it never counts as a wrong password.
+        $account = User::where('email', $this->input('email'))->first();
+        if ($account && ! $account->is_active
+            && Auth::getProvider()->validateCredentials($account, $this->only('password'))) {
+            LoginLog::record('disabled', $account, null, 'Account is deactivated');
+
+            throw ValidationException::withMessages([
+                'email' => 'This account is deactivated. Please contact the barangay administrator.',
+            ]);
+        }
 
         if (! Auth::attempt($this->only('email', 'password'), $this->filled('remember'))) {
             $this->recordFailure();

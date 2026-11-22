@@ -50,6 +50,7 @@ class PermissionSeeder extends Seeder
             'users'         => ['view', 'create', 'edit', 'delete'],
             'roles'         => ['view', 'create', 'edit', 'delete'],
             'activity_logs' => ['view'],
+            'login_logs'    => ['view'],
         ];
 
         foreach ($modules as $module => $actions) {
