@@ -403,7 +403,8 @@ Route::middleware('auth')->group(function () {
     Route::put('settings/addresses/{address}', [AddressController::class, 'update'])->middleware('can:addresses.edit')->name('addresses.update');
     Route::patch('settings/addresses/{address}/toggle', [AddressController::class, 'toggleActive'])->middleware('can:addresses.edit')->name('addresses.toggle');
 
-    // Budget module
+    // Budget module — Pro plan only (SUBSCRIPTION_PLAN in .env; see config/plan.php)
+    Route::middleware('feature:budget')->group(function () {
     Route::get('budget', [BudgetDashboardController::class, 'index'])->middleware('can:budget.view')->name('budget.index');
 
     Route::prefix('budget')->name('budget.')->middleware('can:budget.view')->group(function () {
@@ -479,6 +480,7 @@ Route::middleware('auth')->group(function () {
             Route::delete('officers/{officer}', [AccountableOfficerController::class, 'destroy'])->name('officers.destroy');
         });
     });
+    }); // end feature:budget
 
     // Documents module
     Route::prefix('documents')->name('documents.')->middleware('can:documents.view')->group(function () {

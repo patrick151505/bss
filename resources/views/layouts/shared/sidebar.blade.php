@@ -251,6 +251,7 @@
             </li>
             @endcanany
 
+            @feature('budget')
             @can('budget.view')
             <li class="menu-title">Finance</li>
 
@@ -331,6 +332,7 @@
                 </ul>
             </li>
             @endcan
+            @endfeature
 
             @php
                 $canSystem = auth()->user()?->canAny(['settings.view', 'users.view', 'roles.view', 'addresses.view']);

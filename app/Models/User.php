@@ -67,7 +67,9 @@ class User extends Authenticatable
             'events.index'          => ['label' => 'Events',             'permission' => 'events.view'],
             'inventory.items.index'    => ['label' => 'Inventory — Items',    'permission' => 'inventory_items.view'],
             'inventory.schedule.index' => ['label' => 'Inventory — Schedule', 'permission' => 'inventory_schedule.view'],
-            'budget.index'          => ['label' => 'Budget',             'permission' => 'budget.view'],
+            ...(\App\Support\Plan::has('budget')
+                ? ['budget.index' => ['label' => 'Budget', 'permission' => 'budget.view']]
+                : []),
             'documents.dashboard'   => ['label' => 'Documents',          'permission' => 'documents.view'],
             'birthdays.index'       => ['label' => 'Birthdays',          'permission' => 'birthdays.view'],
             'settings.index'        => ['label' => 'Settings',           'permission' => null],

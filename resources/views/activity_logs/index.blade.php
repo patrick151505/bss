@@ -68,12 +68,14 @@
                         <option value="settings" {{ ($filters['subject_type'] ?? '') === 'settings' ? 'selected' : '' }}>Settings</option>
                         <option value="export"   {{ ($filters['subject_type'] ?? '') === 'export'   ? 'selected' : '' }}>Export</option>
                     </optgroup>
+                    @feature('budget')
                     <optgroup label="Budget">
                         <option value="budget_transaction" {{ ($filters['subject_type'] ?? '') === 'budget_transaction' ? 'selected' : '' }}>Transaction</option>
                         <option value="budget_allocation"  {{ ($filters['subject_type'] ?? '') === 'budget_allocation'  ? 'selected' : '' }}>Allocation</option>
                         <option value="budget_category"    {{ ($filters['subject_type'] ?? '') === 'budget_category'    ? 'selected' : '' }}>Category</option>
                         <option value="fiscal_year"        {{ ($filters['subject_type'] ?? '') === 'fiscal_year'        ? 'selected' : '' }}>Fiscal Year</option>
                     </optgroup>
+                    @endfeature
                 </select>
             </div>
 

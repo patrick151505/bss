@@ -311,6 +311,7 @@ The sidebar, buttons and the citizen activity pop-up only show what the role all
 - **Toast notifications** (top-right) after every create, update and delete: titled Created / Updated / Deleted / Saved from the message, with a countdown that pauses on hover and a close button. Form validation problems show as one error toast listing them. Background saves that fail (no permission, session expired, too many tries, server error) show an error toast. Duplicate green success boxes on the page are hidden; red error boxes stay.
 - **Loading bar** at the top of the page while a page opens, a form saves or a search runs.
 - **Hidden from search engines** (robots.txt, noindex headers and meta tags).
+- **Subscription plan** set per install in `.env` (`SUBSCRIPTION_PLAN`): **Basic** has every module except Budget; **Pro** includes Budget. On Basic the Budget menu, its box on the Roles page, the Budget landing page choice and the Budget activity-log filter are hidden, and Budget pages answer "not found". Budget permissions already given to roles are kept, so moving to Pro restores them. The current plan shows on Settings → Updates.
 
 ---
 

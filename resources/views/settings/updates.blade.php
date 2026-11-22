@@ -37,6 +37,9 @@
                     <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mt-0.5">
                         <h2 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Version {{ $current['version'] }}</h2>
                         <span class="text-sm text-gray-500 dark:text-gray-400">Released {{ $date($current['date'])->format('F d, Y') }}</span>
+                        <span class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-medium bg-primary/25 text-sky-800 dark:text-sky-300">
+                            <span class="w-1.5 h-1.5 inline-block bg-primary rounded-full"></span>{{ \App\Support\Plan::label() }} plan
+                        </span>
                     </div>
                     <p class="text-base font-medium text-gray-700 dark:text-gray-200 mt-2">{{ $current['title'] }}</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-3xl">{{ $current['summary'] }}</p>

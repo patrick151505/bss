@@ -43,7 +43,9 @@ class RoleController extends Controller
             'issue_document'=> 'Document Types (Issue)',
         ];
 
-        $permissions = Permission::orderBy('name')->get();
+        // Modules the subscription plan leaves out (e.g. Budget on Basic) are not shown.
+        $permissions = Permission::orderBy('name')->get()
+            ->reject(fn ($p) => \App\Support\Plan::hidesPermission($p->name));
 
         // Restrict to the current user's own permissions (Super Admin sees all).
         if ($user && !$user->hasRole('Super Admin')) {
@@ -110,10 +112,12 @@ class RoleController extends Controller
     // Flat list of permission names the given user is allowed to assign.
     public static function assignablePermissionNames(?\App\Models\User $user): array
     {
-        if ($user && $user->hasRole('Super Admin')) {
-            return Permission::pluck('name')->all();
-        }
-        return $user ? $user->getAllPermissions()->pluck('name')->all() : [];
+        // Permissions of a module the plan leaves out are not assignable, so
+        // update() preserves them untouched: upgrading the plan restores them.
+        $names = ($user && $user->hasRole('Super Admin'))
+            ? Permission::pluck('name')->all()
+            : ($user ? $user->getAllPermissions()->pluck('name')->all() : []);
+        return array_values(array_filter($names, fn ($p) => ! \App\Support\Plan::hidesPermission($p)));
     }
 
     // Map each issue_document.{id} permission name to its document type name,

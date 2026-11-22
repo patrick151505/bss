@@ -13,6 +13,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // @feature('budget') … @endfeature — shown only when the subscription plan includes it.
+        \Illuminate\Support\Facades\Blade::if('feature', fn (string $f) => \App\Support\Plan::has($f));
+
         View::composer('*', function ($view) {
             $view->with('barangay', Setting::instance());
         });
