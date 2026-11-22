@@ -406,7 +406,8 @@
             .k-stage { max-width: 560px; width: 100%; margin: 0 auto; }
             .k-scan-side { text-align: center; }
             .k-tips { display: none; }
-            .k-prev { grid-template-columns: 1fr; gap: 1rem; }
+            /* minmax(0, …) so the full-size paper inside can't stretch the column past the screen */
+            .k-prev { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
             .k-paper-box { max-height: max(36vh, calc(100vh - 560px)); overflow-y: auto; -webkit-overflow-scrolling: touch; }
             .k-sum { position: static; padding: 1.25rem; }
             .k-sum dl { grid-template-columns: 1fr 1fr; margin: 1rem 0; }
@@ -444,6 +445,123 @@
             .k-brand small { display: none; }
         }
 
+        /* ── Phone (portrait, up to ~480px wide) ── */
+        @media (max-width: 480px) {
+            .k-bar { margin: .5rem .5rem 0; padding: .45rem .5rem .45rem .6rem; border-radius: 1.15rem; gap: .5rem; }
+            .k-brand img { width: 2.3rem; height: 2.3rem; border-radius: .6rem; }
+            .k-brand b { font-size: .95rem; }
+            .k-bar .k-btn { min-height: 2.75rem; padding: .4rem .8rem; font-size: .95rem; border-radius: .85rem; gap: .35rem; }
+            .k-body { padding: 1rem .75rem 1.5rem; }
+            .k-eyebrow { font-size: .8rem; }
+            .k-title { font-size: 1.65rem; }
+            .k-sub { font-size: 1rem; }
+
+            /* Start screen */
+            .k-top { padding: .75rem; gap: .5rem; }
+            .k-glass { padding: .45rem .75rem .45rem .45rem; gap: .6rem; border-radius: 1rem; min-width: 0; }
+            .k-glass img { width: 2.4rem; height: 2.4rem; }
+            .k-glass b { font-size: .95rem; }
+            .k-glass small { font-size: .78rem; }
+            .k-clock { padding: .45rem .8rem; flex-shrink: 0; }
+            .k-clock b { font-size: 1.35rem; white-space: nowrap; }
+            .k-caption { font-size: 1.45rem; }
+            .k-bottom { padding: 0 1rem 1.5rem; gap: 1.1rem; }
+            .k-tap { padding: .6rem 1.4rem .6rem .6rem; }
+            .k-tap .k-tapico { width: 3.2rem; height: 3.2rem; font-size: 1.6rem; }
+            .k-tap b { font-size: 1.3rem; }
+            .k-seal { width: 7.5rem; height: 7.5rem; }
+            .k-empty h1 { font-size: 2rem; }
+            .k-empty p { font-size: 1.1rem; }
+
+            /* Menu: three compact rows that fit on one screen */
+            .k-choices { gap: .75rem; margin-top: 1rem; }
+            .k-choice { grid-template-columns: auto minmax(0, 1fr) auto; gap: .85rem; padding: 1rem 1rem 1rem 1.1rem; border-radius: 1.4rem; }
+            .k-choice h2 { font-size: 1.3rem; }
+            .k-choice h2 .k-fil { font-size: .7em; }
+            .k-choice .k-ghost { font-size: 8rem; }
+            .k-ico { width: 3.25rem; height: 3.25rem; font-size: 1.7rem; border-radius: 1rem; }
+            .k-arrow { width: 2.75rem; height: 2.75rem; font-size: 1.3rem; }
+
+            /* Scan */
+            .k-scan-grid { gap: 1rem; }
+            .k-status { font-size: 1rem; padding: .7rem 1.1rem; }
+            .k-note { font-size: 1rem; padding: .9rem 1rem; }
+
+            /* "Hello, Maria" */
+            .k-hello { gap: .85rem; padding: .85rem 1rem; border-radius: 1.25rem; margin-bottom: 1.1rem; }
+            .k-avatar { width: 3.5rem; height: 3.5rem; border-radius: 1rem; font-size: 1.5rem; border-width: 3px; }
+            .k-hello h2 { font-size: 1.45rem; }
+            .k-hello p { font-size: .9rem; }
+
+            /* Lists */
+            .k-grid { grid-template-columns: minmax(0, 1fr); gap: .65rem; margin-top: 1rem; }
+            .k-doc { gap: .8rem; padding: .9rem; min-height: 0; border-radius: 1.15rem; }
+            .k-docico { width: 2.9rem; height: 2.9rem; font-size: 1.45rem; border-radius: .85rem; }
+            .k-doc b { font-size: 1.1rem; }
+            .k-chev { width: 2.25rem; height: 2.25rem; }
+            .k-pgrid { grid-template-columns: minmax(0, 1fr); gap: .55rem; margin-top: 1rem; }
+            .k-pbtn { min-height: 3.6rem; font-size: 1.05rem; padding: .6rem .9rem .6rem 1.1rem; }
+            .k-dgrid { gap: .55rem; margin-top: .9rem; }
+            .k-drow { gap: .75rem; padding: .75rem .85rem; border-radius: 1rem; }
+            .k-drow > i { width: 2.4rem; height: 2.4rem; font-size: 1.2rem; border-radius: .8rem; }
+            .k-drow b { font-size: 1.05rem; }
+            .k-elist { gap: .75rem; margin-top: 1rem; }
+            .k-evt { grid-template-columns: 4.5rem minmax(0, 1fr); padding: .8rem; border-radius: 1.25rem; gap: .8rem; }
+            .k-evt-pic { width: 4.5rem; height: 4.5rem; min-height: 0; max-height: none; border-radius: .9rem; }
+            .k-evt-pic.date { font-size: .75rem; }
+            .k-evt-pic.date b { font-size: 1.7rem; }
+            .k-evt h3 { font-size: 1.2rem; }
+            .k-evt-act .k-btn { min-height: 3.5rem; font-size: 1.15rem; }
+            .k-evban { gap: .75rem; padding: .8rem 1rem; border-radius: 1.15rem; }
+            .k-evban img, .k-evban .k-evban-ico { width: 3.25rem; height: 3.25rem; font-size: 1.6rem; }
+            .k-evban b { font-size: 1.2rem; }
+
+            /* Update my details */
+            .k-fcard { padding: 1rem; border-radius: 1.15rem; }
+            .k-fcard h3 { font-size: 1.15rem; }
+            .k-input { min-height: 3.4rem; font-size: 1.1rem; padding: .7rem 1rem; border-radius: .9rem; }
+            .k-label { font-size: 1rem; }
+            .k-opt { min-height: 3rem; font-size: 1rem; padding: .5rem .95rem; }
+
+            /* Bottom bar: buttons share the width, labels stay on one line */
+            .k-foot { margin: 0 .5rem .5rem; padding: .5rem; gap: .5rem; border-radius: 1.2rem; flex-wrap: wrap; }
+            .k-foot-info { flex: 1 1 100%; padding: .1rem .4rem 0; }
+            .k-foot-info small { font-size: .8rem; }
+            .k-foot-info b { font-size: 1rem; }
+            .k-foot .k-btn-big, .k-foot .k-foot-btns .k-btn { min-height: 3.5rem; font-size: 1rem; padding: .55rem .7rem; border-radius: 1rem; gap: .4rem; white-space: nowrap; min-width: 0; }
+            .k-foot .k-foot-btns { gap: .5rem; min-width: 0; }
+
+            /* Preview: summary in one column */
+            .k-paper-box { padding: .6rem; border-radius: 1.15rem; max-height: 40vh; }
+            .k-sum { padding: 1rem; border-radius: 1.25rem; }
+            .k-sum h2 { font-size: 1.35rem; }
+            .k-sum dl { grid-template-columns: minmax(0, 1fr); gap: .4rem; }
+            .k-row dd { font-size: 1.05rem; }
+            .k-sum-btns { grid-template-columns: minmax(0, 1fr); }
+            .k-sum-btns .k-btn-big { min-height: 3.6rem; font-size: 1.1rem; }
+
+            /* Done / checked in */
+            .k-success { width: 4rem; height: 4rem; font-size: 2rem; }
+            .k-ticket { margin: 1rem auto; border-radius: 1.35rem; }
+            .k-ticket-top { padding: 1rem 1.25rem .85rem; }
+            .k-qno { font-size: 4rem; }
+            .k-joined-evt { font-size: 1.5rem; }
+            .k-next p { font-size: 1rem; }
+
+            /* Pop-ups */
+            .k-overlay { padding: .75rem; }
+            .k-dialog { padding: 1.5rem 1.25rem; border-radius: 1.5rem; }
+            .k-dialog h3 { font-size: 1.45rem; }
+            .k-dialog p { font-size: 1.05rem; }
+            .k-dialog .k-btn { margin-top: 1.25rem; }
+        }
+
+        /* Small phones (360px and below): bottom-bar buttons drop their icons to keep the labels whole. */
+        @media (max-width: 380px) {
+            .k-foot .k-btn-big, .k-foot .k-foot-btns .k-btn { font-size: .95rem; padding: .5rem .55rem; }
+            .k-foot .k-foot-btns .k-btn > i { display: none; }
+        }
+
         /* ── Tablet: landscape with a short screen (e.g. 1024 × 600–768) ── */
         @media (orientation: landscape) and (max-height: 820px) {
             .k-body { padding-top: 1.25rem; }
@@ -466,6 +584,60 @@
             .k-seal { width: 9rem; height: 9rem; }
             .k-bottom { padding-bottom: 1.75rem; }
         }
+        /* ── Phone turned sideways (short screen): everything compact so the content has room ── */
+        @media (orientation: landscape) and (max-height: 500px) {
+            .k-bar { margin: .4rem .6rem 0; padding: .3rem .4rem .3rem .6rem; border-radius: 1rem; }
+            .k-brand img { width: 2rem; height: 2rem; }
+            .k-brand small { display: none; }
+            .k-bar .k-btn { min-height: 2.4rem; padding: .3rem .75rem; font-size: .9rem; }
+            .k-stepnav li { padding: .2rem .6rem .2rem .25rem; font-size: .85rem; }
+            .k-stepnum { width: 1.6rem; height: 1.6rem; }
+            .k-body { padding: .75rem .75rem 1rem; }
+            .k-title { font-size: 1.45rem; }
+            .k-sub, .k-tips { display: none; }
+            .k-top { padding: .6rem .75rem; }
+            .k-bottom { padding: 0 1rem 1rem; }
+            .k-caption { font-size: 1.3rem; }
+            .k-seal { width: 5.5rem; height: 5.5rem; }
+            /* Menu: three short cards side by side */
+            .k-choices { gap: .75rem; margin-top: .75rem; }
+            .k-choice { min-height: 0; padding: 1rem; gap: .5rem; border-radius: 1.25rem; }
+            .k-choice p, .k-choice .k-evtoday, .k-choice .k-ghost, .k-cta > span:first-child { display: none; }
+            .k-choice h2 { font-size: 1.2rem; margin: 0; }
+            .k-ico { width: 2.75rem; height: 2.75rem; font-size: 1.45rem; border-radius: .85rem; }
+            .k-cta { margin-top: .25rem; padding: 0; }
+            .k-arrow { width: 2.4rem; height: 2.4rem; font-size: 1.1rem; }
+            /* Scan */
+            .k-scan-grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
+            .k-stage { max-width: 320px; }
+            /* Hello card and lists */
+            .k-hello { padding: .6rem .9rem; margin-bottom: .75rem; gap: .75rem; border-radius: 1.1rem; }
+            .k-avatar { width: 2.9rem; height: 2.9rem; font-size: 1.3rem; border-radius: .85rem; border-width: 2px; }
+            .k-hello h2 { font-size: 1.3rem; }
+            .k-hello p { font-size: .85rem; margin-top: .15rem; }
+            .k-dgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; margin-top: .5rem; }
+            .k-drow { padding: .6rem .75rem; gap: .65rem; }
+            .k-drow > i { width: 2.2rem; height: 2.2rem; font-size: 1.1rem; }
+            .k-drow b { font-size: 1rem; }
+            .k-doc { min-height: 0; padding: .75rem; }
+            .k-pbtn { min-height: 3.2rem; font-size: 1rem; }
+            /* Bottom bar */
+            .k-foot { margin: 0 .6rem .4rem; padding: .4rem; border-radius: 1rem; }
+            .k-foot-info.k-hide-narrow { display: none; }
+            .k-foot-info small { font-size: .78rem; }
+            .k-foot-info b { font-size: .95rem; }
+            .k-foot .k-btn-big, .k-foot .k-foot-btns .k-btn { min-height: 2.9rem; font-size: 1rem; padding: .45rem 1rem; border-radius: .9rem; white-space: nowrap; }
+            /* Done */
+            .k-success { display: none; }
+            .k-ticket { margin: .75rem auto; }
+            .k-qno { font-size: 3.25rem; }
+            .k-next { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .k-dialog { padding: 1.25rem; max-width: 460px; }
+            .k-dlg-ico { width: 3.5rem; height: 3.5rem; font-size: 1.8rem; }
+            .k-dialog h3 { font-size: 1.35rem; margin: .6rem 0 .35rem; }
+            .k-dialog .k-btn { margin-top: 1rem; min-height: 3.2rem; }
+        }
+
     </style>
 </head>
 <body>

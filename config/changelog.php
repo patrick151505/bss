@@ -19,6 +19,15 @@
 return [
 
     [
+        'version' => '3.3',
+        'date'    => '2026-11-22',
+        'title'   => 'Kiosk on phones',
+        'summary' => 'The kiosk now fits a phone screen, held upright or sideways.',
+        'changes' => [
+            ['type' => 'improved', 'module' => 'Kiosk', 'text' => 'The kiosk works on phones: the menu, ID scan, details check, document list, purpose, preview, events and queue number now fit the screen without anything cut off on the right, and the buttons at the bottom keep their labels on one line. Turning the phone sideways also works.'],
+        ],
+    ],
+    [
         'version' => '3.2',
         'date'    => '2026-11-21',
         'title'   => 'Forgot password, safer login and blotter holds',
