@@ -86,6 +86,8 @@ Route::prefix('kiosk')->name('kiosk.')->middleware(['auth', 'can:kiosk.use', 'th
     Route::post('update',       [\App\Http\Controllers\KioskController::class, 'updateDetails'])->name('update');
     Route::post('join',         [\App\Http\Controllers\KioskController::class, 'join'])->name('join');
     Route::get('events',        [\App\Http\Controllers\KioskController::class, 'events'])->name('events');
+    // A fresh CSRF token for the Log out button: the kiosk page stays open longer than its token lasts.
+    Route::get('token',         fn () => response()->json(['token' => csrf_token()])->header('Cache-Control', 'no-store'))->name('token');
 });
 Route::get('register/citizen/{token}/done', [\App\Http\Controllers\PublicRegistrationController::class, 'done'])->name('register.citizen.done');
 

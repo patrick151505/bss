@@ -24,6 +24,7 @@ return [
         'title'   => 'Kiosk on phones, with camera scan',
         'summary' => 'The kiosk fits a phone screen and can scan the Barangay ID with the phone camera.',
         'changes' => [
+            ['type' => 'new', 'module' => 'Kiosk', 'text' => 'Log out from the kiosk: a small log-out icon at the top right of the kiosk screens asks to confirm, then signs the kiosk account out.'],
             ['type' => 'new', 'module' => 'Kiosk', 'text' => 'Scan with camera: on a phone or tablet, the Scan your ID step has a Scan with camera button that reads the QR code on the Barangay ID with the device camera — no USB scanner needed. At an event check-in, the camera opens again for the next resident. The USB scanner still works as before.'],
             ['type' => 'improved', 'module' => 'Kiosk', 'text' => 'The kiosk works on phones: the menu, ID scan, details check, document list, purpose, preview, events and queue number now fit the screen without anything cut off on the right, and the buttons at the bottom keep their labels on one line. Turning the phone sideways also works.'],
             ['type' => 'fixed', 'module' => 'Kiosk', 'text' => 'Start screen pictures and the barangay logo now show when the kiosk is logged in with a kiosk account (before, only admin accounts saw them). Pictures are also resized to a phone-friendly size when added in Settings → Kiosks, and pictures added before this update are converted automatically.'],

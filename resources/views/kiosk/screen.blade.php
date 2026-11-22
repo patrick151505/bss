@@ -409,6 +409,12 @@
         .k-dialog h3 { font-size: 1.9rem; font-weight: 800; letter-spacing: -.02em; margin: 1rem 0 .5rem; }
         .k-dialog p { font-size: 1.2rem; color: var(--muted); line-height: 1.5; }
         .k-dialog .k-btn { margin-top: 1.75rem; width: 100%; }
+        .k-dlg-btns { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-top: 1.75rem; }
+        .k-dlg-btns .k-btn { margin-top: 0; }
+        .k-btn-red { background: var(--red); color: #fff; box-shadow: 0 14px 28px -12px rgba(220,38,38,.7); }
+        /* Small, quiet icon so residents don't mistake it for navigation */
+        .k-bar .k-logout { padding-left: .85rem; padding-right: .85rem; color: var(--muted); }
+        .k-bar .k-logout i { font-size: 1.2em; }
 
         /* ── Tablet: portrait (or any narrow screen) ── */
         @media (orientation: portrait), (max-width: 760px) {
@@ -1039,6 +1045,22 @@
         </div>
     </div>
 </div>
+
+{{-- Log out (staff) --}}
+<div id="o-logout" class="k-overlay k-hide">
+    <div class="k-dialog">
+        <div class="k-dlg-ico" style="background:var(--red-bg);color:var(--red)"><i class="mgc_exit_line"></i></div>
+        <h3>Log out of the kiosk?</h3>
+        <p>Signed in as <b>{{ auth()->user()->name }}</b>. Staff will need to log in again to use this kiosk.</p>
+        <div class="k-dlg-btns">
+            <button type="button" class="k-btn k-btn-ghost k-btn-big" onclick="K.logoutCancel()">Cancel</button>
+            <button type="button" class="k-btn k-btn-big k-btn-red" id="logout-go" onclick="K.logoutGo()"><i class="mgc_exit_line"></i> Log out</button>
+        </div>
+    </div>
+</div>
+<form id="logout-form" method="POST" action="{{ route('logout') }}" class="k-hide">
+    <input type="hidden" name="_token" id="logout-token" value="{{ csrf_token() }}">
+</form>
 
 {{-- Still there? --}}
 <div id="o-idle" class="k-overlay k-hide">
@@ -1705,10 +1727,23 @@ const K = (() => {
         go(to);
     }));
     document.querySelectorAll('[data-home]').forEach(b => b.addEventListener('click', home));
+
+    // ── Log out (staff): confirm, then post the logout with a fresh token ──
+    document.querySelectorAll('[data-logout]').forEach(b => b.addEventListener('click', () => { camClose(); $('o-logout').classList.remove('k-hide'); }));
+    function logoutCancel() { $('o-logout').classList.add('k-hide'); }
+    async function logoutGo() {
+        const btn = $('logout-go');
+        btn.disabled = true; btn.innerHTML = '<span class="k-spin"></span> Logging out…';
+        try {
+            const r = await fetch(@json(route('kiosk.token')), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+            if (r.ok) $('logout-token').value = (await r.json()).token;
+        } catch (e) { /* offline: try with the token the page has */ }
+        $('logout-form').submit();
+    }
     document.addEventListener('contextmenu', e => e.preventDefault());
     carousel(true);
 
-    return { go, home, start, nextResident, preview, submit, wrong, register, stillHere: bump, detailsOk, openUpdate, sendUpdate, camOpen, camClose, camFlip };
+    return { go, home, start, nextResident, preview, submit, wrong, register, stillHere: bump, detailsOk, openUpdate, sendUpdate, camOpen, camClose, camFlip, logoutCancel, logoutGo };
 })();
 </script>
 </body>

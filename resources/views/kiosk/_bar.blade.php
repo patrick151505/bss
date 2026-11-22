@@ -23,5 +23,6 @@
         <button type="button" class="k-btn k-btn-ghost" data-back="{{ $back }}"><i class="mgc_arrow_left_line"></i><span>Back</span></button>
         @endif
         <button type="button" class="k-btn k-btn-ghost" data-home><i class="mgc_home_3_line"></i><span>Home</span></button>
+        <button type="button" class="k-btn k-btn-ghost k-logout" data-logout title="Log out" aria-label="Log out"><i class="mgc_exit_line"></i></button>
     </div>
 </header>
