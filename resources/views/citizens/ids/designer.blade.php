@@ -304,6 +304,25 @@ $sample = [
                     <input type="range" id="prop-pad" min="0" max="12" step="0.5" value="3" class="w-full mt-1" oninput="applyProp('pad', parseFloat(this.value))">
                 </div>
 
+                {{-- CSS hooks: id / class put on this element, for the custom CSS --}}
+                <div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div id="prop-cssid-wrap">
+                            <label class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">ID</label>
+                            <input type="text" id="prop-cssid" placeholder="e.g. full-name" spellcheck="false" autocomplete="off"
+                                   class="form-input text-xs mt-1 font-mono"
+                                   oninput="this.value = cleanCssName(this.value, false); applyProp('cssId', this.value)">
+                        </div>
+                        <div>
+                            <label class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Class</label>
+                            <input type="text" id="prop-cssclass" placeholder="e.g. big red" spellcheck="false" autocomplete="off"
+                                   class="form-input text-xs mt-1 font-mono"
+                                   oninput="this.value = cleanCssName(this.value, true); applyProp('cssClass', this.value.trim())">
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-gray-400 mt-1" id="prop-css-hint">Style it in Custom CSS with <code>#id</code> or <code>.class</code>.</p>
+                </div>
+
                 {{-- Position / size --}}
                 <div class="grid grid-cols-4 gap-2">
                     <div><label class="text-[10px] text-gray-400">X</label><input type="number" id="prop-x" class="form-input text-xs" oninput="applyProp('x', parseFloat(this.value)||0)"></div>
@@ -585,7 +604,10 @@ function renderSide(side) {
         const node = document.createElement('div');
         node.className = 'id-el';
         node.dataset.id = el.id;
-        node.style.left   = (el.x * SCALE) + 'px';
+        // User's CSS hooks, so their custom CSS shows live on the canvas.
+        if (el.cssId && el.kind !== 'signature') node.id = el.cssId;
+        if (el.cssClass) node.classList.add(...el.cssClass.split(/\s+/).filter(Boolean));
+        node.style.left  = (el.x * SCALE) + 'px';
         node.style.top    = (el.y * SCALE) + 'px';
         node.style.width  = (el.w * SCALE) + 'px';
 
@@ -685,6 +707,16 @@ function syncPanel() {
             document.getElementById('prop-pad-val').textContent = pad + 'px';
         }
     }
+    // The signature box already has a fixed id the print page relies on.
+    const isSig = el.kind === 'signature';
+    document.getElementById('prop-cssid-wrap').classList.toggle('hidden', isSig);
+    const idBox = document.getElementById('prop-cssid'), clsBox = document.getElementById('prop-cssclass');
+    if (document.activeElement !== idBox)  idBox.value  = el.cssId || '';
+    if (document.activeElement !== clsBox) clsBox.value = el.cssClass || '';
+    document.getElementById('prop-css-hint').innerHTML = isSig
+        ? 'Style it in Custom CSS with <code>#sig-overlay</code> or <code>.class</code>.'
+        : 'Style it in Custom CSS with <code>#id</code> or <code>.class</code>.';
+
     document.getElementById('prop-x').value = Math.round(el.x);
     document.getElementById('prop-y').value = Math.round(el.y);
     document.getElementById('prop-w').value = Math.round(el.w);
@@ -723,6 +755,12 @@ function applyProp(key, val) {
     renderSide(selected.side);
     select(selected.side, selected.id);
     markDirty();
+}
+// CSS id/class names: letters, digits, - and _ only (class allows spaces between names).
+function cleanCssName(v, multi) {
+    v = String(v || '');
+    return multi ? v.replace(/[^A-Za-z0-9_\- ]/g, '').replace(/\s+/g, ' ').replace(/^ /, '')
+                 : v.replace(/[^A-Za-z0-9_-]/g, '');
 }
 // Keep a typed font size sane (1–72px); empty/NaN falls back to the current value.
 function clampFont(v) {

@@ -30,6 +30,7 @@ class CitizenIdTemplate extends Model
      *   text:     literal text or placeholder(s) like "ADDRESS: {{address}}"
      *   x,y,w:    position + width in card pixels (324x204 landscape)
      *   fontSize, bold, italic, align, color, underline
+ *   cssId, cssClass: optional id / class for the template's custom CSS
      */
     public static function compileLayout(?array $elements): string
     {
@@ -47,9 +48,16 @@ class CitizenIdTemplate extends Model
 
             $kind = $el['kind'] ?? 'field';
 
+            // Optional CSS hooks set in the designer (id / class), so the
+            // template's custom CSS can target this element.
+            $cssId    = preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($el['cssId'] ?? ''));
+            $cssClass = trim(preg_replace('/\s+/', ' ', preg_replace('/[^A-Za-z0-9_\- ]/', '', (string) ($el['cssClass'] ?? ''))));
+            $attrs    = ($cssId !== '' ? ' id="' . $cssId . '"' : '')
+                      . ($cssClass !== '' ? ' class="' . $cssClass . '"' : '');
+
             if ($kind === 'photo') {
                 $h = (float) ($el['h'] ?? 62);
-                $html .= '<div style="' . $style . "height:{$h}px;overflow:hidden;\">"
+                $html .= '<div' . $attrs . ' style="' . $style . "height:{$h}px;overflow:hidden;\">"
                        . '<img src="{{photo_url}}" style="width:100%;height:100%;object-fit:cover;display:block;">'
                        . '</div>';
                 continue;
@@ -57,7 +65,7 @@ class CitizenIdTemplate extends Model
 
             if ($kind === 'qr') {
                 $px = (int) round($w);
-                $html .= '<div style="' . $style . "height:{$px}px;\">{{qr_img_{$px}}}</div>";
+                $html .= '<div' . $attrs . ' style="' . $style . "height:{$px}px;\">{{qr_img_{$px}}}</div>";
                 continue;
             }
 
@@ -66,7 +74,7 @@ class CitizenIdTemplate extends Model
                 // We position it here via the dragged coordinates; the print JS
                 // drives #sig-overlay / #sig-img-inner inside this box.
                 $h = (float) ($el['h'] ?? 24);
-                $html .= '<div id="sig-overlay" class="signature" style="' . $style . "height:{$h}px;\">{{signature_img}}</div>";
+                $html .= '<div id="sig-overlay" class="signature' . ($cssClass !== '' ? ' ' . $cssClass : '') . '" style="' . $style . "height:{$h}px;\">{{signature_img}}</div>";
                 continue;
             }
 
@@ -91,7 +99,7 @@ class CitizenIdTemplate extends Model
             // designer (can:citizens.edit), so no escaping is applied.
             $content = (string) ($el['text'] ?? '');
 
-            $html .= '<div style="' . $style . '">' . $content . '</div>';
+            $html .= '<div' . $attrs . ' style="' . $style . '">' . $content . '</div>';
         }
 
         return $html;

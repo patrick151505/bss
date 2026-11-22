@@ -123,6 +123,7 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 - Upload or remove each citizen's signature for the card.
 - **ID Template Designer**: upload front and back backgrounds and arrange where each detail appears, with a live preview using a real citizen. Printing follows the saved design exactly.
 - Advanced styling options in the designer are limited to the Super Admin.
+- Each item on the card (field, text, photo, QR, signature) can be given an **ID** and **Class** in the designer, so the Custom CSS can style that one item (e.g. `#full-name { … }`). Shows live in the designer and on the printed ID.
 
 **Roles:** separate Barangay ID permissions: view, generate, print, signature (add or remove), and template (the ID Template designer). Buttons and the sidebar link only appear with the matching permission.
 
