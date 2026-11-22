@@ -377,6 +377,29 @@
         select.k-input { appearance: none; background-image: linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%);
                          background-position: calc(100% - 1.5rem) 50%, calc(100% - 1.1rem) 50%; background-size: .45rem .45rem; background-repeat: no-repeat; padding-right: 2.75rem; }
 
+        /* ── Camera scan ── */
+        .k-cam-btn { margin-top: 1.25rem; }
+        .k-cam-btn .k-fil { font-size: .75em; }
+        .k-cam-btn > span { text-align: left; line-height: 1.2; }
+        .k-cam { position: fixed; inset: 0; z-index: 60; background: #000; }
+        .k-cam video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .k-cam-ui { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 1rem;
+                    padding: max(1rem, env(safe-area-inset-top)) 1rem max(1.25rem, env(safe-area-inset-bottom)); overflow: hidden; }
+        .k-cam-tip { max-width: 30rem; text-align: center; color: #fff; font-size: 1.2rem; font-weight: 800; line-height: 1.3; text-shadow: 0 2px 12px rgba(0,0,0,.7);
+                     padding: .8rem 1.1rem; border-radius: 1.1rem; background: rgba(11,18,32,.55); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+        .k-cam-tip .k-fil { font-size: .8em; }
+        /* Square window: everything around it is dimmed by the frame's own shadow. */
+        .k-cam-frame { position: relative; width: min(68vw, 52vh, 22rem); aspect-ratio: 1; border-radius: 1.4rem; box-shadow: 0 0 0 100vmax rgba(0,0,0,.55); }
+        .k-cam-frame .k-corner { border-color: #fff; }
+        .k-cam-frame .k-corner.tl, .k-cam-frame .k-corner.tr { top: 0; }
+        .k-cam-frame .k-corner.bl, .k-cam-frame .k-corner.br { bottom: 0; }
+        .k-cam-frame .k-corner.tl, .k-cam-frame .k-corner.bl { left: 0; }
+        .k-cam-frame .k-corner.tr, .k-cam-frame .k-corner.br { right: 0; }
+        .k-cam-msg { max-width: 30rem; padding: .9rem 1.1rem; border-radius: 1.1rem; background: #fff; color: var(--red); font-size: 1.05rem; font-weight: 700; text-align: center; }
+        .k-cam-tip, .k-cam-msg, .k-cam-btns { position: relative; z-index: 1; }
+        .k-cam-btns { display: flex; gap: .75rem; flex-wrap: wrap; justify-content: center; }
+        .k-cam-btns .k-btn { min-width: 9.5rem; }
+
         /* ── Pop-ups ── */
         .k-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(11,18,32,.45); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
                      display: flex; align-items: center; justify-content: center; padding: 1.5rem; animation: k-fade .2s ease both; }
@@ -731,6 +754,11 @@
                     <li><span>3</span> Wait for the beep — that's it!</li>
                 </ol>
                 <div id="scan-msg"></div>
+                {{-- Shown only on devices with a camera (phones, tablets) --}}
+                <button type="button" id="cam-btn" class="k-btn k-btn-primary k-btn-big k-cam-btn k-hide" onclick="K.camOpen()">
+                    <i class="mgc_camera_line"></i>
+                    <span>Scan with camera<span class="k-fil">Gamitin ang camera</span></span>
+                </button>
             </div>
             <div>
                 <div class="k-stage">
@@ -997,6 +1025,21 @@
     </div>
 </div>
 
+{{-- Camera scan: read the Barangay ID's QR code with the device camera --}}
+<div id="o-cam" class="k-cam k-hide">
+    <video id="cam-video" playsinline muted autoplay></video>
+    <canvas id="cam-canvas" class="k-hide"></canvas>
+    <div class="k-cam-ui">
+        <p class="k-cam-tip">Point the camera at the QR code on your Barangay ID<span class="k-fil">Itapat ang camera sa QR code ng iyong Barangay ID</span></p>
+        <div class="k-cam-frame"><span class="k-corner tl"></span><span class="k-corner tr"></span><span class="k-corner bl"></span><span class="k-corner br"></span><span class="k-beam"></span></div>
+        <div id="cam-msg" class="k-cam-msg k-hide"></div>
+        <div class="k-cam-btns">
+            <button type="button" class="k-btn k-btn-ghost" onclick="K.camClose()"><i class="mgc_close_line"></i> Cancel</button>
+            <button type="button" class="k-btn k-btn-ghost k-hide" id="cam-flip" onclick="K.camFlip()"><i class="mgc_refresh_2_line"></i> Switch camera</button>
+        </div>
+    </div>
+</div>
+
 {{-- Still there? --}}
 <div id="o-idle" class="k-overlay k-hide">
     <div class="k-dialog">
@@ -1084,10 +1127,13 @@ const K = (() => {
         hideMsg();
         setMode('events');
         go('scan');
+        // Phone check-in desk: the camera opens again for the next person.
+        if (camByCamera) setTimeout(camOpen, 400);
     }
 
     // ── Screens ──
     function go(name) {
+        if (name !== "scan") camClose();
         document.querySelectorAll('.k-screen').forEach(s => s.classList.add('k-hide'));
         const el = $('s-' + name);
         el.classList.remove('k-hide', 'k-enter');
@@ -1213,13 +1259,126 @@ const K = (() => {
         if (e.key === 'Enter') {
             e.preventDefault();
             const code = buf.trim(); buf = '';
-            if (code.length >= 6 && SCAN_OK.includes(screen) && !busy) lookup(code);
+            if (code.length >= 6 && SCAN_OK.includes(screen) && !busy) { camByCamera = false; lookup(code); }
             return;
         }
         if (e.key.length === 1) buf += e.key;
     });
 
+    // ── Camera scan (phones and tablets without a USB scanner) ──
+    // Reads the same QR code the USB scanner does and sends it through lookup().
+    // Uses the browser's built-in QR reader when there is one (Chrome on
+    // Android), otherwise jsQR, which is loaded only the first time.
+    const JSQR_URL = @json(asset('js/jsQR.js'));
+    let camStream = null, camTimer = null, camFacing = 'environment', camDetector = null, camByCamera = false, camStarted = 0;
+
+    // Show the button only when this device has a camera and the page may use it (https).
+    (async () => {
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) return;
+        try {
+            const devs = await navigator.mediaDevices.enumerateDevices();
+            if (!devs.some(d => d.kind === 'videoinput')) return;
+        } catch (e) { /* some browsers hide the list until asked; show the button anyway */ }
+        $('cam-btn').classList.remove('k-hide');
+    })();
+
+    function loadJsQR() {
+        if (window.jsQR) return Promise.resolve();
+        return new Promise((ok, fail) => {
+            const s = document.createElement('script');
+            s.src = JSQR_URL; s.onload = ok; s.onerror = () => fail(new Error('The QR reader could not load. Please check the internet connection.'));
+            document.head.appendChild(s);
+        });
+    }
+    async function camDecoder() {
+        if (camDetector) return;
+        if ('BarcodeDetector' in window) {
+            try {
+                const formats = await BarcodeDetector.getSupportedFormats();
+                if (formats.includes('qr_code')) { camDetector = new BarcodeDetector({ formats: ['qr_code'] }); return; }
+            } catch (e) { /* fall back to jsQR */ }
+        }
+        await loadJsQR();
+    }
+    function camError(text) {
+        $('cam-msg').textContent = text;
+        $('cam-msg').classList.remove('k-hide');
+    }
+    async function camOpen() {
+        if (busy || camStream) return;
+        hideMsg();
+        $('cam-msg').classList.add('k-hide');
+        $('o-cam').classList.remove('k-hide');
+        try {
+            await camDecoder();
+            camStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: camFacing }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false,
+            });
+            const v = $('cam-video');
+            v.srcObject = camStream;
+            await v.play();
+            camStarted = Date.now();
+            try {
+                const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+                $('cam-flip').classList.toggle('k-hide', cams.length < 2);
+            } catch (e) {}
+            camTick();
+        } catch (e) {
+            camStop();
+            const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+            camError(denied
+                ? 'Camera access is blocked. Allow the camera for this site in the browser settings, or go to the counter.'
+                : (e && e.name === 'NotFoundError' ? 'No camera was found on this device.' : (e.message || 'The camera could not start.')));
+        }
+    }
+    async function camTick() {
+        if (!camStream) return;
+        bump();   // keep "Are you still there?" away while the camera is looking
+        // Give up after 2 minutes so the camera is not left running.
+        if (Date.now() - camStarted > 120000) { camClose(); return; }
+        const v = $('cam-video');
+        let code = null;
+        try {
+            if (v.readyState >= 2 && v.videoWidth) {
+                if (camDetector) {
+                    const found = await camDetector.detect(v);
+                    code = found[0]?.rawValue || null;
+                } else if (window.jsQR) {
+                    const c = $('cam-canvas'), scale = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight));
+                    c.width = Math.round(v.videoWidth * scale); c.height = Math.round(v.videoHeight * scale);
+                    const ctx = c.getContext('2d', { willReadFrequently: true });
+                    ctx.drawImage(v, 0, 0, c.width, c.height);
+                    const img = ctx.getImageData(0, 0, c.width, c.height);
+                    code = window.jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' })?.data || null;
+                }
+            }
+        } catch (e) { /* a frame that cannot be read: try the next one */ }
+        code = (code || '').trim();
+        if (code.length >= 6) {
+            navigator.vibrate?.(80);
+            camByCamera = true;
+            camClose();
+            lookup(code);
+            return;
+        }
+        camTimer = setTimeout(camTick, 180);
+    }
+    function camStop() {
+        clearTimeout(camTimer); camTimer = null;
+        camStream?.getTracks().forEach(t => t.stop());
+        camStream = null;
+        $('cam-video').srcObject = null;
+    }
+    function camClose() { camStop(); $('o-cam').classList.add('k-hide'); }
+    async function camFlip() {
+        camFacing = camFacing === 'environment' ? 'user' : 'environment';
+        camStop();
+        await camOpen();
+    }
+    document.addEventListener('visibilitychange', () => { if (document.hidden) camClose(); });
+
     async function lookup(code, testId = null) {
+        camClose();
         clearInterval(doneTimer);
         hideMsg();
         go('scan');
@@ -1549,7 +1708,7 @@ const K = (() => {
     document.addEventListener('contextmenu', e => e.preventDefault());
     carousel(true);
 
-    return { go, home, start, nextResident, preview, submit, wrong, register, stillHere: bump, detailsOk, openUpdate, sendUpdate };
+    return { go, home, start, nextResident, preview, submit, wrong, register, stillHere: bump, detailsOk, openUpdate, sendUpdate, camOpen, camClose, camFlip };
 })();
 </script>
 </body>
