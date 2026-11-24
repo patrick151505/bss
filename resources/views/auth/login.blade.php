@@ -6,6 +6,9 @@
         : null;
     $brgyName = $setting->barangay_name;
     $place    = collect([$setting->municipality, $setting->province])->filter()->implode(', ');
+    // Email remembered on this device by a previous "Remember me" login.
+    $rememberedEmail = request()->cookie(\App\Http\Controllers\Auth\AuthenticatedSessionController::EMAIL_COOKIE);
+    $rememberChecked = old('remember', $rememberedEmail ? '1' : null);
 @endphp
 <!DOCTYPE html>
 <html lang="en" data-mode="dark">
@@ -70,8 +73,8 @@
                             <i class="mgc_mail_line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none"></i>
                             {{-- text-base (16px) stops phones from zooming in on focus --}}
                             <input id="LoggingEmailAddress" class="form-input ps-10 py-2.5 text-base sm:text-sm" type="email"
-                                   placeholder="Enter your email" value="{{ old('email') }}" name="email"
-                                   autocomplete="username" inputmode="email" autocapitalize="none" required autofocus>
+                                   placeholder="Enter your email" value="{{ old('email', $rememberedEmail) }}" name="email"
+                                   autocomplete="username" inputmode="email" autocapitalize="none" required @unless($rememberedEmail) autofocus @endunless>
                         </div>
                     </div>
 
@@ -81,7 +84,7 @@
                         <div class="relative">
                             <i class="mgc_lock_line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none"></i>
                             <input id="loggingPassword" class="form-input ps-10 pe-11 py-2.5 text-base sm:text-sm" type="password"
-                                   placeholder="Enter your password" name="password" autocomplete="current-password" required>
+                                   placeholder="Enter your password" name="password" autocomplete="current-password" required @if($rememberedEmail) autofocus @endif>
                             <button type="button" id="pw-toggle" aria-label="Show password"
                                     class="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center text-gray-400 hover:text-primary">
                                 <i class="mgc_eye_line text-lg" id="pw-toggle-icon"></i>
@@ -89,13 +92,12 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between gap-3 mb-6 flex-wrap">
-                        <label class="flex items-center gap-2 py-1 cursor-pointer text-sm text-gray-600 dark:text-gray-300" for="checkbox-signin">
-                            <input type="checkbox" class="form-checkbox rounded w-4 h-4" id="checkbox-signin" name="remember" value="1">
+                    <div class="mb-6">
+                        <label class="inline-flex items-center gap-2 py-1 cursor-pointer text-sm text-gray-600 dark:text-gray-300" for="checkbox-signin">
+                            <input type="checkbox" class="form-checkbox rounded w-4 h-4" id="checkbox-signin" name="remember" value="1" @checked($rememberChecked)>
                             Remember me
                         </label>
-                        <a href="{{ route('password.request') }}"
-                           class="text-sm text-primary border-b border-dashed border-primary py-1">Forgot password?</a>
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 ms-6">Stay logged in on this device. Don't tick on shared computers.</p>
                     </div>
 
                     <button type="submit" id="login-btn" class="btn w-full text-white bg-primary py-3 text-base font-semibold">

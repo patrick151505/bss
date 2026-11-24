@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use App\Models\LoginLog;
 use App\Models\User;
+use Illuminate\Auth\Events\CurrentDeviceLogout;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Auth\Events\Login;
@@ -35,7 +36,7 @@ class RecordLoginActivity
         LoginLog::record('locked', $user, $email, 'Too many wrong passwords');
     }
 
-    public function logout(Logout $event): void
+    public function logout(Logout|CurrentDeviceLogout $event): void
     {
         $user = $event->user instanceof User ? $event->user : null;
         if ($user) {
@@ -50,6 +51,7 @@ class RecordLoginActivity
             Failed::class  => 'failed',
             Lockout::class => 'lockout',
             Logout::class  => 'logout',
+            CurrentDeviceLogout::class => 'logout',   // the Logout button (this device only)
         ];
     }
 }
