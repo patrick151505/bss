@@ -217,8 +217,25 @@
                             <input type="hidden" name="age_min" id="age-min" value="{{ $filters['age_min'] ?? '' }}">
                             <input type="hidden" name="age_max" id="age-max" value="{{ $filters['age_max'] ?? '' }}">
 
-                            <div class="px-1 pt-3">
+                            {{-- Type exact ages (e.g. 18 to 25). Works even if the slider
+                                 library could not load. --}}
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="age-from" min="0" max="120" placeholder="From"
+                                       value="{{ $filters['age_min'] ?? '' }}" class="form-input text-sm w-full" aria-label="Age from">
+                                <span class="text-gray-400 text-sm">to</span>
+                                <input type="number" id="age-to" min="0" max="120" placeholder="To"
+                                       value="{{ $filters['age_max'] ?? '' }}" class="form-input text-sm w-full" aria-label="Age to">
+                            </div>
+
+                            <div class="px-1 pt-4">
                                 <div id="age-slider"></div>
+                            </div>
+
+                            <div class="flex flex-wrap gap-1.5 mt-4">
+                                @foreach([['0–17', 0, 17], ['18–25', 18, 25], ['15–30 (SK)', 15, 30], ['18–59', 18, 59], ['60+', 60, '']] as [$lbl, $lo, $hi])
+                                <button type="button" onclick="setAgeRange({{ $lo }}, '{{ $hi }}')"
+                                        class="age-preset px-2 py-0.5 rounded-full text-[11px] font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-primary hover:text-primary">{{ $lbl }}</button>
+                                @endforeach
                             </div>
                         </div>
 
@@ -875,10 +892,16 @@ window.addEventListener('DOMContentLoaded', () => {
     const ageMaxInp = document.getElementById('age-max');
     const ageLabel  = document.getElementById('age-range-label');
 
+    const ageFrom = document.getElementById('age-from');
+    const ageTo   = document.getElementById('age-to');
+
     function writeAgeInputs(lo, hi) {
         // Only record a bound when it is actually narrower than the full range.
         ageMinInp.value = lo > AGE_FLOOR ? lo : '';
         ageMaxInp.value = hi < AGE_CEIL  ? hi : '';
+        // Mirror into the From / To boxes unless the user is typing in them.
+        if (document.activeElement !== ageFrom) ageFrom.value = ageMinInp.value;
+        if (document.activeElement !== ageTo)   ageTo.value   = ageMaxInp.value;
         ageLabel.textContent =
             (lo === AGE_FLOOR && hi === AGE_CEIL) ? 'All ages'
             : (hi === AGE_CEIL) ? lo + '+ yrs'
@@ -886,18 +909,46 @@ window.addEventListener('DOMContentLoaded', () => {
             : lo + '–' + hi + ' yrs';
     }
 
+    // Set the range from numbers ('' = open end); drives the slider when it loaded.
+    function setAgeRange(lo, hi) {
+        lo = (lo === '' || lo === null || isNaN(parseInt(lo, 10))) ? AGE_FLOOR : Math.max(AGE_FLOOR, parseInt(lo, 10));
+        hi = (hi === '' || hi === null || isNaN(parseInt(hi, 10))) ? AGE_CEIL  : Math.min(AGE_CEIL,  parseInt(hi, 10));
+        if (hi < lo) [lo, hi] = [hi, lo];
+        if (ageSlider && ageSlider.noUiSlider) {
+            ageSlider.noUiSlider.set([lo, hi]);
+        } else {
+            writeAgeInputs(lo, hi);
+        }
+        if (typeof updateActiveCount === 'function') updateActiveCount();
+    }
+    window.setAgeRange = setAgeRange;
+
+    [ageFrom, ageTo].forEach(inp => inp.addEventListener('change', () => setAgeRange(ageFrom.value, ageTo.value)));
+    // Enter in an age box applies the filter like the other fields.
+    [ageFrom, ageTo].forEach(inp => inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); setAgeRange(ageFrom.value, ageTo.value); document.getElementById('filter-form').submit(); }
+    }));
+
     function resetAgeSlider() {
         if (ageSlider && ageSlider.noUiSlider) {
             ageSlider.noUiSlider.set([AGE_FLOOR, AGE_CEIL]);
         } else {
             ageMinInp.value = ageMaxInp.value = '';
+            ageFrom.value = ageTo.value = '';
             if (ageLabel) ageLabel.textContent = 'All ages';
         }
     }
     window.resetAgeSlider = resetAgeSlider;
 
     function initAgeSlider() {
-        if (!ageSlider || typeof noUiSlider === 'undefined') return;
+        if (!ageSlider || typeof noUiSlider === 'undefined') {
+            // Slider library unavailable (offline): the From / To boxes still work.
+            if (ageSlider) ageSlider.parentElement.classList.add('hidden');
+            writeAgeInputs(
+                ageMinInp.value === '' ? AGE_FLOOR : parseInt(ageMinInp.value, 10),
+                ageMaxInp.value === '' ? AGE_CEIL  : parseInt(ageMaxInp.value, 10));
+            return;
+        }
 
         const startLo = ageMinInp.value === '' ? AGE_FLOOR : Math.max(AGE_FLOOR, parseInt(ageMinInp.value, 10));
         const startHi = ageMaxInp.value === '' ? AGE_CEIL  : Math.min(AGE_CEIL,  parseInt(ageMaxInp.value, 10));

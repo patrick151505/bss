@@ -36,6 +36,7 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 - **Reset password** (key button in Users, needs the Users → reset permission): emails the user a link to set a new password. If email isn't set up, the admin gets the link to copy and hand over.
 - **Only the Super Admin gives roles.** Other users with the Users permissions can add users and edit names, emails and passwords, but the role field is locked for them, and Super Admin accounts are locked too (no edit, no deactivate). A Super Admin cannot remove the Super Admin role from their own account.
 - Each user can be given their own start page after login (for example, a document clerk can land directly on Document Requests).
+- **Zones per account** (Super Admin, when adding or editing a user): tick one or more zones the account handles. The account then only sees citizens, households, Barangay IDs, birthdays, document requests, health check-ups, holds and blotter cases (any party from its zones) in those zones; dashboards and exports count only those zones; zone pickers list only its zones and it can only add residents there. Opening a record from another zone by link answers "not found". No zones ticked = all zones; the Super Admin always sees all. Events, inventory and online self-registrations are not limited by zone. A non-Super Admin who adds a user gives the new account their own zones. Changes are written to the activity log.
 - **Inactive accounts cannot log in**: the login page says the account is deactivated, and the attempt is recorded in Login History.
 - The login page shows why a login failed (wrong email or password, locked for a few minutes, or account deactivated).
 - **Login History** (Login History button on Settings → Users, needs the Login History permission): every successful login (including "Remember me"), wrong password, attempt with an unknown email, lockout, blocked inactive account and log-out, with the date and time, account, device (e.g. "Chrome on Android") and IP address. Today's totals at the top; filter by what happened, account, date range, or search by name, email or IP; click an IP to see everything from it. The Users list shows each user's last login.
@@ -67,7 +68,7 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 
 ### 3. Citizen Records
 **Features**
-- Register residents with full details: name, birthday and birthplace, gender, civil status, address (zone, house number, street), contact details, occupation, year of stay, photo, emergency contact, and flags for voter, PWD, senior citizen and solo parent.
+- Register residents with full details: name, birthday and birthplace, gender, civil status, address (zone, house number, street), contact details, occupation, year of stay, owner or renter (with the house owner's name for renters), photo (positioned in a square frame with a face guide: drag, zoom, rotate, center — the same tool is used on the ID and document request pages), emergency contact, and flags for voter, PWD, senior citizen and solo parent.
 - Each citizen gets an automatic Citizen ID number (prefix and number of digits are set in Settings) and a unique QR code.
 - **Register a minor** under a parent: the child automatically gets the parent's household and address.
 - Citizen list with live search (results update while typing), table view or card (grid) view, and filters for gender, civil status, zone, age range, voter, PWD, solo parent, senior, household role and tags. The list shows voters only by default.
@@ -81,6 +82,22 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 - Approval status field on each citizen. Some features (event check-in, bulk attendance) only include citizens marked as approved.
 
 **Roles:** each action has its own permission: view, create (also Register Minor), edit, **approve** (set the approval status; without it a new record is saved as Pending and edits keep the current status), **tag** (assign tags), export, archive (set inactive), restore, hold, and **demographics** (the dashboard). Viewer has view and demographics; Staff has everything except archive, restore and hold; Super Admin has all. On the Roles page these sit in one **Citizens** box with rows for Records, Barangay IDs, Birthdays, Households and Tags.
+
+**Status: Complete**
+
+---
+
+### 3a. Pets
+**Features**
+- **Pets page** (Citizen → Pets): pets of residents shown as photo cards with name, kind and breed, owner and anti-rabies status. Counts per kind at the top (click a kind to show only those), plus Active pets, Pet owners and Anti-rabies due. Search by pet name, breed, color or owner; filter by status (Active, Lost, Deceased) and by anti-rabies due.
+- **Add / edit a pet**: pick the owner by searching citizens (or open Add pet from the citizen's profile so the owner is filled in), kind of pet (Dog, Cat, Bird, Chicken / Rooster, Rabbit, Fish, Other — or type a new kind, saved for next time), name, breed, color/markings, sex, birth date, spayed/neutered, last anti-rabies shot, status and notes. **Save & add another** keeps the same owner.
+- **Pet photo**: upload or take a photo, positioned in the square frame (drag, zoom, rotate) before saving.
+- **Anti-rabies**: shots count as yearly; a pet is shown as due one year after its last shot, or when no shot is recorded.
+- **Pet page**: photo, all details, anti-rabies status, the owner (links to the citizen) and the owner's other pets. Remove asks to confirm and deletes the photo; setting the status to Deceased or Lost keeps the record.
+- **Citizen profile**: a Pets card with the citizen's pets and an Add pet button.
+- Adding, editing and removing pets is written to the Activity Logs. Zone-limited accounts only see pets of owners in their zones.
+
+**Roles:** Pets view / create / edit / delete on the Roles page. At setup, roles that could view, add or edit citizens got the same for pets; delete went to roles that can archive citizens.
 
 **Status: Complete**
 
@@ -120,13 +137,15 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 **Features**
 - Generate a Barangay ID for a citizen, with a validity date (validity period is set in Settings).
 - Print the ID card (front and back) with the citizen's photo, details and a scannable QR code.
-- **ID photo while creating an ID**: on the Confirm Details step, **Take photo** (webcam or phone camera, square crop with a face guide, front/back camera switch) or **Upload photo** (JPG/PNG). Photos are resized in the browser before upload, saved as the citizen's profile photo (replacing the old one), and logged in Activity Logs. Shows a warning when the citizen has no photo yet.
+- **ID photo while creating an ID**: on the Confirm Details step, **Take photo** (webcam or phone camera, front/back camera switch) or **Upload photo** (JPG/PNG); either way the photo opens in a square frame with a face guide to drag, zoom, rotate or center it before saving. Photos are resized in the browser before upload, saved as the citizen's profile photo (replacing the old one), and logged in Activity Logs. Shows a warning when the citizen has no photo yet.
 - **Sign with pen** on the print page: the citizen signs in a pad on screen with a signature pad, pen tablet (pen pressure gives a natural line), touchscreen or mouse. Black or blue ink, thickness, undo and clear. The signature is saved as a clean transparent image trimmed to the ink and placed on the card, same as an uploaded signature.
 - **Print setup** on the print page: *ID card printer* prints each side on its own CR80 card page (3.375 × 2.125 in, no margins); *Plain paper* prints at actual size on A4/Letter with cut lines. Front + back, front only or back only (for single-sided card printers). **Fine-tune fit** moves the card left/right and up/down in mm and adjusts the size in %, remembered on that computer.
 - Upload or remove each citizen's signature for the card.
 - **ID Template Designer**: upload front and back backgrounds and arrange where each detail appears, with a live preview using a real citizen. Printing follows the saved design exactly.
 - Advanced styling options in the designer are limited to the Super Admin.
 - Each item on the card (field, text, photo, QR, signature) can be given an **ID** and **Class** in the designer, so the Custom CSS can style that one item (e.g. `#full-name { … }`). Shows live in the designer and on the printed ID.
+- **Sector fields**: PWD, Solo parent, Senior citizen (60+) and All sectors. Each prints its label only when it applies to the citizen, otherwise nothing.
+- **Show only if**: any item can be limited to citizens who are PWD, a solo parent, a senior or a voter (e.g. a red "PWD" badge). It is hidden on everyone else's printed ID and marked with an amber tag in the designer.
 
 **Roles:** separate Barangay ID permissions: view, generate, print, signature (add or remove), and template (the ID Template designer). Buttons and the sidebar link only appear with the matching permission.
 
@@ -188,6 +207,8 @@ Status key: **Complete** = works end to end. **Partially working** = usable, but
 ### 10. Health Check-ups
 **Features**
 - Record a **check-up** for a citizen (libreng check-up or walk-in consultation). Find the citizen by name or contact number, or scan their Barangay ID. People not in the citizen records can be recorded as **walk-ins** with name, age and sex.
+- **Type of check-up** (required): pick from the saved list (General consultation, Blood pressure check, Blood sugar check, Prenatal check-up, Child check-up, Immunization, Senior citizen check-up, Follow-up visit) or type a new type, which is saved for next time (an existing name in any letter case is reused). Shown on the check-up, the printed record and the list.
+- **Filter the list** by type of check-up and by date: All dates, Today, 1 week, 1 month, or Custom (From–To), together with search and the High BP / Fever / High sugar / Follow-up filters.
 - **Vital signs**: blood pressure, temperature, pulse, respiratory rate, oxygen saturation, blood sugar (fasting or random), weight and height, with **BMI calculated automatically**. Each reading gets a flag as you type, for example *High (stage 2)*, *Fever* or *Overweight*. The flags follow common adult screening guides and are not a diagnosis.
 - **Consultation notes**: complaint, findings, advice or treatment, where the patient was referred, and a follow-up date.
 - **Medicines from Inventory**: only items in a category marked **Use for medicine** (Inventory → Categories) can be picked. Pick items in stock and enter the quantity and how to take them. Stock is deducted when you save. For a citizen this also creates a released Inventory release, so it appears under Inventory → Releases and in the citizen's history. If there isn't enough stock, nothing is saved. Medicines can't be changed after saving; to fix a mistake, use a stock adjustment in Inventory.

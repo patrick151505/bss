@@ -20,7 +20,7 @@ class InventoryRelease extends Model
 
     public function citizen()
     {
-        return $this->belongsTo(Citizen::class, 'citizen_id');
+        return $this->belongsTo(Citizen::class, 'citizen_id')->withoutGlobalScope(\App\Support\ZoneAccess::SCOPE);
     }
 
     public function releasedBy()

@@ -529,7 +529,7 @@ class EventController extends Controller
 
         $query = Citizen::with('addressZone')
             ->where('is_active', 1)
-            ->where('approval_status', 1)
+            ->notRejected()
             ->when($search, fn($q) => $q->searchName($search))
             ->tap(fn($q) => $event->applyEligibility($q))
             ->orderBy('lname')->orderBy('fname');
@@ -702,7 +702,7 @@ class EventController extends Controller
 
     private function buildBulkQuery(Request $request, Event $event)
     {
-        $query = Citizen::where('is_active', 1)->where('approval_status', 1);
+        $query = Citizen::where('is_active', 1)->notRejected();
 
         // The event's own areas and rules always apply; the wizard's filters narrow further.
         $event->applyEligibility($query);

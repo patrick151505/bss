@@ -1,6 +1,7 @@
 @extends('layouts.vertical', ['title' => 'Add Citizen', 'sub_title' => 'Citizen Management', 'mode' => $mode ?? '', 'demo' => $demo ?? ''])
 
 @section('content')
+@include('partials.photo-cropper')
 
 @php
     $addressMap = $addresses->keyBy('id')->map(fn($a) => ['is_subd' => $a->is_subd, 'rules' => $a->rules_required]);
@@ -247,6 +248,14 @@
                             <option value="0" {{ old('owner_status') === '0' ? 'selected' : '' }}>Renter / Others</option>
                         </select>
                         @error('owner_status') <p class="text-danger text-xs mt-1">{{ $message }}</p> @enderror
+                    </div>
+
+                    <div id="house-owner-wrap" class="{{ (string) old('owner_status', '') === '0' ? '' : 'hidden' }}">
+                        <label class="form-label">House Owner's Name</label>
+                        <input type="text" name="house_owner_name" value="{{ old('house_owner_name', '') }}" maxlength="150"
+                            placeholder="Name of the person who owns the house"
+                            class="form-input @error('house_owner_name') border-danger @enderror">
+                        @error('house_owner_name') <p class="text-danger text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
 
                 </div>
@@ -702,17 +711,10 @@ window.addEventListener('DOMContentLoaded', () => {
             $('#field-precinct').toggleClass('hidden', !$(this).is(':checked'));
         });
 
-        // Profile photo preview
-        $('#profile-input').on('change', function () {
-            const file = this.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                $('#profile-preview').attr('src', e.target.result).removeClass('hidden');
-                $('#profile-placeholder').addClass('hidden');
-            };
-            reader.readAsDataURL(file);
+        // Profile photo: position it in the square frame, then preview.
+        PhotoCrop.attachToInput(document.getElementById('profile-input'), function (url) {
+            $('#profile-preview').attr('src', url).removeClass('hidden');
+            $('#profile-placeholder').addClass('hidden');
         });
 
     });
@@ -1126,3 +1128,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 @endsection
+
+@push('inline-scripts')
+<script>
+// Renting: ask for the house owner's name.
+(function () {
+    const sel = document.querySelector('select[name="owner_status"]');
+    const wrap = document.getElementById('house-owner-wrap');
+    if (!sel || !wrap) return;
+    const sync = () => wrap.classList.toggle('hidden', sel.value !== '0');
+    sel.addEventListener('change', sync);
+    sync();
+})();
+</script>
+@endpush

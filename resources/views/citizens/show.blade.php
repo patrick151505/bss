@@ -206,6 +206,13 @@
                         </p>
                     </div>
 
+                    @if(!$citizen->owner_status)
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase font-medium mb-0.5">House Owner</p>
+                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ $citizen->house_owner_name ?: '—' }}</p>
+                    </div>
+                    @endif
+
                 </div>
             </div>
         </div>
@@ -341,6 +348,54 @@
                 </div>
             </div>
         </div>
+
+        {{-- Pets --}}
+        @can('pets.view')
+        @php $citizenPets = $citizen->pets()->with('category')->orderByRaw("status = 'active' DESC")->orderBy('name')->get(); @endphp
+        <div class="card">
+            <div class="card-header flex items-center justify-between">
+                <h5 class="card-title"><i class="mgc_bone_line me-2 text-primary"></i>Pets
+                    @if($citizenPets->isNotEmpty())<span class="text-xs text-gray-400 font-normal ms-1">{{ $citizenPets->count() }}</span>@endif
+                </h5>
+                @can('pets.create')
+                <a href="{{ route('pets.create', ['citizen' => $citizen->id]) }}" class="btn btn-sm bg-primary/10 text-primary flex items-center gap-1.5">
+                    <i class="mgc_add_line"></i> Add pet
+                </a>
+                @endcan
+            </div>
+            <div class="p-5">
+                @if($citizenPets->isEmpty())
+                <p class="text-sm text-gray-400">No pets recorded.</p>
+                @else
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    @foreach($citizenPets as $p)
+                    @php $pv = $p->vaccineCurrent(); @endphp
+                    <a href="{{ route('pets.show', $p) }}" class="group rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:border-primary/40 hover:shadow-sm transition">
+                        <div class="relative bg-gray-100 dark:bg-gray-700" style="aspect-ratio:1/1">
+                            @if($p->photo_url)
+                            <img src="{{ $p->photo_url }}" alt="{{ $p->name }}" loading="lazy" class="absolute inset-0 w-full h-full object-cover {{ $p->status === 'deceased' ? 'grayscale' : '' }}">
+                            @else
+                            <div class="absolute inset-0 flex items-center justify-center text-gray-300 dark:text-gray-500"><i class="{{ \App\Models\PetCategory::iconFor($p->category?->name) }} text-4xl"></i></div>
+                            @endif
+                        </div>
+                        <div class="p-2">
+                            <p class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate group-hover:text-primary">{{ $p->name }}</p>
+                            <p class="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                                {{ $p->category?->name ?? 'Pet' }}@if($p->status !== 'active') · {{ \App\Models\Pet::STATUSES[$p->status][0] ?? '' }}@endif
+                            </p>
+                            @if($p->status === 'active')
+                            <p class="text-[11px] {{ $pv === true ? 'text-success' : ($pv === false ? 'text-danger' : 'text-gray-400') }}">
+                                {{ $pv === true ? 'Anti-rabies OK' : ($pv === false ? 'Anti-rabies due' : 'No anti-rabies record') }}
+                            </p>
+                            @endif
+                        </div>
+                    </a>
+                    @endforeach
+                </div>
+                @endif
+            </div>
+        </div>
+        @endcan
 
         {{-- Notes --}}
         @if($citizen->note)

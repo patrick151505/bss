@@ -19,7 +19,7 @@ class HealthCheckup extends Model
     protected $table = 'eb_health_checkups';
 
     protected $fillable = [
-        'citizen_id', 'patient_name', 'patient_age', 'patient_sex', 'checked_at', 'attended_by',
+        'citizen_id', 'patient_name', 'patient_age', 'patient_sex', 'checked_at', 'checkup_type', 'attended_by',
         'prescriber_license', 'prescriber_ptr',
         'bp_systolic', 'bp_diastolic', 'pulse', 'resp_rate', 'temperature', 'o2_sat',
         'weight_kg', 'height_cm', 'blood_sugar', 'sugar_fasting',
@@ -194,5 +194,11 @@ class HealthCheckup extends Model
             if ($f && $f[1] !== 'success') $out[] = ["{$what}: {$f[0]}", $f[1]];
         }
         return $out;
+    }
+
+    protected static function booted(): void
+    {
+        // Zone-limited accounts only see records of citizens in their zones.
+        static::addGlobalScope(\App\Support\ZoneAccess::SCOPE, \App\Support\ZoneAccess::byCitizenColumn('citizen_id'));
     }
 }

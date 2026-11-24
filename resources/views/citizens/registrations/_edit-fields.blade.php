@@ -60,6 +60,7 @@
                 <option value="0" @selected((string) $v('owner_status') === '0')>Renter / Others</option>
             </select>
         </div>
+        <div><label class="form-label">House owner's name</label><input type="text" name="house_owner_name" value="{{ $v('house_owner_name') }}" maxlength="150" class="form-input w-full{{ $bad('house_owner_name') }}" placeholder="If renting"></div>
     </div>
 </div>
 

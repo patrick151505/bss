@@ -32,6 +32,9 @@ class CitizenIdTemplate extends Model
      *   fontSize, bold, italic, align, color, underline
  *   cssId, cssClass: optional id / class for the template's custom CSS
      */
+    /** Flags an element can be limited to ("Show only if" in the designer). */
+    public const SHOW_IF = ['pwd', 'solo-parent', 'senior', 'voter'];
+
     public static function compileLayout(?array $elements): string
     {
         if (empty($elements)) {
@@ -52,6 +55,12 @@ class CitizenIdTemplate extends Model
             // template's custom CSS can target this element.
             $cssId    = preg_replace('/[^A-Za-z0-9_-]/', '', (string) ($el['cssId'] ?? ''));
             $cssClass = trim(preg_replace('/\s+/', ' ', preg_replace('/[^A-Za-z0-9_\- ]/', '', (string) ($el['cssClass'] ?? ''))));
+            // "Show only if" (PWD / solo parent / senior / voter): the print page
+            // hides .show-if-X unless the citizen carries the matching flag-X.
+            $showIf = (string) ($el['showIf'] ?? '');
+            if ($kind !== 'signature' && in_array($showIf, self::SHOW_IF, true)) {
+                $cssClass = trim($cssClass . ' show-if-' . $showIf);
+            }
             $attrs    = ($cssId !== '' ? ' id="' . $cssId . '"' : '')
                       . ($cssClass !== '' ? ' class="' . $cssClass . '"' : '');
 

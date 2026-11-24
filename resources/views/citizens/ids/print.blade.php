@@ -267,6 +267,14 @@ body {
 }
 .tpl-card * { box-sizing: border-box; }
 
+/* Designer "Show only if": hidden unless the citizen has the matching flag
+   (flag-* classes are on .cards-area). */
+.show-if-pwd, .show-if-solo-parent, .show-if-senior, .show-if-voter { display: none !important; }
+.flag-pwd .show-if-pwd,
+.flag-solo-parent .show-if-solo-parent,
+.flag-senior .show-if-senior,
+.flag-voter .show-if-voter { display: block !important; }
+
 /* Shared user CSS */
 @if($useTemplate)
 {{ $sharedCss }}

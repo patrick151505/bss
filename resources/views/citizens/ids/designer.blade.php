@@ -16,6 +16,8 @@ $fieldGroups = [
     'Name'        => [['full_name','Full name'],['lname','Surname'],['fname','First name'],['mname','Middle name'],['suffix','Suffix']],
     'ID Details'  => [['id_no','ID number'],['date_issued','Date issued'],['valid_until','Valid until'],['since','Member since'],['precinct_no','Precinct no.'],['qrcode_value','QR text']],
     'Personal'    => [['bday','Birth date'],['gender','Gender']],
+    // Each prints its label only when it applies to the citizen (blank otherwise).
+    'Sector'      => [['sectors','All sectors'],['pwd','PWD'],['solo_parent','Solo parent'],['senior','Senior citizen']],
     'Contact'     => [['address','Address'],['contact','Contact #']],
     'Emergency'   => [['ic_name','IC name'],['ic_relationship','IC relationship'],['ic_contact','IC contact'],['ic_address','IC address']],
     'Barangay'    => [['brgy_name','Barangay'],['municipality','Municipality'],['province','Province'],['captain','Captain'],['captain_pos','Captain title']],
@@ -26,6 +28,7 @@ $sample = [
     'full_name'=>'DELA CRUZ, JUAN S.','lname'=>'DELA CRUZ','fname'=>'Juan','mname'=>'Santos','suffix'=>'',
     'id_no'=>'EBT-001938','date_issued'=>'July 24, 2026','valid_until'=>'Jul 24, 2028','since'=>'June 2021',
     'precinct_no'=>'0224D','qrcode_value'=>'abc123','bday'=>'May 01, 1998','gender'=>'MALE',
+    'pwd'=>'PWD','solo_parent'=>'SOLO PARENT','senior'=>'SENIOR CITIZEN','sectors'=>'PWD · SOLO PARENT · SENIOR CITIZEN',
     'address'=>'246 Circumferential St. Elsol Subd. Pob. Tres, Cab. Lag.','contact'=>'09761515249',
     'ic_name'=>'Princess Jyra Quirino','ic_relationship'=>'PARTNER','ic_contact'=>'09762680467',
     'ic_address'=>'246 Circumferential Elsol Subd. Barangay Tres Cabuyao City Laguna',
@@ -323,6 +326,19 @@ $sample = [
                     <p class="text-[10px] text-gray-400 mt-1" id="prop-css-hint">Style it in Custom CSS with <code>#id</code> or <code>.class</code>.</p>
                 </div>
 
+                {{-- Print this item only for some citizens (e.g. a "PWD" badge) --}}
+                <div id="prop-showif-wrap">
+                    <label class="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">Show only if</label>
+                    <select id="prop-showif" class="form-select text-xs mt-1 w-full" onchange="applyProp('showIf', this.value)">
+                        <option value="">Always show</option>
+                        <option value="pwd">Citizen is PWD</option>
+                        <option value="solo-parent">Citizen is a solo parent</option>
+                        <option value="senior">Citizen is a senior (60+)</option>
+                        <option value="voter">Citizen is a voter</option>
+                    </select>
+                    <p class="text-[10px] text-gray-400 mt-1">Hidden on the printed ID of everyone else. Always visible here while designing.</p>
+                </div>
+
                 {{-- Position / size --}}
                 <div class="grid grid-cols-4 gap-2">
                     <div><label class="text-[10px] text-gray-400">X</label><input type="number" id="prop-x" class="form-input text-xs" oninput="applyProp('x', parseFloat(this.value)||0)"></div>
@@ -607,6 +623,10 @@ function renderSide(side) {
         // User's CSS hooks, so their custom CSS shows live on the canvas.
         if (el.cssId && el.kind !== 'signature') node.id = el.cssId;
         if (el.cssClass) node.classList.add(...el.cssClass.split(/\s+/).filter(Boolean));
+        if (el.showIf && el.kind !== 'signature') {
+            node.classList.add('el-cond');
+            node.dataset.cond = { pwd: 'PWD only', 'solo-parent': 'Solo parent only', senior: 'Senior only', voter: 'Voter only' }[el.showIf] || '';
+        }
         node.style.left  = (el.x * SCALE) + 'px';
         node.style.top    = (el.y * SCALE) + 'px';
         node.style.width  = (el.w * SCALE) + 'px';
@@ -713,6 +733,8 @@ function syncPanel() {
     const idBox = document.getElementById('prop-cssid'), clsBox = document.getElementById('prop-cssclass');
     if (document.activeElement !== idBox)  idBox.value  = el.cssId || '';
     if (document.activeElement !== clsBox) clsBox.value = el.cssClass || '';
+    document.getElementById('prop-showif-wrap').classList.toggle('hidden', isSig);
+    document.getElementById('prop-showif').value = el.showIf || '';
     document.getElementById('prop-css-hint').innerHTML = isSig
         ? 'Style it in Custom CSS with <code>#sig-overlay</code> or <code>.class</code>.'
         : 'Style it in Custom CSS with <code>#id</code> or <code>.class</code>.';
@@ -1366,6 +1388,13 @@ restoreGridPref();   // after the first render, so both canvases exist
 }
 .id-el:hover { outline-color:rgba(114,124,245,.5); }
 .id-el.selected { outline:1.5px solid #727cf5; z-index:5; }
+/* Printed only for some citizens ("Show only if"): amber outline + small tag. */
+.id-el.el-cond { outline:1px dashed #f59e0b; }
+.id-el.el-cond::before {
+    content:attr(data-cond); position:absolute; left:0; top:-11px; white-space:nowrap;
+    font:bold 7px/1 Arial, sans-serif; color:#fff; background:#f59e0b; padding:1px 3px; border-radius:2px;
+    pointer-events:none;
+}
 .id-el .el-handle {
     position:absolute; right:-4px; bottom:-4px; width:9px; height:9px;
     background:#727cf5; border:1.5px solid #fff; border-radius:2px; cursor:nwse-resize; display:none;

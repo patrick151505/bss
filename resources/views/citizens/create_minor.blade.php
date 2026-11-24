@@ -6,6 +6,7 @@
 ])
 
 @section('content')
+@include('partials.photo-cropper')
 
 {{-- ── Step indicator ─────────────────────────────────────────────────────── --}}
 <div class="flex items-center gap-2 mb-6">
@@ -589,16 +590,11 @@ document.getElementById('minor-bday').addEventListener('change', function () {
 
 // ── Profile photo preview ─────────────────────────────────────────────────────
 
-document.getElementById('profile-input').addEventListener('change', function () {
-    const file = this.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-        document.getElementById('profile-preview').src = e.target.result;
-        document.getElementById('profile-preview').classList.remove('hidden');
-        document.getElementById('profile-placeholder').classList.add('hidden');
-    };
-    reader.readAsDataURL(file);
+// Position the photo in the square frame, then preview.
+PhotoCrop.attachToInput(document.getElementById('profile-input'), url => {
+    document.getElementById('profile-preview').src = url;
+    document.getElementById('profile-preview').classList.remove('hidden');
+    document.getElementById('profile-placeholder').classList.add('hidden');
 });
 
 // ── Field error helpers ───────────────────────────────────────────────────────

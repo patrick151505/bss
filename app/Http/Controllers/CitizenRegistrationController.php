@@ -193,6 +193,7 @@ class CitizenRegistrationController extends Controller
                 'complete_address'  => $d['complete_address'] ?? null,
                 'year_stay'         => !empty($d['year_stay']) ? $d['year_stay'] . '-01' : null,
                 'owner_status'      => $d['owner_status'] ?? 0,
+                'house_owner_name'  => (int) ($d['owner_status'] ?? 0) === 0 ? ($d['house_owner_name'] ?? null ?: null) : null,
                 'contact'           => $d['contact'] ?? null,
                 'email'             => $d['email'] ?? null,
                 'approval_status'   => 2,                       // Approved

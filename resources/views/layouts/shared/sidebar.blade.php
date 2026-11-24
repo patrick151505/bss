@@ -48,6 +48,7 @@
                 $canTags       = auth()->user()?->can('tags.view');
                 $canIds        = auth()->user()?->can('citizen_ids.view');
                 $canBirthdays  = auth()->user()?->can('birthdays.view');
+                $canPets       = auth()->user()?->can('pets.view');
                 $canBlotter    = auth()->user()?->can('blotter.view');
                 $canRegs       = auth()->user()?->can('citizens.approve');
                 $pendingRegs   = $canRegs && \Illuminate\Support\Facades\Schema::hasTable('eb_citizen_registrations')
@@ -55,8 +56,8 @@
                 $canUpdates    = auth()->user()?->can('citizens.edit');
                 $pendingUpdates = $canUpdates && \Illuminate\Support\Facades\Schema::hasTable('eb_citizen_update_requests')
                     ? \App\Models\CitizenUpdateRequest::pendingCount() : 0;
-                $citizenGroupVisible = $canCitizens || $canHouseholds || $canTags || $canIds || $canBirthdays || $canRegs || $canUpdates;
-                $citizenGroupActive = request()->routeIs('citizens.*') || request()->routeIs('tags.*') || request()->routeIs('birthdays.index') || request()->routeIs('households.*');
+                $citizenGroupVisible = $canCitizens || $canHouseholds || $canTags || $canIds || $canBirthdays || $canRegs || $canUpdates || $canPets;
+                $citizenGroupActive = request()->routeIs('citizens.*') || request()->routeIs('tags.*') || request()->routeIs('birthdays.index') || request()->routeIs('households.*') || request()->routeIs('pets.*');
                 // The Barangay section covers the Citizen group + Blotter — show its
                 // title only if the user can access at least one of those.
                 $barangaySectionVisible = $citizenGroupVisible || $canBlotter;
@@ -130,6 +131,13 @@
                     <li class="menu-item {{ request()->routeIs('households.*') ? 'active' : '' }}">
                         <a href="{{ route('households.index') }}" class="menu-link">
                             <span class="menu-text">Household</span>
+                        </a>
+                    </li>
+                    @endif
+                    @if($canPets)
+                    <li class="menu-item {{ request()->routeIs('pets.*') ? 'active' : '' }}">
+                        <a href="{{ route('pets.index') }}" class="menu-link">
+                            <span class="menu-text">Pets</span>
                         </a>
                     </li>
                     @endif

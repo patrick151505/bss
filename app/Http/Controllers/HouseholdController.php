@@ -629,7 +629,7 @@ class HouseholdController extends Controller
 
         $base = Citizen::query()
             ->where('is_active', 1)
-            ->where('approval_status', 1)
+            ->notRejected()
             ->when($unassigned, fn($q) => $q->whereNull('familyId'))
             ->when($search, fn($q) => $q->searchName($search));
 
@@ -655,7 +655,9 @@ class HouseholdController extends Controller
 
     private static function pickerCountKey(string $search, bool $unassigned): string
     {
-        return 'hh.picker.count.' . ($unassigned ? 'u.' : '') . md5($search);
+        // Per zone set: a zone-limited account counts only its own zones.
+        $zones = implode(',', \App\Support\ZoneAccess::ids() ?? []);
+        return 'hh.picker.count.' . ($unassigned ? 'u.' : '') . md5($search . '|' . $zones);
     }
 
     // ─── Get citizen address for auto-fill ───────────────────────────────────

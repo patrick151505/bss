@@ -291,6 +291,15 @@ Route::middleware('auth')->group(function () {
         Route::resource('blotters', BlotterController::class)->only(['destroy'])->middleware('can:blotter.delete');
     });
 
+    // Pets of citizens (Citizen → Pets)
+    Route::middleware('can:pets.view')->group(function () {
+        // "create" before "{pet}" so the wildcard doesn't swallow it.
+        Route::resource('pets', \App\Http\Controllers\PetController::class)->only(['create', 'store'])->middleware('can:pets.create');
+        Route::resource('pets', \App\Http\Controllers\PetController::class)->only(['index', 'show']);
+        Route::resource('pets', \App\Http\Controllers\PetController::class)->only(['edit', 'update'])->middleware('can:pets.edit');
+        Route::resource('pets', \App\Http\Controllers\PetController::class)->only(['destroy'])->middleware('can:pets.delete');
+    });
+
     // Health check-ups (libreng check-up, walk-in consultations)
     Route::middleware('can:health.view')->group(function () {
         Route::get('health/patients', [\App\Http\Controllers\HealthCheckupController::class, 'patients'])->middleware('can:health.create')->name('health.patients');

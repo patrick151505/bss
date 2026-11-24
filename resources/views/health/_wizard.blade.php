@@ -18,7 +18,7 @@
     $errorStep = function (string $field) {
         return match (true) {
             str_starts_with($field, 'medicines') || str_starts_with($field, 'prescri')        => 'meds',
-            in_array($field, ['citizen_id', 'patient_name', 'patient_age', 'patient_sex', 'checked_at', 'attended_by']) => 'patient',
+            in_array($field, ['citizen_id', 'patient_name', 'patient_age', 'patient_sex', 'checked_at', 'checkup_type', 'attended_by']) => 'patient',
             in_array($field, ['complaint', 'findings', 'advice', 'referred_to', 'follow_up_on']) => 'consult',
             default                                                                            => 'vitals',
         };
@@ -182,6 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const errs = [];
             if (q('#walkin-toggle').checked) { if (!valOf('patient_name')) errs.push(['patient_name', 'Enter the walk-in patient’s name.']); }
             else if (!valOf('citizen_id')) errs.push(['patient-search', 'Choose the patient — search by name or scan their Barangay ID — or tick “Walk-in”.']);
+            if (!valOf('checkup_type')) errs.push([q('#ct-search'), 'Choose the type of check-up, or type a new one.']);
             const at = valOf('checked_at');
             if (!at) errs.push(['checked_at', 'Enter the date and time of the check-up.']);
             else if (new Date(at) > new Date(Date.now() + 5 * 60000)) errs.push(['checked_at', 'The check-up date can’t be in the future.']);
@@ -338,6 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderReview() {
         q('#rv-patient').innerHTML = row('Patient', text(patientText()))
             + (!q('#walkin-toggle').checked && q('#pc-last').textContent ? row('History', esc(q('#pc-last').textContent)) : '')
+            + row('Type of check-up', text(valOf('checkup_type')))
             + row('Date &amp; time', esc(fmtWhen(valOf('checked_at'))))
             + row('Attended by', text(valOf('attended_by')));
 

@@ -113,6 +113,19 @@
                                 @else
                                     <span class="text-xs text-gray-400">No role</span>
                                 @endif
+                                @if($role?->name !== $roleGiver)
+                                <p class="text-[11px] mt-1 {{ $user->zones->isEmpty() ? 'text-gray-400' : 'text-sky-700 dark:text-sky-300' }}"
+                                   title="{{ $user->zones->pluck('description')->implode(', ') }}">
+                                    <i class="mgc_map_pin_line"></i>
+                                    @if($user->zones->isEmpty())
+                                        All zones
+                                    @elseif($user->zones->count() <= 2)
+                                        {{ $user->zones->pluck('description')->implode(', ') }}
+                                    @else
+                                        {{ $user->zones->count() }} zones
+                                    @endif
+                                </p>
+                                @endif
                             </td>
                             <td class="px-5 py-3 text-center whitespace-nowrap">
                                 @if($user->is_active)
@@ -132,7 +145,7 @@
                                     <span class="p-1.5 text-gray-300 dark:text-gray-600" title="Only a Super Admin can change this account"><i class="mgc_lock_line text-base"></i></span>
                                     @endif
                                     @if(!$lockedForMe && auth()->user()->can('users.edit'))
-                                    <button onclick="editUser({{ $user->id }}, {{ json_encode($user->name) }}, {{ json_encode($user->email) }}, {{ json_encode($role?->name ?? '') }}, {{ json_encode($user->landing_route ?? '') }})"
+                                    <button onclick="editUser({{ $user->id }}, {{ json_encode($user->name) }}, {{ json_encode($user->email) }}, {{ json_encode($role?->name ?? '') }}, {{ json_encode($user->landing_route ?? '') }}, @js($user->zones->pluck('id')->all()))"
                                             class="p-1.5 rounded text-gray-400 hover:text-primary hover:bg-primary/10 transition" title="Edit">
                                         <i class="mgc_edit_line text-base"></i>
                                     </button>
@@ -255,6 +268,34 @@
                         <p class="text-xs text-gray-400 mt-1" id="landing-hint">Where this user lands right after they log in. Only pages the selected role can access are listed.</p>
                     </div>
 
+                    @if($canAssignRoles)
+                    <div id="zones-field">
+                        <div class="flex items-center justify-between">
+                            <label class="form-label mb-0">Zones this account can see</label>
+                            <span class="text-[11px] text-gray-400" id="zones-count">All zones</span>
+                        </div>
+                        <div class="mt-1.5 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <div class="p-2 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                                <input type="search" id="zones-search" placeholder="Find a zone…" class="form-input text-xs py-1.5 flex-1">
+                                <button type="button" onclick="setAllZones(true)" class="text-[11px] text-primary hover:underline">All</button>
+                                <button type="button" onclick="setAllZones(false)" class="text-[11px] text-gray-500 hover:underline">None</button>
+                            </div>
+                            <div class="max-h-48 overflow-y-auto p-2 space-y-0.5" id="zones-list">
+                                @forelse($zones as $z)
+                                <label class="zone-row flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-pointer text-sm text-gray-700 dark:text-gray-200" data-name="{{ strtolower($z->description) }}">
+                                    <input type="checkbox" name="zones[]" value="{{ $z->id }}" class="form-checkbox rounded zone-cb" onchange="updateZonesCount()">
+                                    <span class="flex-1">{{ $z->description }}</span>
+                                    @unless($z->is_active)<span class="text-[10px] text-gray-400">off</span>@endunless
+                                </label>
+                                @empty
+                                <p class="text-xs text-gray-400 px-2 py-3">No zones yet. Add them in Zones &amp; Addresses.</p>
+                                @endforelse
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">Tick the zones this account handles. It will only see citizens, households, IDs, documents, health check-ups and blotter cases from those zones. Leave all unticked to see every zone.</p>
+                    </div>
+                    @endif
+
                     <button type="submit" id="user-submit-btn" class="btn bg-primary text-white w-full">
                         <i class="mgc_add_circle_line me-1"></i> Add User
                     </button>
@@ -360,7 +401,38 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('inp-user-role')) filterLandingOptions();
 });
 
-function editUser(id, name, email, role, landingRoute) {
+// ── Zones this account can see ──
+function setZones(ids) {
+    const want = (ids || []).map(String);
+    document.querySelectorAll('.zone-cb').forEach(cb => cb.checked = want.includes(cb.value));
+    updateZonesCount();
+}
+function setAllZones(on) {
+    document.querySelectorAll('.zone-row').forEach(r => {
+        if (!r.classList.contains('hidden')) r.querySelector('.zone-cb').checked = on;
+    });
+    updateZonesCount();
+}
+function updateZonesCount() {
+    const el = document.getElementById('zones-count');
+    if (!el) return;
+    const n = document.querySelectorAll('.zone-cb:checked').length;
+    el.textContent = n ? n + ' selected' : 'All zones';
+    el.className = 'text-[11px] ' + (n ? 'text-primary font-medium' : 'text-gray-400');
+}
+// The Super Admin always sees every zone, so the picker does not apply.
+function toggleZonesField() {
+    const f = document.getElementById('zones-field');
+    const role = document.getElementById('inp-user-role');
+    if (f && role) f.classList.toggle('hidden', role.value === @js($roleGiver));
+}
+document.getElementById('inp-user-role')?.addEventListener('change', toggleZonesField);
+document.getElementById('zones-search')?.addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('.zone-row').forEach(r => r.classList.toggle('hidden', !!q && !r.dataset.name.includes(q)));
+});
+
+function editUser(id, name, email, role, landingRoute, zoneIds) {
     editingUserId = id;
 
     const form = document.getElementById('user-form');
@@ -377,6 +449,8 @@ function editUser(id, name, email, role, landingRoute) {
     document.getElementById('inp-user-landing').value = landingRoute ?? '';
     // Re-filter for this user's role; clears the landing page if the role lost access to it.
     filterLandingOptions();
+    setZones(zoneIds || []);
+    toggleZonesField();
 
     // Password optional on edit
     document.getElementById('inp-user-password').removeAttribute('required');
@@ -402,6 +476,8 @@ function cancelUserEdit() {
     const roleLabel = document.getElementById('inp-user-role-label');
     if (roleLabel) roleLabel.textContent = 'No role';
     filterLandingOptions();
+    setZones([]);
+    toggleZonesField();
 
     document.getElementById('inp-user-password').setAttribute('required', true);
     document.getElementById('pw-label').innerHTML = 'Password <span class="text-danger">*</span>';

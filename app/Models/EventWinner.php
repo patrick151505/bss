@@ -29,7 +29,7 @@ class EventWinner extends Model
 
     public function citizen()
     {
-        return $this->belongsTo(Citizen::class, 'citizenId');
+        return $this->belongsTo(Citizen::class, 'citizenId')->withoutGlobalScope(\App\Support\ZoneAccess::SCOPE);
     }
 
     /** Staff member who handed over the prize. */

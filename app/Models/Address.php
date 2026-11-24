@@ -26,4 +26,10 @@ class Address extends Model
     {
         return $this->hasMany(Citizen::class, 'address');
     }
+
+    protected static function booted(): void
+    {
+        // Zone-limited accounts only see their zones (Settings → Users).
+        static::addGlobalScope(\App\Support\ZoneAccess::SCOPE, \App\Support\ZoneAccess::byZoneColumn('id'));
+    }
 }

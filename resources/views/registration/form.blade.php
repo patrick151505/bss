@@ -185,6 +185,11 @@
                     <label class="r-choice"><input type="radio" name="owner_status" value="0" required @checked(old('owner_status') === '0')> No, renting / other</label>
                 </div>
             </div>
+            <div id="r-house-owner" class="{{ old('owner_status') === '0' ? '' : 'hidden' }}">
+                <label class="r-label" for="house_owner_name">Name of the house owner</label>
+                <input type="text" id="house_owner_name" name="house_owner_name" value="{{ old('house_owner_name') }}" maxlength="150" class="form-input w-full max-w-xl" placeholder="Who owns the house you live in?">
+                <p class="r-hint text-gray-500 mt-1">Optional. The person you rent from.</p>
+            </div>
         </div>
 
         {{-- ── 3. Contact ── --}}
@@ -483,7 +488,7 @@
                 'Sex': radio('gender'), 'Birthday': val('bday') ? new Date(val('bday') + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + ` (age ${ageOf(val('bday'))})` : '',
                 'Civil status': selText('civil_status'), 'Birthplace': val('bplace'), 'Citizenship': val('citizenship'), 'Occupation': val('occupation'),
             },
-            'Address': { 'Address': addr, 'Living here since': val('year_stay'), 'House': radio('owner_status') },
+            'Address': { 'Address': addr, 'Living here since': val('year_stay'), 'House': radio('owner_status'), 'House owner': (document.querySelector('input[name="owner_status"]:checked')?.value === '0') ? val('house_owner_name') : '' },
             'Contact': { 'Mobile': val('contact'), 'Email': val('email'), 'Voter': checked('voters') ? 'Yes' + (val('pricinct_no') ? ' — precinct ' + val('pricinct_no') : '') : 'No' },
             'Groups': { 'Groups': groups.length ? groups.join(', ') + ' (ID front & back attached)' : 'None' },
             'Emergency contact': { 'Name': val('ic_fullname'), 'Relationship': val('ic_relationship'), 'Mobile': val('ic_contact') },
@@ -505,5 +510,10 @@
     firstBad?.closest('.r-drop')?.classList.add('is-invalid');
     show(firstBad ? +firstBad.closest('.r-step').dataset.step : 1);
 })();
+
+// Renting: ask for the house owner's name.
+document.querySelectorAll('input[name="owner_status"]').forEach(r => r.addEventListener('change', () => {
+    document.getElementById('r-house-owner')?.classList.toggle('hidden', r.value !== '0' || !r.checked);
+}));
 </script>
 @endpush

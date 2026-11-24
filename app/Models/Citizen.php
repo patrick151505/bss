@@ -53,6 +53,7 @@ class Citizen extends Model
         'user_id_approved',
         'is_active',
         'owner_status',
+        'house_owner_name',
         'complete_address',
         'voters',
         'is_notify',
@@ -140,6 +141,11 @@ class Citizen extends Model
     public function documentRequests()
     {
         return $this->hasMany(DocumentRequest::class, 'citizen_id');
+    }
+
+    public function pets()
+    {
+        return $this->hasMany(Pet::class, 'citizen_id');
     }
 
     public function getProfilePhotoAttribute(): string
@@ -350,6 +356,9 @@ class Citizen extends Model
             $query->where($query->getModel()->getTable() . '.is_walkin', 0);
         });
 
+        // Zone-limited accounts only see citizens in their zones (Settings → Users).
+        static::addGlobalScope(\App\Support\ZoneAccess::SCOPE, \App\Support\ZoneAccess::byZoneColumn('address'));
+
         static::saving(function (self $citizen) {
             if ($citizen->qualifiesAsVerified()) {
                 $citizen->is_verify = 1;
@@ -482,9 +491,20 @@ class Citizen extends Model
         return $query->where('is_active', 1);
     }
 
+    /** Approval status 2 = Approved (1 = Pending, 3 = Rejected; see eb_approval_status). */
     public function scopeApproved($query)
     {
-        return $query->where('approval_status', 1);
+        return $query->where('approval_status', 2);
+    }
+
+    /**
+     * Residents that can be picked (household head/member, event attendees):
+     * everyone except Rejected. Pending stays in, because most records brought
+     * over from the old system are still marked Pending.
+     */
+    public function scopeNotRejected($query)
+    {
+        return $query->where(fn ($q) => $q->where('approval_status', '!=', 3)->orWhereNull('approval_status'));
     }
 
     /**

@@ -19,6 +19,35 @@
 return [
 
     [
+        'version' => '3.5',
+        'date'    => '2026-11-24',
+        'title'   => 'Faster Birthdays page, PWD / Solo Parent / Senior on IDs',
+        'summary' => 'The Birthdays page opens much faster, and Barangay IDs can show whether the holder is PWD, a solo parent or a senior citizen.',
+        'changes' => [
+            ['type' => 'improved', 'module' => 'Citizens', 'text' => 'The Birthdays page loads much faster and no longer stalls or times out on barangays with many residents. Months, days, today, the next 7 days and the counts all work as before.'],
+            ['type' => 'improved', 'module' => 'Citizens', 'text' => 'Citizens filter: type an exact age range (e.g. 18 to 25) in the new From / To boxes, or tap a quick range (0–17, 18–25, 15–30 SK, 18–59, 60+). The slider still works and follows the boxes, and the boxes work even when the slider cannot load.'],
+            ['type' => 'new', 'module' => 'Citizens', 'text' => 'ID Card Designer: new Sector fields (PWD, Solo parent, Senior citizen, All sectors) print the label only when it applies to the citizen, and any item can be set to "Show only if" the citizen is PWD, a solo parent, a senior or a voter, so a badge appears only on those IDs.'],
+        ],
+    ],
+
+    [
+        'version' => '3.4',
+        'date'    => '2026-11-23',
+        'title'   => 'Accounts limited to their zones',
+        'summary' => 'An account can be limited to one or more zones, so zone staff only see the residents and records of their own area.',
+        'changes' => [
+            ['type' => 'new', 'module' => 'Settings', 'text' => 'Zones for each account: when adding or editing a user, the Super Admin can tick the zones that account handles (one or many). After logging in, that account only sees citizens, households, Barangay IDs, birthdays, document requests, health check-ups, holds and blotter cases from those zones, and can only add residents to those zones. Leave every zone unticked to see all zones. The Users list shows the zones under each account.'],
+            ['type' => 'new', 'module' => 'Health', 'text' => 'Type of check-up: every check-up now has a type, picked from a list (General consultation, Blood pressure check, Prenatal check-up, Immunization and more) or typed in. A new type is saved for next time, the same way document purposes work. The type shows on the check-up, the printed record and the list.'],
+            ['type' => 'improved', 'module' => 'Health', 'text' => 'The check-up list can be filtered by type of check-up and by date: Today, 1 week, 1 month or a custom From–To range. Clicking a type on the list shows only that type.'],
+            ['type' => 'new', 'module' => 'Citizens', 'text' => 'Pets (Citizen → Pets): record the pets of each resident with a photo, kind of pet (Dog, Cat, Bird and more, or type a new kind), breed, sex, color, birth date, spayed/neutered, last anti-rabies shot, status (Active, Lost, Deceased) and notes. The list shows pets as cards with counts per kind and can show only pets whose anti-rabies is due. Each citizen profile has a Pets card with an Add pet button. Pets has its own permissions on the Roles page.'],
+            ['type' => 'improved', 'module' => 'Citizens', 'text' => 'Position the photo: whenever a citizen photo is uploaded or taken (adding or editing a citizen or minor, creating a Barangay ID, or requesting a document), a square frame with a face guide opens first. Drag to move the picture, zoom with the slider, mouse wheel or two fingers, rotate it, or press Center. The saved photo is exactly what is inside the frame, so it fits the ID and certificates.'],
+            ['type' => 'new', 'module' => 'Citizens', 'text' => 'House owner for renters: when a resident is marked Renter / Others, the citizen form asks for the name of the house owner. It shows on the citizen profile, in the citizen export, on the online registration form (optional for the resident) and on the registration review page.'],
+            ['type' => 'fixed', 'module' => 'Households', 'text' => 'Residents saved as Approved now show in the list when picking a household head or member (before, only residents marked Pending were listed). Only Rejected residents are left out.'],
+            ['type' => 'fixed', 'module' => 'Events', 'text' => 'Residents saved as Approved can now be added to an event and are counted in bulk add (before, only residents marked Pending were included). Only Rejected residents are left out.'],
+        ],
+    ],
+
+    [
         'version' => '3.3',
         'date'    => '2026-11-22',
         'title'   => 'Kiosk on phones, with camera scan',

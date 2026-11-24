@@ -159,6 +159,9 @@
                 <td class="v">{{ collect([$C->patientAge() !== null ? $C->patientAge() . ' yrs old' : null, $C->patientSex()])->filter()->implode(' · ') ?: '—' }}</td>
                 <td class="l">Attended by</td><td class="v">{{ $C->attended_by ?: '—' }}</td>
             </tr>
+            <tr>
+                <td class="l">Type of check-up</td><td class="v" colspan="3">{{ $C->checkup_type ?: '—' }}</td>
+            </tr>
             @if($C->citizen)
             <tr>
                 <td class="l">Address</td><td class="v" colspan="3">{{ $C->citizen->full_address ?: '—' }}</td>

@@ -59,7 +59,7 @@
                     {{ collect([$C->patientAge() !== null ? $C->patientAge() . ' yrs old' : null, $C->patientSex(), $C->citizen?->full_address])->filter()->implode(' · ') }}
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {{ $C->checked_at->format('M d, Y g:i A') }}@if($C->attended_by) · Attended by {{ $C->attended_by }}@endif
+                    @if($C->checkup_type)<span class="font-medium text-gray-700 dark:text-gray-200">{{ $C->checkup_type }}</span> · @endif{{ $C->checked_at->format('M d, Y g:i A') }}@if($C->attended_by) · Attended by {{ $C->attended_by }}@endif
                 </p>
             </div>
         </div>

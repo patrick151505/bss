@@ -21,6 +21,7 @@
 @endsection
 
 @section('content')
+@include('partials.photo-cropper')
 
 @if($errors->any())
 <div class="mb-4 p-4 rounded-lg bg-danger/10 border border-danger/30">
@@ -742,19 +743,6 @@ function ppSaving(on) {
     });
 }
 
-// Image or video frame → JPEG blob, max 800px (camera: centre square crop).
-function ppToJpeg(source, sw, sh, square) {
-    let sx = 0, sy = 0;
-    if (square) { const m = Math.min(sw, sh); sx = (sw - m) / 2; sy = (sh - m) / 2; sw = sh = m; }
-    const scale = Math.min(1, 800 / Math.max(sw, sh));
-    const c = document.createElement('canvas');
-    c.width = Math.round(sw * scale); c.height = Math.round(sh * scale);
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-    if (square && ppFacing === 'user' && source.tagName === 'VIDEO') { ctx.translate(c.width, 0); ctx.scale(-1, 1); }
-    ctx.drawImage(source, sx, sy, sw, sh, 0, 0, c.width, c.height);
-    return new Promise(res => c.toBlob(res, 'image/jpeg', 0.9));
-}
 
 function ppSave(blob) {
     if (!selectedId || !blob) return;
@@ -778,13 +766,11 @@ function ppSave(blob) {
         .finally(() => ppSaving(false));
 }
 
+// Uploaded picture: position it in the square frame, then save.
 function ppFromFile(file) {
     if (!file) return;
-    if (!/^image\//.test(file.type)) { ppError('Choose a JPG or PNG picture.'); return; }
-    const img = new Image();
-    img.onload = () => { ppToJpeg(img, img.naturalWidth, img.naturalHeight, false).then(ppSave); URL.revokeObjectURL(img.src); };
-    img.onerror = () => ppError('That picture could not be opened. Try a JPG or PNG.');
-    img.src = URL.createObjectURL(file);
+    ppError('');
+    PhotoCrop.open(file).then(blob => { if (blob) ppSave(blob); }).catch(e => ppError(e.message));
 }
 
 function ppStopCamera() {
@@ -824,7 +810,8 @@ document.getElementById('pp-camera-switch').addEventListener('click', () => { pp
 document.getElementById('pp-camera-capture').addEventListener('click', () => {
     const v = document.getElementById('pp-video');
     if (!v.videoWidth) return;
-    ppToJpeg(v, v.videoWidth, v.videoHeight, true).then(blob => { ppStopCamera(); ppSave(blob); });
+    // Freeze the frame, then position it in the square frame before saving.
+    PhotoCrop.open(v, { mirror: ppFacing === 'user' }).then(blob => { if (blob) { ppStopCamera(); ppSave(blob); } });
 });
 
 // ── Details the chosen document needs from the chosen person ─────────

@@ -32,7 +32,7 @@ class ActivityDashboardController extends Controller
             'events_upcoming'   => Event::where('event_date', '>=', $today)
                                         ->where('status', 'open')->count(),
             'total_citizens'    => Citizen::where('is_active', 1)->count(),
-            'total_households'  => DB::table('eb_household')->count(),
+            'total_households'  => \App\Models\Household::count(),
         ];
 
         // Budget is left out of this dashboard: its log entries are hidden from the feed and charts.

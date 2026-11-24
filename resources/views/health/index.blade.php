@@ -50,22 +50,23 @@
 
     <form method="GET" class="px-6 pt-4 pb-2">
         <div class="flex flex-wrap gap-3 items-end">
-            <div class="flex-1 min-w-52">
+            <div class="flex-1 min-w-[13rem]">
                 <label class="text-xs text-gray-500 dark:text-gray-400 font-medium block mb-1.5">Search</label>
                 <div class="relative">
                     <i class="mgc_search_line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
                     <input type="text" name="search" value="{{ request('search') }}" placeholder="Patient, complaint, findings…" class="form-input ps-9 text-sm w-full">
                 </div>
             </div>
-            <div>
-                <label class="text-xs text-gray-500 dark:text-gray-400 font-medium block mb-1.5">From</label>
-                <input type="date" name="from" value="{{ request('from') }}" class="form-input text-sm">
+            <div class="min-w-[11rem]">
+                <label class="text-xs text-gray-500 dark:text-gray-400 font-medium block mb-1.5">Type of check-up</label>
+                <select name="type" class="form-select text-sm w-full" onchange="this.form.submit()">
+                    <option value="">All types</option>
+                    @foreach($types as $t)
+                    <option value="{{ $t }}" @selected(request('type') === $t)>{{ $t }}</option>
+                    @endforeach
+                </select>
             </div>
-            <div>
-                <label class="text-xs text-gray-500 dark:text-gray-400 font-medium block mb-1.5">To</label>
-                <input type="date" name="to" value="{{ request('to') }}" class="form-input text-sm">
-            </div>
-            <div class="min-w-40">
+            <div class="min-w-[10rem]">
                 <label class="text-xs text-gray-500 dark:text-gray-400 font-medium block mb-1.5">Show</label>
                 <select name="flag" class="form-select text-sm">
                     <option value="">All check-ups</option>
@@ -77,10 +78,33 @@
             </div>
             <div class="flex gap-2 pb-0.5">
                 <button type="submit" class="btn bg-primary text-white"><i class="mgc_search_line me-1"></i>Filter</button>
-                @if(request()->hasAny(['search', 'from', 'to', 'flag']))
+                @if(request()->hasAny(['search', 'from', 'to', 'flag', 'type', 'period']))
                 <a href="{{ route('health.index') }}" class="btn bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white"><i class="mgc_close_line me-1"></i>Clear</a>
                 @endif
             </div>
+        </div>
+
+        {{-- Date range: quick picks, or Custom with From / To --}}
+        <input type="hidden" name="period" id="period-input" value="{{ $period }}">
+        <div class="flex flex-wrap items-center gap-3 mt-3">
+            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Date</span>
+            <div class="inline-flex flex-wrap rounded-lg border border-gray-200 dark:border-gray-700 p-1 gap-1" role="radiogroup" aria-label="Date range">
+                @foreach(['' => 'All dates', 'today' => 'Today', 'week' => '1 week', 'month' => '1 month', 'custom' => 'Custom'] as $key => $label)
+                <button type="button" data-period="{{ $key }}" role="radio" aria-checked="{{ $period === $key ? 'true' : 'false' }}"
+                        class="period-btn px-3 py-1.5 rounded-md text-sm font-medium transition {{ $period === $key ? 'bg-primary text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">{{ $label }}</button>
+                @endforeach
+            </div>
+            <div id="custom-range" class="flex flex-wrap items-center gap-2 {{ $period === 'custom' ? '' : 'hidden' }}">
+                <input type="date" name="from" value="{{ $period === 'custom' ? $from : '' }}" class="form-input text-sm py-1.5" aria-label="From">
+                <span class="text-gray-400 text-sm">to</span>
+                <input type="date" name="to" value="{{ $period === 'custom' ? $to : '' }}" class="form-input text-sm py-1.5" aria-label="To">
+                <button type="submit" class="btn btn-sm bg-primary text-white">Apply</button>
+            </div>
+            @if($from || $to)
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+                {{ $from ? date('M d, Y', strtotime($from)) : 'Start' }} – {{ $to ? date('M d, Y', strtotime($to)) : 'Today' }}
+            </span>
+            @endif
         </div>
     </form>
 
@@ -90,6 +114,7 @@
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">{{ request('flag') === 'follow_up' ? 'Follow-up' : 'Date' }}</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Patient</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Type</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">BP</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Complaint</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase dark:text-gray-400">Notes</th>
@@ -113,6 +138,12 @@
                         <p class="text-xs text-gray-500 dark:text-gray-400">
                             {{ collect([$c->patientAge() !== null ? $c->patientAge() . ' yrs' : null, $c->patientSex(), $c->isWalkIn() ? 'Walk-in' : null])->filter()->implode(' · ') }}
                         </p>
+                    </td>
+                    <td class="px-5 py-3 align-top">
+                        @if($c->checkup_type)
+                        <a href="{{ route('health.index', array_merge(request()->except('page'), ['type' => $c->checkup_type])) }}"
+                           class="inline-flex items-center py-1 px-2.5 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary hover:text-white whitespace-nowrap">{{ $c->checkup_type }}</a>
+                        @else<span class="text-gray-400">—</span>@endif
                     </td>
                     <td class="px-5 py-3 align-top whitespace-nowrap">
                         @if($c->bloodPressure())
@@ -146,7 +177,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="6" class="text-center py-12 text-gray-400">
+                <tr><td colspan="7" class="text-center py-12 text-gray-400">
                     <i class="mgc_heartbeat_line text-4xl mb-2 block opacity-30"></i>
                     {{ request()->hasAny(['search', 'from', 'to', 'flag']) ? 'No check-ups match these filters.' : 'No check-ups recorded yet.' }}
                 </td></tr>
@@ -160,3 +191,25 @@
     @endif
 </div>
 @endsection
+
+@push('inline-scripts')
+<script>
+// Date range quick picks: Today / 1 week / 1 month apply at once; Custom shows From–To.
+document.querySelectorAll('.period-btn').forEach(b => b.addEventListener('click', () => {
+    const form = b.closest('form');
+    document.getElementById('period-input').value = b.dataset.period;
+    if (b.dataset.period === 'custom') {
+        document.querySelectorAll('.period-btn').forEach(x => {
+            const on = x === b;
+            x.classList.toggle('bg-primary', on); x.classList.toggle('text-white', on);
+            x.classList.toggle('text-gray-600', !on); x.setAttribute('aria-checked', on);
+        });
+        document.getElementById('custom-range').classList.remove('hidden');
+        form.querySelector('input[name="from"]').focus();
+        return;
+    }
+    form.querySelectorAll('input[name="from"], input[name="to"]').forEach(i => i.value = '');
+    form.submit();
+}));
+</script>
+@endpush

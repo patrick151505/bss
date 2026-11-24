@@ -12,7 +12,7 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::with('roles')
+        $users = User::with(['roles', 'zones:id,description'])
             ->addSelect(['last_login_at' => \App\Models\LoginLog::select('created_at')
                 ->whereColumn('user_id', 'users.id')->where('event', 'login')
                 ->orderByDesc('id')->limit(1)])
@@ -30,7 +30,11 @@ class UserController extends Controller
         $canAssignRoles = $this->canAssignRoles();
         $roleGiver      = self::ROLE_GIVER;
 
-        return view('users.index', compact('users', 'roles', 'landingRoutes', 'rolePermissions', 'canAssignRoles', 'roleGiver'));
+        // Every zone, for the "Zones this account can see" picker (Super Admin only).
+        $zones = \App\Models\Address::withoutGlobalScope(\App\Support\ZoneAccess::SCOPE)
+            ->orderBy('description')->get(['id', 'description', 'is_active']);
+
+        return view('users.index', compact('users', 'roles', 'landingRoutes', 'rolePermissions', 'canAssignRoles', 'roleGiver', 'zones'));
     }
 
     /** Only the Super Admin may give, change or remove a user's role. */
@@ -87,6 +91,12 @@ class UserController extends Controller
             $user->syncRoles([$request->role]);
         }
 
+        // Super Admin picks the zones. Anyone else's new account gets their own
+        // zones, so a zone-limited admin can't make an account that sees more.
+        $this->saveZones($user, $this->canAssignRoles()
+            ? (array) $request->input('zones', [])
+            : (\App\Support\ZoneAccess::ids() ?? []));
+
         return back()->with('success', "User \"{$user->name}\" created."
             . ($this->canAssignRoles() ? '' : ' Ask the Super Admin to give this user a role.'));
     }
@@ -129,9 +139,28 @@ class UserController extends Controller
         $user->update($data);
         if ($this->canAssignRoles()) {
             $user->syncRoles($role ? [$role] : []);
+            $this->saveZones($user, (array) $request->input('zones', []));
         }
 
         return back()->with('success', "User \"{$user->name}\" updated.");
+    }
+
+    /** Save the zones an account is limited to (empty = all zones) and log a change. */
+    private function saveZones(User $user, array $zoneIds): void
+    {
+        $valid = \App\Models\Address::withoutGlobalScope(\App\Support\ZoneAccess::SCOPE)
+            ->whereIn('id', array_map('intval', $zoneIds))->pluck('id')->all();
+
+        $before = $user->zones()->pluck('eb_address.id')->sort()->values()->all();
+        $user->zones()->sync($valid);
+        \App\Support\ZoneAccess::flush($user->id);
+
+        $after = collect($valid)->sort()->values()->all();
+        if ($before !== $after) {
+            $names = $user->zones()->pluck('description')->implode(', ');
+            \App\Models\ActivityLog::record('updated', 'user', $user->id,
+                "Zones for {$user->name}: " . ($names !== '' ? $names : 'all zones'));
+        }
     }
 
     /**

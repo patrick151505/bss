@@ -145,4 +145,14 @@ class Blotter extends Model
             ? ($this->complainant_name ?? '—')
             : ($this->respondent_name  ?? '—');
     }
+
+    protected static function booted(): void
+    {
+        // Zone-limited accounts only see cases with a party from their zones.
+        static::addGlobalScope(\App\Support\ZoneAccess::SCOPE, function (\Illuminate\Database\Eloquent\Builder $query) {
+            if (\App\Support\ZoneAccess::restricted()) {
+                $query->whereHas('parties', fn ($p) => $p->whereIn('citizen_id', \App\Support\ZoneAccess::citizenIds()));
+            }
+        });
+    }
 }

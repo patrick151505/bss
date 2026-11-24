@@ -410,4 +410,10 @@ class DocumentRequest extends Model
 
         return $body;
     }
+
+    protected static function booted(): void
+    {
+        // Zone-limited accounts only see records of citizens in their zones.
+        static::addGlobalScope(\App\Support\ZoneAccess::SCOPE, \App\Support\ZoneAccess::byCitizenColumn('citizen_id'));
+    }
 }

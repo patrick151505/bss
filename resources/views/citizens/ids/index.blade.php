@@ -6,6 +6,7 @@
 ])
 
 @section('content')
+@include('partials.photo-cropper')
 
 {{-- Stat Strip — IDs created per period --}}
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -623,24 +624,6 @@ function setPhotoSaving(on) {
     });
 }
 
-// Draw a source (image or video frame) onto a canvas, max 800px, as a JPEG blob.
-function toJpeg(source, sw, sh, square) {
-    let sx = 0, sy = 0;
-    if (square) {              // camera: centre square crop, like an ID photo
-        const s = Math.min(sw, sh);
-        sx = (sw - s) / 2; sy = (sh - s) / 2; sw = sh = s;
-    }
-    const scale = Math.min(1, 800 / Math.max(sw, sh));
-    const c = document.createElement('canvas');
-    c.width = Math.round(sw * scale); c.height = Math.round(sh * scale);
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-    if (square && camFacing === 'user' && source.tagName === 'VIDEO') {
-        ctx.translate(c.width, 0); ctx.scale(-1, 1);   // un-mirror the selfie preview
-    }
-    ctx.drawImage(source, sx, sy, sw, sh, 0, 0, c.width, c.height);
-    return new Promise(res => c.toBlob(res, 'image/jpeg', 0.9));
-}
 
 function savePhoto(blob) {
     if (!selectedCitizenId || !blob) return;
@@ -663,13 +646,11 @@ function savePhoto(blob) {
     .finally(() => setPhotoSaving(false));
 }
 
+// Uploaded picture: position it in the square frame, then save.
 function fromFile(file) {
     if (!file) return;
-    if (!/^image\//.test(file.type)) { photoError('Choose a JPG or PNG picture.'); return; }
-    const img = new Image();
-    img.onload = () => { toJpeg(img, img.naturalWidth, img.naturalHeight, false).then(savePhoto); URL.revokeObjectURL(img.src); };
-    img.onerror = () => photoError('That picture could not be opened. Try a JPG or PNG.');
-    img.src = URL.createObjectURL(file);
+    photoError('');
+    PhotoCrop.open(file).then(blob => { if (blob) savePhoto(blob); }).catch(e => photoError(e.message));
 }
 
 document.getElementById('photo-upload-btn').addEventListener('click', () => document.getElementById('photo-file').click());
@@ -720,7 +701,8 @@ document.getElementById('camera-switch').addEventListener('click', () => {
 document.getElementById('camera-capture').addEventListener('click', () => {
     const v = document.getElementById('camera-video');
     if (!v.videoWidth) return;
-    toJpeg(v, v.videoWidth, v.videoHeight, true).then(blob => { stopCamera(); savePhoto(blob); });
+    // Freeze the frame, then position it in the square frame before saving.
+    PhotoCrop.open(v, { mirror: camFacing === 'user' }).then(blob => { if (blob) { stopCamera(); savePhoto(blob); } });
 });
 
 // ── Generate ID ───────────────────────────────────────────────────────

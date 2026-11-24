@@ -38,15 +38,15 @@ class BirthdayController extends Controller
 
         $filters  = [$voters, $is_pwd, $senior, $soloparents, $tags];
         // Large barangays have thousands of celebrants a month: page the list, count in SQL.
-        $citizens = $this->buildQuery($months, ...$filters)->when($day, fn($q) => $q->whereDay('bday', $day))
+        // bday_month / bday_day are indexed columns generated from bday, so
+        // these queries no longer read the whole citizen table.
+        $citizens = $this->buildQuery($months, ...$filters)->when($day, fn($q) => $q->where('eb_citizen.bday_day', $day))
             ->paginate(self::PER_PAGE)->withQueryString();
-        $inPeriod = fn() => $this->filteredQuery(...$filters)->whereIn(DB::raw('MONTH(bday)'), $months)
-            ->when($day, fn($q) => $q->whereDay('bday', $day));
 
         // Celebrants per day of the selected month, for the day picker.
         $dayCounts = count($months) === 1
-            ? $this->filteredQuery(...$filters)->whereMonth('bday', $months[0])
-                ->selectRaw('DAY(bday) d, COUNT(*) n')->groupByRaw('DAY(bday)')
+            ? $this->filteredQuery(...$filters)->where('eb_citizen.bday_month', $months[0])
+                ->selectRaw('bday_day d, COUNT(*) n')->groupBy('bday_day')
                 ->pluck('n', 'd')->map(fn($n) => (int) $n)->all()
             : [];
 
@@ -57,21 +57,31 @@ class BirthdayController extends Controller
 
         // Celebrants per month (same filters) for the month strip.
         $monthCounts = $this->filteredQuery(...$filters)
-            ->selectRaw('MONTH(bday) m, COUNT(*) n')->whereNotNull('bday')->groupByRaw('MONTH(bday)')
+            ->selectRaw('bday_month m, COUNT(*) n')->whereNotNull('eb_citizen.bday_month')->groupBy('bday_month')
             ->pluck('n', 'm')->map(fn($n) => (int) $n)->all();
 
-        // Today and the next 7 days, whatever period is selected (same filters).
-        $todayList = $this->onDays([now()], ...$filters);
-        $upcoming  = $this->onDays(collect(range(1, 7))->map(fn($d) => now()->addDays($d))->all(), ...$filters)
+        // Today and the next 7 days, whatever period is selected (same filters),
+        // fetched in one query and split by date.
+        $all       = $this->onDays(collect(range(0, 7))->map(fn($d) => now()->addDays($d))->all(), ...$filters);
+        $isToday   = fn($c) => $c->bday->month === $todayMonth && $c->bday->day === $todayDay;
+        $todayList = $all->filter($isToday)->values();
+        $upcoming  = $all->reject($isToday)
             ->sortBy(fn($c) => $this->nextBirthday($c)->timestamp)->values();
+
+        // Male / female / milestone counts for the period in a single pass.
+        $agg = $this->filteredQuery(...$filters)->whereIn('eb_citizen.bday_month', $months)
+            ->when($day, fn($q) => $q->where('eb_citizen.bday_day', $day))
+            ->selectRaw('SUM(gender = 1) male, SUM(gender = 0) female, SUM(YEAR(CURDATE()) - YEAR(bday) IN ('
+                . implode(',', array_keys(self::MILESTONES)) . ')) milestones')
+            ->toBase()->first();
 
         $stats = [
             'total'      => $citizens->total(),
             'today'      => $todayList->count(),
             'upcoming'   => $upcoming->count(),
-            'male'       => $inPeriod()->where('gender', 1)->count(),
-            'female'     => $inPeriod()->where('gender', 0)->count(),
-            'milestones' => $inPeriod()->whereRaw('YEAR(CURDATE()) - YEAR(bday) IN (' . implode(',', array_keys(self::MILESTONES)) . ')')->count(),
+            'male'       => (int) ($agg->male ?? 0),
+            'female'     => (int) ($agg->female ?? 0),
+            'milestones' => (int) ($agg->milestones ?? 0),
         ];
 
         return view('birthdays.index', [
@@ -114,7 +124,7 @@ class BirthdayController extends Controller
         $tags        = $this->tagIds($request->input('tags'));
 
         $query     = $this->buildQuery($months, $voters, $is_pwd, $senior, $soloparents, $tags)
-            ->when($day, fn($q) => $q->whereDay('bday', $day));
+            ->when($day, fn($q) => $q->where('eb_citizen.bday_day', $day));
         $format    = $request->input('format', 'csv');
         $monthName = $periodLabel;
         $filename  = 'birthdays_' . strtolower(str_replace(' ', '-', count($months) > 1 ? $period : $periodLabel)) . '_' . date('Y');
@@ -305,7 +315,7 @@ class BirthdayController extends Controller
             ->select(['id', 'fname', 'mname', 'lname', 'suffix', 'bday', 'profile', 'contact', 'address'])
             ->where(function ($q) use ($dates) {
                 foreach ($dates as $d) {
-                    $q->orWhere(fn($w) => $w->whereMonth('bday', $d->month)->whereDay('bday', $d->day));
+                    $q->orWhere(fn($w) => $w->where('eb_citizen.bday_month', $d->month)->where('eb_citizen.bday_day', $d->day));
                 }
             })
             ->orderBy('lname')->get();
@@ -315,9 +325,9 @@ class BirthdayController extends Controller
     {
         return $this->filteredQuery($voters, $is_pwd, $senior, $soloparents, $tags)
             ->with(['addressZone', 'civilStatus', 'tags'])
-            ->whereIn(DB::raw('MONTH(bday)'), $months)
-            ->orderByRaw('MONTH(bday)')
-            ->orderByRaw('DAY(bday)')
+            ->whereIn('eb_citizen.bday_month', $months)
+            ->orderBy('eb_citizen.bday_month')
+            ->orderBy('eb_citizen.bday_day')
             ->orderBy('lname');
     }
 

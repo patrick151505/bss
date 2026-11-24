@@ -115,4 +115,12 @@ class User extends Authenticatable
     {
         $this->notify(new \App\Notifications\ResetPasswordLink($token));
     }
+
+    /** Zones this account is limited to (none = all zones). See App\Support\ZoneAccess. */
+    public function zones()
+    {
+        return $this->belongsToMany(Address::class, 'eb_user_zones', 'user_id', 'address_id')
+            ->withoutGlobalScope(\App\Support\ZoneAccess::SCOPE)
+            ->orderBy('description');
+    }
 }

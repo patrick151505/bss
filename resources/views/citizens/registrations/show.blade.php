@@ -42,6 +42,7 @@
             'Address'          => $addressLine ?: '—',
             'Living here since' => !empty($d['year_stay']) ? \Carbon\Carbon::parse($d['year_stay'] . '-01')->format('F Y') : '—',
             'Home ownership'   => isset($d['owner_status']) ? ((int) $d['owner_status'] === 1 ? 'Owner' : 'Renter / Others') : '—',
+            'House owner'      => isset($d['owner_status']) && (int) $d['owner_status'] === 0 ? ($d['house_owner_name'] ?? '' ?: '—') : '—',
         ],
         'Contact & groups' => [
             'Mobile'      => $d['contact'] ?? '—',

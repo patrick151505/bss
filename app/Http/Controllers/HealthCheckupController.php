@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\Citizen;
 use App\Models\HealthCheckup;
+use App\Models\HealthCheckupType;
 use App\Models\InventoryItem;
 use App\Models\InventoryRelease;
 use App\Models\InventoryReleaseItem;
@@ -27,10 +28,14 @@ class HealthCheckupController extends Controller
 {
     public function index(Request $request)
     {
+        // Date range: Today / 1 week / 1 month, or Custom (From–To).
+        [$from, $to, $period] = $this->dateRange($request);
+
         $q = HealthCheckup::with(['citizen:id,fname,mname,lname,suffix,bday,gender,profile', 'medicines'])
             ->search($request->search)
-            ->when($request->from, fn($q, $d) => $q->whereDate('checked_at', '>=', $d))
-            ->when($request->to, fn($q, $d) => $q->whereDate('checked_at', '<=', $d))
+            ->when($request->type, fn($q, $t) => $q->where('checkup_type', $t))
+            ->when($from, fn($q, $d) => $q->whereDate('checked_at', '>=', $d))
+            ->when($to, fn($q, $d) => $q->whereDate('checked_at', '<=', $d))
             ->when($request->flag === 'high_bp', fn($q) => $q->whereRaw(HealthCheckup::HIGH_BP_SQL))
             ->when($request->flag === 'fever', fn($q) => $q->where('temperature', '>=', 37.5))
             ->when($request->flag === 'high_sugar', fn($q) => $q->where(fn($w) => $w
@@ -50,7 +55,32 @@ class HealthCheckupController extends Controller
             'follow_up' => HealthCheckup::whereBetween('follow_up_on', [today(), today()->addDays(7)])->count(),
         ];
 
-        return view('health.index', compact('checkups', 'stats'));
+        // Types for the filter: the saved list plus any older names still on check-ups.
+        $types = HealthCheckupType::ordered()->pluck('name')
+            ->merge(HealthCheckup::whereNotNull('checkup_type')->distinct()->pluck('checkup_type'))
+            ->unique(fn ($n) => mb_strtolower($n))->values();
+
+        return view('health.index', compact('checkups', 'stats', 'types', 'from', 'to', 'period'));
+    }
+
+    /**
+     * period = today | week (last 7 days) | month (last 30 days) | custom.
+     * A From/To with no period (e.g. from a stat card) counts as custom.
+     * Returns [from, to, period] with dates as Y-m-d (or null).
+     */
+    private function dateRange(Request $request): array
+    {
+        $period = $request->input('period');
+        $today  = today();
+
+        return match ($period) {
+            'today' => [$today->toDateString(), $today->toDateString(), 'today'],
+            'week'  => [$today->copy()->subDays(6)->toDateString(), $today->toDateString(), 'week'],
+            'month' => [$today->copy()->subDays(29)->toDateString(), $today->toDateString(), 'month'],
+            default => ($request->filled('from') || $request->filled('to'))
+                ? [$request->input('from') ?: null, $request->input('to') ?: null, 'custom']
+                : [null, null, $period === 'custom' ? 'custom' : ''],
+        };
     }
 
     public function create(Request $request)
@@ -60,7 +90,7 @@ class HealthCheckupController extends Controller
             ? $this->patientJson(Citizen::where('is_active', 1)->find((int) $request->citizen))
             : null;
 
-        return view('health.create', ['checkup' => $checkup, 'patient' => $patient, 'medicineItems' => $this->medicineItems()]);
+        return view('health.create', ['checkup' => $checkup, 'patient' => $patient, 'medicineItems' => $this->medicineItems(), 'checkupTypes' => $this->checkupTypes()]);
     }
 
     public function store(Request $request)
@@ -131,6 +161,7 @@ class HealthCheckupController extends Controller
             'checkup'       => $checkup,
             'patient'       => $checkup->citizen ? $this->patientJson($checkup->citizen) : null,
             'medicineItems' => collect(),
+            'checkupTypes'  => $this->checkupTypes(),
         ]);
     }
 
@@ -204,6 +235,12 @@ class HealthCheckupController extends Controller
             ->orderBy('name')->get(['id', 'name', 'unit', 'stock', 'category_id']);
     }
 
+    /** Saved check-up types for the form's Type box (active ones, in order). */
+    private function checkupTypes()
+    {
+        return HealthCheckupType::active()->ordered()->pluck('name');
+    }
+
     private function validated(Request $request): array
     {
         $request->validate([
@@ -212,6 +249,7 @@ class HealthCheckupController extends Controller
             'patient_age'   => ['nullable', 'integer', 'min:0', 'max:130'],
             'patient_sex'   => ['nullable', Rule::in(['M', 'F'])],
             'checked_at'    => ['required', 'date', 'before_or_equal:' . now()->addDay()->toDateString()],
+            'checkup_type'  => ['required', 'string', 'max:100'],
             'attended_by'   => ['nullable', 'string', 'max:255'],
             'bp_systolic'   => ['nullable', 'integer', 'between:50,300', 'required_with:bp_diastolic'],
             'bp_diastolic'  => ['nullable', 'integer', 'between:30,200', 'required_with:bp_systolic'],
@@ -242,6 +280,7 @@ class HealthCheckupController extends Controller
             'bp_systolic.required_with'     => 'Enter both numbers of the blood pressure (e.g. 120 / 80).',
             'bp_diastolic.required_with'    => 'Enter both numbers of the blood pressure (e.g. 120 / 80).',
             'checked_at.before_or_equal'    => 'The check-up date can’t be in the future.',
+            'checkup_type.required'         => 'Choose the type of check-up, or type a new one.',
         ], [
             'bp_systolic' => 'blood pressure (upper)', 'bp_diastolic' => 'blood pressure (lower)',
             'o2_sat' => 'oxygen saturation', 'resp_rate' => 'respiratory rate', 'weight_kg' => 'weight', 'height_cm' => 'height',
@@ -255,6 +294,8 @@ class HealthCheckupController extends Controller
             'complaint', 'findings', 'advice', 'referred_to', 'follow_up_on',
         ]);
         $data['sugar_fasting'] = $request->boolean('sugar_fasting');
+        // Reuse a saved type (any letter case) or add the typed one for next time.
+        $data['checkup_type'] = HealthCheckupType::resolve($request->input('checkup_type'));
         // A citizen's name/age/sex come from their record; keep walk-in fields only for walk-ins.
         $walkIn = !$request->filled('citizen_id');
         $data['patient_name'] = $walkIn ? trim((string) $request->patient_name) : null;

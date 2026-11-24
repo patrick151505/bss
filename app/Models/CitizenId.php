@@ -52,6 +52,13 @@ class CitizenId extends Model
 
         $qrValue = $c->qrcode ?? $setting->formatCitizenId($c->id);
 
+        // Sector placeholders print their label only when it applies, else nothing.
+        $sectors = array_filter([
+            'pwd'         => $c->is_pwd ? 'PWD' : '',
+            'solo_parent' => $c->is_soloparents ? 'SOLO PARENT' : '',
+            'senior'      => ($c->age ?? 0) >= 60 ? 'SENIOR CITIZEN' : '',
+        ]);
+
         return [
             'full_name'       => strtoupper($fullNameFormal),
             'fname'           => $fname,
@@ -77,8 +84,18 @@ class CitizenId extends Model
             'ic_contact'      => $c->ic_contact ?? '—',
             'ic_relationship' => $c->ic_relationship ?? '—',
             'ic_address'      => $c->ic_address ?? '—',
+            'pwd'             => $sectors['pwd'] ?? '',
+            'solo_parent'     => $sectors['solo_parent'] ?? '',
+            'senior'          => $sectors['senior'] ?? '',
+            'sectors'         => implode(' · ', $sectors),
             'photo_url'       => $photoUrl,
             'qr_url'          => \App\Support\Qr::svgDataUri($qrValue, 200),
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Zone-limited accounts only see records of citizens in their zones.
+        static::addGlobalScope(\App\Support\ZoneAccess::SCOPE, \App\Support\ZoneAccess::byCitizenColumn('citizen_id'));
     }
 }

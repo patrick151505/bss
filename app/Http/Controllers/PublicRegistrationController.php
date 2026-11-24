@@ -18,7 +18,7 @@ class PublicRegistrationController extends Controller
     /** Fields stored in the registration's data JSON (names match the staff citizen form). */
     const DATA_FIELDS = [
         'gender', 'civil_status', 'bplace', 'citizenship', 'occupation',
-        'address', 'no', 'street', 'blk', 'lot', 'phase', 'complete_address', 'year_stay', 'owner_status',
+        'address', 'no', 'street', 'blk', 'lot', 'phase', 'complete_address', 'year_stay', 'owner_status', 'house_owner_name',
         'contact', 'email', 'is_pwd', 'is_soloparents', 'is_senior', 'voters', 'pricinct_no',
         'ic_fullname', 'ic_relationship', 'ic_contact', 'ic_address', 'ic_email',
     ];
@@ -191,6 +191,7 @@ class PublicRegistrationController extends Controller
             'complete_address' => 'nullable|string|max:500',
             'year_stay'        => 'required|date_format:Y-m',
             'owner_status'     => 'required|in:0,1',
+            'house_owner_name' => 'nullable|string|max:150',
             'contact'          => ['required', $phone],
             'email'            => 'nullable|email|max:250',
             'is_pwd'           => 'required|in:0,1',
