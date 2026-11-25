@@ -19,6 +19,16 @@
 return [
 
     [
+        'version' => '3.6',
+        'date'    => '2026-11-25',
+        'title'   => 'ID photo window fix',
+        'summary' => 'The photo positioning window now shows in front when uploading a picture while making a Barangay ID.',
+        'changes' => [
+            ['type' => 'fixed', 'module' => 'Citizens', 'text' => 'Barangay ID: when uploading or taking a picture, the "Position the photo" window now appears in front of the Generate ID window instead of hidden behind it.'],
+        ],
+    ],
+
+    [
         'version' => '3.5',
         'date'    => '2026-11-24',
         'title'   => 'Faster Birthdays page, PWD / Solo Parent / Senior on IDs',

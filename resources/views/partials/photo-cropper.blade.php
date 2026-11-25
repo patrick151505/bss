@@ -6,7 +6,7 @@
     or null when the user cancels. Include once per page: @include('partials.photo-cropper')
 --}}
 @once
-<div id="pc-modal" class="fixed inset-0 z-[70] hidden items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="pc-title">
+<div id="pc-modal" style="z-index:1100" class="fixed inset-0 hidden items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="pc-title">
     <div class="absolute inset-0 bg-gray-900/70" data-pc-cancel></div>
     <div class="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden">
         <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
