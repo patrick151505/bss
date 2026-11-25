@@ -366,19 +366,20 @@ class CitizenController extends Controller
             'bday.before'          => 'Birthday must be a past date.',
         ];
 
-        // Duplicate check: same first name + last name + birthday
-        $duplicate = Citizen::where('fname', $request->fname)
-            ->where('lname', $request->lname)
-            ->whereDate('bday', $request->bday)
-            ->first();
+        // Settings → Citizen Fields decides what else is required / unique.
+        $rules = \App\Support\CitizenFieldRules::apply($rules);
+        $request->validate($rules, $messages, \App\Support\CitizenFieldRules::attributes());
 
-        if ($duplicate) {
+        // Duplicate check across ALL records (archived, walk-ins, other zones).
+        $dup = \App\Support\CitizenDuplicates::check($request->fname, $request->lname, $request->bday, null, $request->mname);
+        if ($dup['block']) {
+            return back()->withInput()->withErrors(['fname' => $dup['block']]);
+        }
+        if ($dup['similar']->isNotEmpty() && !$request->boolean('confirm_duplicate')) {
             return back()->withInput()->withErrors([
-                'fname' => 'A citizen with the same name and birthday already exists (ID: ' . \App\Models\Setting::instance()->formatCitizenId($duplicate->id) . ').',
+                'duplicate' => 'This may be someone already recorded. Check the possible matches, then tick "This is a different person" to save.',
             ]);
         }
-
-        $request->validate($rules, $messages);
 
         $qrcode = md5(\Illuminate\Support\Str::random(12) . date('Y-m-d H:i:s'));
 
@@ -680,7 +681,20 @@ class CitizenController extends Controller
             'bday.before'          => 'Birthday must be a past date.',
         ];
 
-        $request->validate($rules, $messages);
+        $rules = \App\Support\CitizenFieldRules::apply($rules, 'citizen', $citizen);
+        $request->validate($rules, $messages, \App\Support\CitizenFieldRules::attributes());
+
+        // Renaming / re-dating someone into an existing person is blocked.
+        $nameChanged = \App\Support\CitizenDuplicates::norm($request->fname) !== \App\Support\CitizenDuplicates::norm($citizen->fname)
+            || \App\Support\CitizenDuplicates::norm($request->lname) !== \App\Support\CitizenDuplicates::norm($citizen->lname)
+            || \App\Support\CitizenDuplicates::norm($request->mname) !== \App\Support\CitizenDuplicates::norm($citizen->mname)
+            || $request->bday !== $citizen->bday?->format('Y-m-d');
+        if ($nameChanged) {
+            $dup = \App\Support\CitizenDuplicates::check($request->fname, $request->lname, $request->bday, $citizen->id, $request->mname);
+            if ($dup['block']) {
+                return back()->withInput()->withErrors(['fname' => $dup['block']]);
+            }
+        }
 
         // Capture changed fields before saving
         $trackFields = [
@@ -895,6 +909,22 @@ class CitizenController extends Controller
     }
 
     /** Citizens that have been archived. */
+    /**
+     * Live duplicate check for the Add / Edit / Register Minor forms.
+     * GET ?fname=&lname=&bday=&except=
+     */
+    public function duplicateCheck(Request $request)
+    {
+        $except = $request->integer('except') ?: null;
+        $dup = \App\Support\CitizenDuplicates::check($request->fname, $request->lname, $request->bday, $except, $request->mname);
+
+        return response()->json([
+            'block'   => $dup['block'],
+            'exact'   => $dup['block'] ? \App\Support\CitizenDuplicates::describe($dup['exact']) : null,
+            'similar' => $dup['similar']->map(fn ($c) => \App\Support\CitizenDuplicates::describe($c))->values(),
+        ]);
+    }
+
     public function inactive(Request $request)
     {
         $search = $request->get('search');
@@ -1356,7 +1386,8 @@ class CitizenController extends Controller
             'bday.before' => 'Birthday must be a past date.',
         ];
 
-        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), $rules, $messages);
+        $rules = \App\Support\CitizenFieldRules::apply($rules, 'minor');
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), $rules, $messages, \App\Support\CitizenFieldRules::attributes());
 
         if ($validator->fails()) {
             return response()->json([
@@ -1383,16 +1414,15 @@ class CitizenController extends Controller
             ], 422);
         }
 
-        // Duplicate check
-        $duplicate = Citizen::where('fname', $request->fname)
-            ->where('lname', $request->lname)
-            ->whereDate('bday', $request->bday)
-            ->first();
-
-        if ($duplicate) {
+        // Duplicate check across ALL records (archived, walk-ins, other zones).
+        $dup = \App\Support\CitizenDuplicates::check($request->fname, $request->lname, $request->bday, null, $request->mname);
+        if ($dup['block']) {
+            return response()->json(['ok' => false, 'errors' => ['fname' => [$dup['block']]]], 422);
+        }
+        if ($dup['similar']->isNotEmpty() && !$request->boolean('confirm_duplicate')) {
             return response()->json([
                 'ok'     => false,
-                'errors' => ['fname' => ['A citizen with the same name and birthday already exists (ID: ' . \App\Models\Setting::instance()->formatCitizenId($duplicate->id) . ').']],
+                'errors' => ['confirm_duplicate' => ['This may be someone already recorded. Check the possible matches, then tick "This is a different person" to save.']],
             ], 422);
         }
 

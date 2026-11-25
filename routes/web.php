@@ -240,6 +240,7 @@ Route::middleware('auth')->group(function () {
         // Declared before the resource, otherwise "citizens/inactive" is
         // swallowed by the "citizens/{citizen}" show route.
         Route::get('citizens/inactive', [CitizenController::class, 'inactive'])->name('citizens.inactive');
+        Route::get('citizens/duplicate-check', [CitizenController::class, 'duplicateCheck'])->name('citizens.duplicate-check');
         Route::patch('citizens/{citizen}/restore', [CitizenController::class, 'restore'])
             ->middleware('can:citizens.restore')
             ->name('citizens.restore');
@@ -398,6 +399,8 @@ Route::middleware('auth')->group(function () {
     Route::post('settings/kiosk-slides',               [\App\Http\Controllers\KioskSettingsController::class, 'slideStore'])->name('settings.kiosk-slides.store');
     Route::patch('settings/kiosk-slides/{slide}',      [\App\Http\Controllers\KioskSettingsController::class, 'slideUpdate'])->name('settings.kiosk-slides.update');
     Route::delete('settings/kiosk-slides/{slide}',     [\App\Http\Controllers\KioskSettingsController::class, 'slideDestroy'])->name('settings.kiosk-slides.destroy');
+    Route::get('settings/citizen-fields', [SettingController::class, 'citizenFields'])->middleware('can:settings.view')->name('settings.citizen-fields');
+    Route::post('settings/citizen-fields', [SettingController::class, 'updateCitizenFields'])->middleware('can:settings.edit')->name('settings.citizen-fields.update');
     Route::get('settings/print-paper', [SettingController::class, 'printPaper'])->middleware('can:settings.view')->name('settings.print-paper');
     Route::post('settings/print-paper', [SettingController::class, 'updatePrintPaper'])->middleware('can:settings.edit')->name('settings.print-paper.update');
 

@@ -111,6 +111,8 @@
                         </span>
                     </div>
                 </div>
+                @include('citizens._duplicate-check', ['class' => 'mx-6 mt-6 -mb-2'])
+                @include('citizens._field-rules', ['form' => 'minor'])
                 <div class="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-4 p-6">
 
                     <div>
@@ -443,6 +445,12 @@ function stepNext() {
             return;
         }
 
+        const dupMsg = window.dupCheckBlocksSave ? window.dupCheckBlocksSave() : null;
+        if (dupMsg) {
+            Swal.fire({ toast: true, position: 'top-end', icon: 'warning', title: dupMsg, showConfirmButton: false, timer: 3500 });
+            return;
+        }
+
         if (document.getElementById('age-warn').classList.contains('hidden') === false) {
             Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Age must be under 18', showConfirmButton: false, timer: 2500 });
             return;
@@ -666,7 +674,7 @@ function submitMinor() {
             const fieldNames = Object.keys(data.errors);
 
             // If any error is on a step-2 field, navigate back to step 2
-            const step2Fields = ['fname','lname','mname','suffix','gender','bday','bplace','citizenship','relation_id','is_pwd','note'];
+            const step2Fields = ['confirm_duplicate', 'fname','lname','mname','suffix','gender','bday','bplace','citizenship','relation_id','is_pwd','note'];
             const hasStep2Error = fieldNames.some(f => step2Fields.includes(f));
             if (hasStep2Error && currentStep === 3) {
                 currentStep = 2;

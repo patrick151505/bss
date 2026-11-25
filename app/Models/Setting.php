@@ -33,6 +33,11 @@ class Setting extends Model
         'health_paper_version_id',
         'income_enabled',
         'poverty_threshold',
+        'citizen_field_rules',
+    ];
+
+    protected $casts = [
+        'citizen_field_rules' => 'array',
     ];
 
     /** Per-request memoized single settings row (avoids repeat queries). */

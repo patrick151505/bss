@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
 use App\Models\Setting;
+use App\Support\CitizenFieldRules;
 use App\Support\Paper;
 use Illuminate\Http\Request;
 
@@ -60,6 +61,55 @@ class SettingController extends Controller
         }
 
         return redirect()->route('settings.print-paper')->with('success', 'Print paper saved.');
+    }
+
+    /** Settings → Citizen Fields: which citizen fields are required / unique. */
+    public function citizenFields()
+    {
+        return view('settings.citizen-fields', [
+            'config'  => CitizenFieldRules::config(),
+            'repeats' => CitizenFieldRules::existingRepeats(),
+        ]);
+    }
+
+    public function updateCitizenFields(Request $request)
+    {
+        $fields   = array_keys(CitizenFieldRules::FIELDS);
+        $uniqueOk = array_keys(array_filter(CitizenFieldRules::FIELDS, fn ($f) => $f[3]));
+        $data = $request->validate([
+            'required'        => 'array',
+            'required.*'      => ['string', \Illuminate\Validation\Rule::in($fields)],
+            'unique'          => 'array',
+            'unique.*'        => ['string', \Illuminate\Validation\Rule::in($uniqueOk)],
+            'dup_middle_name' => 'nullable|boolean',
+        ]);
+
+        $before = CitizenFieldRules::config();
+        $after  = [
+            'required'        => array_values(array_intersect($fields, $data['required'] ?? [])),
+            'unique'          => array_values(array_intersect($uniqueOk, $data['unique'] ?? [])),
+            'dup_middle_name' => $request->boolean('dup_middle_name'),
+        ];
+
+        Setting::instance()->update(['citizen_field_rules' => $after]);
+        CitizenFieldRules::flush();
+
+        $label   = fn ($list) => $list ? implode(', ', array_map(fn ($f) => CitizenFieldRules::FIELDS[$f][0], $list)) : 'None';
+        $changed = [];
+        if ($before['required'] != $after['required']) {
+            $changed['Required'] = ['from' => $label($before['required']), 'to' => $label($after['required'])];
+        }
+        if ($before['unique'] != $after['unique']) {
+            $changed['Must be unique'] = ['from' => $label($before['unique']), 'to' => $label($after['unique'])];
+        }
+        if ($before['dup_middle_name'] !== $after['dup_middle_name']) {
+            $changed['Duplicate check uses middle name'] = ['from' => $before['dup_middle_name'] ? 'Yes' : 'No', 'to' => $after['dup_middle_name'] ? 'Yes' : 'No'];
+        }
+        if ($changed) {
+            ActivityLog::record('updated', 'settings', 1, 'Citizen field rules updated.', ['changed' => $changed]);
+        }
+
+        return redirect()->route('settings.citizen-fields')->with('success', 'Citizen field rules saved.');
     }
 
     /** "Barangay Letterhead · latest", "Barangay Letterhead · v2" or "None" — for the activity log. */

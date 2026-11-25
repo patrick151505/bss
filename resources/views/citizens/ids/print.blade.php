@@ -79,11 +79,9 @@
             ? $sigInitTag
             : '<div class="signature" id="sig-overlay" style="position:absolute;top:158px;left:40px;">' . $sigInitTag . '</div>';
 
-        // Replace all fixed placeholders first
-        foreach ($vals as $k => $v) {
-            $frontHtml = str_replace('{{' . $k . '}}', $v, $frontHtml);
-            $backHtml  = str_replace('{{' . $k . '}}', $v, $backHtml);
-        }
+        // Replace all fixed placeholders first ({{Municipality}}, {{ address }}, {{Barangay}} all work)
+        $frontHtml = \App\Models\CitizenId::fillPlaceholders($frontHtml, $vals);
+        $backHtml  = \App\Models\CitizenId::fillPlaceholders($backHtml, $vals);
 
         // Replace any {{qr_img_N}} dynamically — supports any pixel size.
         // QR is generated locally as an SVG data URI (no network dependency).

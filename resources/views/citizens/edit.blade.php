@@ -27,6 +27,9 @@
     @csrf
     @method('PUT')
 
+    @include('citizens._duplicate-check', ['except' => $citizen->id, 'gate' => false])
+    @include('citizens._field-rules')
+
     <div class="grid grid-cols-12 gap-6">
 
         {{-- ── Left Column ── --}}

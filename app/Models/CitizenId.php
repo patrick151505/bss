@@ -30,6 +30,28 @@ class CitizenId extends Model
      * $dateIssued / $validUntil default to "now" and "now+2y" for previewing
      * a citizen who doesn't have an actual ID record yet.
      */
+    /** Other names staff naturally type for a placeholder. */
+    public const PLACEHOLDER_ALIASES = [
+        'barangay' => 'brgy_name',
+        'brgy'     => 'brgy_name',
+        'city'     => 'municipality',
+        'town'     => 'municipality',
+    ];
+
+    /**
+     * Fill {{placeholders}} in a template. Capitals and spaces inside the
+     * braces don't matter ({{Municipality}}, {{ address }}), and the aliases
+     * above work too. Unknown tags are left as typed.
+     */
+    public static function fillPlaceholders(string $html, array $vals): string
+    {
+        return preg_replace_callback('/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/', function ($m) use ($vals) {
+            $key = strtolower($m[1]);
+            $key = self::PLACEHOLDER_ALIASES[$key] ?? $key;
+            return array_key_exists($key, $vals) ? (string) $vals[$key] : $m[0];
+        }, $html);
+    }
+
     public static function placeholderValues(
         Citizen $c,
         ?\Carbon\Carbon $dateIssued = null,

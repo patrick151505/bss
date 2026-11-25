@@ -21,10 +21,15 @@ return [
     [
         'version' => '3.6',
         'date'    => '2026-11-25',
-        'title'   => 'ID photo window fix',
-        'summary' => 'The photo positioning window now shows in front when uploading a picture while making a Barangay ID.',
+        'title'   => 'Citizen Fields settings, stronger duplicate check, clearer filters',
+        'summary' => 'Adding a citizen now checks every record (including archived, walk-ins and other zones) and warns about likely duplicates. The Citizens filter shows what is filtered, and the ID photo window shows in front.',
         'changes' => [
+            ['type' => 'new', 'module' => 'Settings', 'text' => 'Settings → Citizen Fields: choose which citizen details are required (e.g. middle name, photo, contact no., emergency contact) and whether a contact no. or email must be unique. Add Citizen, Edit and Register Minor follow it, and required fields get a red *. You can also make the middle name part of the duplicate-person check.'],
+            ['type' => 'improved', 'module' => 'Citizens', 'text' => 'Duplicate check: adding a citizen, registering a minor or editing a name or birthday now checks every record, including archived citizens, walk-ins and other zones. The same name and birthday cannot be saved; an archived match points you to the Archive to restore the person instead. Capital letters, extra spaces and dots no longer let a duplicate slip through.'],
+            ['type' => 'new', 'module' => 'Citizens', 'text' => 'Possible duplicates appear while you type: same birthday with a close name (a typo, "Ma." for "Maria"), or the same name with a different birthday. Each one opens for comparison, and you tick "This is a different person" to save anyway.'],
+            ['type' => 'fixed', 'module' => 'Citizens', 'text' => 'Barangay ID text fields: placeholders now work however they are typed — {{Municipality}}, {{ address }} and {{ADDRESS}} all fill in — and {{Barangay}} and {{City}} can be used for the barangay name and city. Before, a tag with a capital letter printed as-is on the card.'],
             ['type' => 'fixed', 'module' => 'Citizens', 'text' => 'Barangay ID: when uploading or taking a picture, the "Position the photo" window now appears in front of the Generate ID window instead of hidden behind it.'],
+            ['type' => 'improved', 'module' => 'Citizens', 'text' => 'Citizens list: the Advanced Filter panel closes after you click Apply Filter (or press Enter), so the results are right in view. A "Filtered by" row then lists every filter in plain words (e.g. Voters only · PWD · Age: 18–25 · Zone: Purok 1), and each one has an × to remove just that filter, plus Clear all.'],
         ],
     ],
 

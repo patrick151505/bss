@@ -415,6 +415,7 @@ const REMOVE_BG_URL = @js(route('citizens.ids.template.remove-bg'));
 const SEARCH_URL    = @js(route('citizens.search'));
 const PREVIEW_URL   = @js(url('citizens/ids/template/preview-data'));   // + /{id}
 const CSRF          = @js(csrf_token());
+const PLACEHOLDER_ALIASES = @js(\App\Models\CitizenId::PLACEHOLDER_ALIASES);
 const SAMPLE_DATA   = @js($sample);            // built-in fallback values
 let   SAMPLE        = Object.assign({}, SAMPLE_DATA);   // active preview values (mutable)
 
@@ -608,8 +609,12 @@ function elById(side, id) { return state[side].els.find(e => e.id === id); }
 
 function fillSample(text) {
     let out = String(text || '');
-    Object.entries(SAMPLE).forEach(([k,v]) => { out = out.split(TAG(k)).join(v); });
-    return out;
+    // Same rules as the printed card: capitals/spaces don't matter, aliases work.
+    return out.replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (m, k) => {
+        k = k.toLowerCase();
+        k = PLACEHOLDER_ALIASES[k] || k;
+        return Object.prototype.hasOwnProperty.call(SAMPLE, k) ? SAMPLE[k] : m;
+    });
 }
 
 function renderSide(side) {

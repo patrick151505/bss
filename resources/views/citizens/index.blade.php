@@ -147,6 +147,9 @@
                 </div>
             </div>
 
+            {{-- Summary of what is filtered, shown while the panel is closed --}}
+            <div id="filter-chips" class="hidden px-4 py-3 border-b dark:border-gray-700 flex flex-wrap items-center gap-2"></div>
+
             <div id="filter-body" class="{{ ($activeFilters ?? 0) > 0 ? '' : 'hidden' }}">
                 <form method="GET" action="{{ route('citizens.index') }}" id="filter-form">
                     <div class="grid lg:grid-cols-4 md:grid-cols-2 grid-cols-1 gap-4 p-6">
@@ -879,7 +882,15 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('filter-toggle').addEventListener('click', () => {
         document.getElementById('filter-body').classList.toggle('hidden');
         document.getElementById('filter-chevron').classList.toggle('rotate-180');
+        if (window.renderFilterChips) renderFilterChips();
     });
+    // Close the panel once filters are applied so the results are in view.
+    // The badge on the Advanced Filter button still shows how many are active.
+    window.collapseFilterPanel = () => {
+        document.getElementById('filter-body').classList.add('hidden');
+        document.getElementById('filter-chevron').classList.remove('rotate-180');
+        if (window.renderFilterChips) renderFilterChips();
+    };
 
     // ── Age range slider ───────────────────────────────────
     // Two handles over 0–100. The hidden age_min / age_max inputs are what the
@@ -926,7 +937,8 @@ window.addEventListener('DOMContentLoaded', () => {
     [ageFrom, ageTo].forEach(inp => inp.addEventListener('change', () => setAgeRange(ageFrom.value, ageTo.value)));
     // Enter in an age box applies the filter like the other fields.
     [ageFrom, ageTo].forEach(inp => inp.addEventListener('keydown', e => {
-        if (e.key === 'Enter') { e.preventDefault(); setAgeRange(ageFrom.value, ageTo.value); document.getElementById('filter-form').submit(); }
+        if (e.key === 'Enter') { e.preventDefault(); setAgeRange(ageFrom.value, ageTo.value); }
+        // The form's own Enter handler then applies the filter.
     }));
 
     function resetAgeSlider() {
@@ -1128,7 +1140,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const data = new FormData(form);
         const params = new URLSearchParams();
         for (const [k, v] of data.entries()) {
-            if (v !== '') params.set(k, v);
+            if (v !== '') params.append(k, v);   // append keeps every ticked tag
         }
         params.set('per_page', perPage.value);
         params.set('page', currentPage);
@@ -1159,6 +1171,84 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ── "Filtered by" chips ───────────────────────────────
+    // While the panel is closed, list every filter in plain words so staff
+    // can see why the list looks the way it does. Each chip's × removes
+    // just that filter.
+    const chipBar = document.getElementById('filter-chips');
+    // Selects whose option text already says it all ("PWD", "Non-Voter").
+    const SELF_LABELLED = ['voters', 'is_pwd', 'is_soloparents', 'senior'];
+
+    function fieldLabel(el) {
+        const lbl = el.parentElement.querySelector('label');
+        return lbl ? lbl.textContent.trim() : el.name;
+    }
+
+    window.renderFilterChips = function () {
+        if (!chipBar) return;
+        const chips = [];
+        const add = (text, remove) => chips.push({ text, remove });
+
+        if (searchField.value.trim()) {
+            add('Search: “' + searchField.value.trim() + '”', () => { searchField.value = ''; quickSearch.value = ''; });
+        }
+        form.querySelectorAll('select').forEach(sel => {
+            if (sel.value === '') return;
+            const opt = sel.options[sel.selectedIndex].textContent.trim();
+            let text = SELF_LABELLED.includes(sel.name) ? opt : fieldLabel(sel) + ': ' + opt;
+            if (sel.name === 'voters') text = (sel.value === '1' ? 'Voters only' : 'Non-voters only') + (votersTouched ? '' : ' (default)');
+            add(text, () => {
+                sel.value = '';
+                if (sel.name === 'voters') votersTouched = true;
+            });
+        });
+        const lo = document.getElementById('age-min').value, hi = document.getElementById('age-max').value;
+        if (lo !== '' || hi !== '') {
+            const age = lo !== '' && hi !== '' ? (lo === hi ? lo : lo + '–' + hi)
+                      : lo !== '' ? lo + ' and up' : 'up to ' + hi;
+            add('Age: ' + age, () => resetAgeSlider());
+        }
+        const hh = form.querySelector('[name="household_search"]');
+        if (hh && hh.value.trim()) add('Household: ' + hh.value.trim(), () => { hh.value = ''; });
+        form.querySelectorAll('input[name="tags[]"]:checked').forEach(cb => {
+            const name = cb.closest('label')?.querySelector('span')?.textContent.trim() || 'Tag';
+            add('Tag: ' + name, () => { cb.checked = false; });
+        });
+
+        const panelOpen = !document.getElementById('filter-body').classList.contains('hidden');
+        chipBar.replaceChildren();
+        chipBar.classList.toggle('hidden', panelOpen || chips.length === 0);
+        if (panelOpen || chips.length === 0) return;
+
+        const lead = document.createElement('span');
+        lead.className = 'text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1';
+        lead.innerHTML = '<i class="mgc_filter_line"></i> Filtered by:';
+        chipBar.append(lead);
+
+        chips.forEach(c => {
+            const chip = document.createElement('span');
+            chip.className = 'inline-flex items-center gap-1 py-1 ps-3 pe-1 rounded-full text-xs font-medium bg-primary/10 text-primary';
+            chip.append(c.text);
+            const x = document.createElement('button');
+            x.type = 'button';
+            x.className = 'w-5 h-5 rounded-full flex items-center justify-center hover:bg-primary hover:text-white';
+            x.title = 'Remove this filter';
+            x.innerHTML = '<i class="mgc_close_line text-xs"></i>';
+            x.addEventListener('click', () => { c.remove(); updateActiveCount(); renderFilterChips(); fetchTable(true); });
+            chip.append(x);
+            chipBar.append(chip);
+        });
+
+        if (chips.length > 1) {
+            const all = document.createElement('button');
+            all.type = 'button';
+            all.className = 'text-xs font-medium text-danger hover:underline ms-1';
+            all.textContent = 'Clear all';
+            all.addEventListener('click', () => clearBtn.click());
+            chipBar.append(all);
+        }
+    };
+
     // Only the newest request may update the table. While typing, several
     // searches can be in flight; without this a slow, older response could
     // land last and overwrite the results for what is actually in the box.
@@ -1184,6 +1274,7 @@ window.addEventListener('DOMContentLoaded', () => {
             wrap.innerHTML = res.html;
             overlay.classList.add('hidden');
             updateActiveCount();
+            renderFilterChips();
             // Intercept pagination + sort links in the swapped HTML
             attachPaginationLinks();
             attachSortLinks();
@@ -1249,11 +1340,11 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     // Apply button
-    applyBtn.addEventListener('click', () => fetchTable(true));
+    applyBtn.addEventListener('click', () => { fetchTable(true); collapseFilterPanel(); });
 
     // Also allow Enter key in any filter input to trigger apply
     form.addEventListener('keydown', e => {
-        if (e.key === 'Enter') { e.preventDefault(); fetchTable(true); }
+        if (e.key === 'Enter') { e.preventDefault(); fetchTable(true); collapseFilterPanel(); }
     });
 
     // Per-page fires immediately (no ambiguity)
@@ -1275,6 +1366,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // Initial server-rendered pagination + sort links
     attachPaginationLinks();
     attachSortLinks();
+    renderFilterChips();
 
     // ── View toggle ─────────────────────────────────────────────
     const viewBtns = document.querySelectorAll('.view-toggle');

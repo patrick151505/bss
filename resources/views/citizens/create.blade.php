@@ -25,6 +25,9 @@
 <form action="{{ route('citizens.store') }}" method="POST" enctype="multipart/form-data" id="citizen-create-form">
     @csrf
 
+    @include('citizens._duplicate-check')
+    @include('citizens._field-rules')
+
     <div class="grid grid-cols-12 gap-6">
 
         {{-- ── Left Column ── --}}
