@@ -112,6 +112,39 @@
             @endcan
         </div>
 
+        {{-- Quick-filter count cards. Counts follow the other filters (zone,
+             search, tags…); a click shows just that group and keeps them. --}}
+        @php
+            $statCards = [
+                ['key' => 'all',     'label' => 'All citizens', 'n' => $stats['total'],   'icon' => 'mgc_group_line',       'tone' => 'primary'],
+                ['key' => 'voters',  'label' => 'Voters',       'n' => $stats['voters'],  'icon' => 'mgc_user_follow_line', 'tone' => 'success'],
+                ['key' => 'seniors', 'label' => 'Seniors (60+)','n' => $stats['seniors'], 'icon' => 'mgc_walk_line',        'tone' => 'warning'],
+                ['key' => 'pwd',     'label' => 'PWD',          'n' => $stats['pwd'],     'icon' => 'mgc_heart_line',       'tone' => 'info'],
+                ['key' => 'solo',    'label' => 'Solo parents', 'n' => $stats['solo'],    'icon' => 'mgc_user_2_line',      'tone' => 'danger'],
+                ['key' => 'minors',  'label' => 'Minors (0–17)','n' => $stats['minors'],  'icon' => 'mgc_baby_line',        'tone' => 'dark'],
+            ];
+            $toneCls = [
+                'primary' => 'bg-primary/10 text-primary', 'success' => 'bg-success/10 text-success',
+                'warning' => 'bg-warning/10 text-warning', 'info' => 'bg-info/10 text-info',
+                'danger'  => 'bg-danger/10 text-danger',   'dark' => 'bg-dark/10 text-slate-700 dark:text-slate-200',
+            ];
+        @endphp
+        <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 mb-4" id="stat-cards">
+            @foreach($statCards as $c)
+            <button type="button" data-quick="{{ $c['key'] }}"
+                    class="stat-card card p-3 sm:p-4 text-start flex items-center gap-3 border-2 border-transparent hover:border-primary/40 transition"
+                    title="Show {{ strtolower($c['label']) }}">
+                <span class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 {{ $toneCls[$c['tone']] }}">
+                    <i class="{{ $c['icon'] }} text-xl"></i>
+                </span>
+                <span class="min-w-0">
+                    <span class="block text-[11px] leading-tight text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ $c['label'] }}</span>
+                    <span class="block text-xl font-bold text-gray-800 dark:text-gray-100" data-stat="{{ $c['key'] }}">{{ number_format($c['n']) }}</span>
+                </span>
+            </button>
+            @endforeach
+        </div>
+
         {{-- Advanced Filter Card --}}
         @php
             // Search has its own always-visible box, and voters is applied by
@@ -144,6 +177,22 @@
                         <span id="filter-active-badge" class="ms-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-primary rounded-full {{ $activeFilters > 0 ? '' : 'hidden' }}">{{ $activeFilters }}</span>
                         <i class="mgc_down_line transition-transform duration-200" id="filter-chevron"></i>
                     </button>
+
+                    {{-- Saved filters --}}
+                    <div class="relative shrink-0" id="saved-filters">
+                        <button type="button" id="saved-filters-btn" class="btn bg-dark/10 text-slate-700 dark:text-slate-300 hover:bg-dark/20" aria-haspopup="true" aria-expanded="false">
+                            <i class="mgc_bookmark_line"></i> Saved filters
+                            <i class="mgc_down_line"></i>
+                        </button>
+                        <div id="saved-filters-menu" class="hidden absolute end-0 mt-2 w-72 max-w-[calc(100vw-2rem)] z-30 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+                            <div id="saved-filters-list" class="max-h-72 overflow-y-auto py-1"></div>
+                            <div class="border-t border-gray-200 dark:border-gray-700 p-2">
+                                <button type="button" id="save-filter-btn" class="w-full btn btn-sm bg-primary/10 text-primary hover:bg-primary hover:text-white justify-center">
+                                    <i class="mgc_save_line"></i> Save current filters…
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -386,6 +435,30 @@
                         <h5 class="card-title">Citizen List</h5>
                     </div>
                     <div class="flex items-center gap-2">
+                        {{-- Column chooser (table view, tablet and up) — remembered per user in this browser --}}
+                        @php
+                            $listColumns = [
+                                'household' => 'Household', 'age' => 'Age', 'gender' => 'Gender',
+                                'address' => 'Address / Zone', 'civil' => 'Civil Status', 'tags' => 'Tags',
+                                'flags' => 'Flags', 'status' => 'Status', 'registered' => 'Registered',
+                                'updated' => 'Last Updated',
+                            ];
+                        @endphp
+                        <div class="relative hidden md:block" id="col-chooser">
+                            <button type="button" id="col-chooser-btn" title="Choose columns"
+                                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 hover:text-primary transition">
+                                <i class="mgc_column_line text-base"></i> Columns
+                            </button>
+                            <div id="col-chooser-menu" class="hidden absolute end-0 mt-2 w-56 z-30 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-2">
+                                <p class="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Show columns</p>
+                                @foreach($listColumns as $key => $label)
+                                <label class="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 text-sm text-gray-700 dark:text-gray-200">
+                                    <input type="checkbox" class="col-toggle form-checkbox rounded text-primary" value="{{ $key }}" checked> {{ $label }}
+                                </label>
+                                @endforeach
+                                <button type="button" id="col-reset" class="w-full mt-1 text-xs text-primary hover:underline py-1">Show all</button>
+                            </div>
+                        </div>
                         {{-- Table / Grid toggle — choice is remembered per browser --}}
                         <div class="inline-flex shrink-0 rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden" role="group" aria-label="View">
                             <button type="button" data-view="table" title="Table view"
@@ -404,6 +477,34 @@
                         </select>
                     </div>
                 </div>
+            </div>
+
+            {{-- Bulk actions — shown while citizens are ticked (kept across pages) --}}
+            <div id="bulk-bar" class="hidden sticky top-0 z-20 px-4 py-2.5 border-b border-primary/30 bg-primary/10 flex flex-wrap items-center gap-2">
+                <span class="text-sm font-semibold text-primary me-1"><i class="mgc_check_line"></i> <span id="bulk-count">0</span> selected</span>
+                @can('citizens.tag')
+                @if($allTags->isNotEmpty())
+                <button type="button" id="bulk-tag-add" class="btn btn-sm bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 border border-gray-200 dark:border-gray-700 hover:text-primary">
+                    <i class="mgc_tag_line"></i> Add tag
+                </button>
+                <button type="button" id="bulk-tag-remove" class="btn btn-sm bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 border border-gray-200 dark:border-gray-700 hover:text-primary">
+                    <i class="mgc_close_line"></i> Remove tag
+                </button>
+                @endif
+                @endcan
+                @can('citizens.export')
+                <button type="button" id="bulk-export" class="btn btn-sm bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-200 border border-gray-200 dark:border-gray-700 hover:text-primary">
+                    <i class="mgc_file_download_line"></i> Export selected
+                </button>
+                @endcan
+                @can('citizens.archive')
+                <button type="button" id="bulk-archive" class="btn btn-sm bg-warning/25 text-warning hover:bg-warning hover:text-white">
+                    <i class="mgc_archive_line"></i> Set inactive
+                </button>
+                @endcan
+                <button type="button" id="bulk-clear" class="ms-auto text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-danger hover:underline">
+                    Clear selection
+                </button>
             </div>
 
             {{-- Table wrapper (swapped by AJAX) --}}
@@ -486,6 +587,25 @@
     </div>
 </div>
 
+{{-- Quick view — slides in from the right when a citizen's name is clicked --}}
+<div id="qv" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="qv-name">
+    <div id="qv-backdrop" class="absolute inset-0 bg-black/40"></div>
+    <aside id="qv-panel" class="absolute inset-y-0 end-0 w-full sm:w-[420px] bg-white dark:bg-gray-800 shadow-2xl flex flex-col translate-x-full transition-transform duration-200">
+        <div class="flex items-center justify-between px-5 py-3 border-b dark:border-gray-700">
+            <h3 class="font-bold text-gray-800 dark:text-white">Quick view</h3>
+            <button type="button" id="qv-close" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="Close"><i class="mgc_close_line text-xl"></i></button>
+        </div>
+        <div id="qv-body" class="flex-1 overflow-y-auto"></div>
+        <div class="flex flex-wrap gap-2 justify-end px-5 py-3 border-t dark:border-gray-700">
+            <button type="button" id="qv-activity" class="btn btn-sm bg-info/25 text-info hover:bg-info hover:text-white"><i class="mgc_history_line"></i> All transactions</button>
+            @can('citizens.edit')
+            <a id="qv-edit" href="#" class="btn btn-sm bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white"><i class="mgc_edit_line"></i> Edit</a>
+            @endcan
+            <a id="qv-profile" href="#" class="btn btn-sm bg-primary text-white"><i class="mgc_user_3_line"></i> Full profile</a>
+        </div>
+    </aside>
+</div>
+
 {{-- ── Export Modal ── --}}
 @php
 $exportFieldGroups = [
@@ -552,7 +672,7 @@ $exportFieldGroups = [
                 <div class="flex items-center gap-2">
                     <i class="mgc_file_download_line text-primary text-xl"></i>
                     <h5 class="font-semibold text-gray-800 dark:text-gray-100">Export Citizens</h5>
-                    <span class="text-xs text-gray-400 ms-1">({{ $citizens->total() }} records match current filter)</span>
+                    <span class="text-xs text-gray-400 ms-1">(<span id="export-match-count">{{ number_format($citizens->total()) }}</span> <span id="export-match-label">records match current filter</span>)</span>
                 </div>
                 <button type="button" id="close-export-modal"
                     class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
@@ -564,12 +684,8 @@ $exportFieldGroups = [
             <form id="export-form" method="POST" action="{{ route('citizens.export') }}" class="flex flex-col overflow-hidden">
                 @csrf
 
-                {{-- Pass active filters as hidden inputs --}}
-                @foreach($filters ?? [] as $key => $value)
-                    @if($value !== '' && $value !== null)
-                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                    @endif
-                @endforeach
+                {{-- Filled when the window opens: the list's current filters, or the ticked citizens --}}
+                <div id="export-scope"></div>
 
                 <div class="overflow-y-auto flex-1 px-6 py-5 space-y-5">
 
@@ -708,6 +824,13 @@ $exportFieldGroups = [
 @endsection
 
 @section('script')
+@php
+    $allTagsJs = $allTags->pluck('name', 'id');
+    $savedFiltersJs = $savedFilters->map(fn ($f) => [
+        'id' => $f->id, 'name' => $f->name, 'query' => $f->query, 'is_shared' => $f->is_shared,
+        'mine' => (int) $f->user_id === (int) auth()->id(), 'by' => $f->user->name ?? 'another user',
+    ])->values();
+@endphp
 @include('partials.scan-anywhere')
 <script>
 // ── Citizen activity pop-up (opened by scanning an ID, or the history button on a row) ──
@@ -1140,7 +1263,9 @@ window.addEventListener('DOMContentLoaded', () => {
         const data = new FormData(form);
         const params = new URLSearchParams();
         for (const [k, v] of data.entries()) {
-            if (v !== '') params.append(k, v);   // append keeps every ticked tag
+            // append keeps every ticked tag. An empty "voters" (= All) is sent
+            // on purpose: without it the server falls back to voters only.
+            if (v !== '' || k === 'voters') params.append(k, v);
         }
         params.set('per_page', perPage.value);
         params.set('page', currentPage);
@@ -1183,6 +1308,9 @@ window.addEventListener('DOMContentLoaded', () => {
         const lbl = el.parentElement.querySelector('label');
         return lbl ? lbl.textContent.trim() : el.name;
     }
+
+    let resultTotal = window.citizenListTotal = {{ (int) $citizens->total() }};
+    const exportCount = document.getElementById('export-match-count');
 
     window.renderFilterChips = function () {
         if (!chipBar) return;
@@ -1247,7 +1375,15 @@ window.addEventListener('DOMContentLoaded', () => {
             all.addEventListener('click', () => clearBtn.click());
             chipBar.append(all);
         }
+
+        // How many citizens these filters leave.
+        const count = document.createElement('span');
+        count.className = 'ms-auto inline-flex items-center gap-1.5 py-1 px-3 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200';
+        count.innerHTML = '<i class="mgc_user_3_line"></i>';
+        count.append(resultTotal.toLocaleString() + (resultTotal === 1 ? ' citizen found' : ' citizens found'));
+        chipBar.append(count);
     };
+
 
     // Only the newest request may update the table. While typing, several
     // searches can be in flight; without this a slow, older response could
@@ -1273,8 +1409,15 @@ window.addEventListener('DOMContentLoaded', () => {
         .then(res => {
             wrap.innerHTML = res.html;
             overlay.classList.add('hidden');
+            if (res.stats) paintStatCounts(res.stats);
+            if (typeof res.total === 'number') {
+                resultTotal = window.citizenListTotal = res.total;
+                if (exportCount) exportCount.textContent = res.total.toLocaleString();
+            }
             updateActiveCount();
             renderFilterChips();
+            paintStatCards();
+            syncChecks();
             // Intercept pagination + sort links in the swapped HTML
             attachPaginationLinks();
             attachSortLinks();
@@ -1398,6 +1541,407 @@ window.addEventListener('DOMContentLoaded', () => {
     });
     observer.observe(wrap, { childList: true });
 
+    // ── Shared helpers ─────────────────────────────────────
+    const CSRF = @json(csrf_token());
+    const swalColor = color => () => {
+        const b = document.querySelector('.swal2-confirm');
+        if (b) b.style.setProperty('background-color', color, 'important');
+    };
+    const toast = (icon, title) => Swal.fire({ toast: true, position: 'top-end', icon, title, timer: 2600, showConfirmButton: false });
+    async function postJson(url, body, method = 'POST') {
+        const r = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': CSRF, 'X-Requested-With': 'XMLHttpRequest' },
+            body: body ? JSON.stringify(body) : null,
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+            const first = data.errors ? Object.values(data.errors)[0][0] : null;
+            throw new Error(first || data.message || ('The server said no (error ' + r.status + ').'));
+        }
+        return data;
+    }
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+    // ── Quick-filter count cards ───────────────────────────
+    // Each card shows one group. It replaces the group filters (voter, senior,
+    // PWD, solo parent, age) and keeps the rest (zone, search, tags…).
+    const GROUP_SELECTS = ['voters', 'senior', 'is_pwd', 'is_soloparents'];
+    const QUICK = {
+        all:     {},
+        voters:  { voters: '1' },
+        seniors: { senior: '1' },
+        pwd:     { is_pwd: '1' },
+        solo:    { is_soloparents: '1' },
+        minors:  { age: [0, 17] },
+    };
+    const sel = name => form.querySelector('[name="' + name + '"]');
+
+    function currentQuick() {
+        const state = {};
+        GROUP_SELECTS.forEach(n => { const el = sel(n); if (el && el.value !== '') state[n] = el.value; });
+        const lo = document.getElementById('age-min').value, hi = document.getElementById('age-max').value;
+        if (lo !== '' || hi !== '') state.age = [lo === '' ? 0 : +lo, hi === '' ? 100 : +hi];
+        return Object.keys(QUICK).find(k => {
+            const want = QUICK[k];
+            const keys = new Set([...Object.keys(want), ...Object.keys(state)]);
+            return [...keys].every(key => JSON.stringify(want[key]) === JSON.stringify(state[key]));
+        }) || null;
+    }
+
+    // Card numbers follow the list's other filters; refreshed with every list load.
+    const STAT_FIELD = { all: 'total', voters: 'voters', seniors: 'seniors', pwd: 'pwd', solo: 'solo', minors: 'minors' };
+    function paintStatCounts(stats) {
+        document.querySelectorAll('[data-stat]').forEach(el => {
+            const n = stats[STAT_FIELD[el.dataset.stat]];
+            if (typeof n === 'number') el.textContent = n.toLocaleString();
+        });
+    }
+
+    function paintStatCards() {
+        const on = currentQuick();
+        document.querySelectorAll('.stat-card').forEach(c => {
+            const active = c.dataset.quick === on;
+            c.classList.toggle('border-primary', active);
+            c.classList.toggle('border-transparent', !active);
+            c.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    }
+
+    document.querySelectorAll('.stat-card').forEach(card => card.addEventListener('click', () => {
+        const want = QUICK[card.dataset.quick];
+        GROUP_SELECTS.forEach(n => { const el = sel(n); if (el) el.value = want[n] ?? ''; });
+        votersTouched = true;
+        if (want.age) setAgeRange(want.age[0], want.age[1]); else resetAgeSlider();
+        updateActiveCount();
+        fetchTable(true);
+        paintStatCards();
+    }));
+
+    // ── Bulk selection ─────────────────────────────────────
+    // Ticks are kept by citizen id, so they survive paging, sorting and filtering.
+    const selected = new Set();
+    const bulkBar = document.getElementById('bulk-bar');
+
+    function syncChecks() {
+        const boxes = [...wrap.querySelectorAll('.bulk-check')];
+        boxes.forEach(cb => { cb.checked = selected.has(cb.value); });
+        const ids = [...new Set(boxes.map(cb => cb.value))];
+        const onPage = ids.filter(id => selected.has(id)).length;
+        wrap.querySelectorAll('.bulk-check-page').forEach(pc => {
+            pc.checked = ids.length > 0 && onPage === ids.length;
+            pc.indeterminate = onPage > 0 && onPage < ids.length;
+        });
+        document.getElementById('bulk-count').textContent = selected.size.toLocaleString();
+        bulkBar.classList.toggle('hidden', selected.size === 0);
+    }
+
+    wrap.addEventListener('change', e => {
+        if (e.target.classList.contains('bulk-check')) {
+            e.target.checked ? selected.add(e.target.value) : selected.delete(e.target.value);
+            syncChecks();
+        } else if (e.target.classList.contains('bulk-check-page')) {
+            const on = e.target.checked;
+            wrap.querySelectorAll('.bulk-check').forEach(cb => on ? selected.add(cb.value) : selected.delete(cb.value));
+            syncChecks();
+        }
+    });
+
+    function clearSelection() { selected.clear(); syncChecks(); }
+    document.getElementById('bulk-clear').addEventListener('click', clearSelection);
+
+    const BULK_URL = @json(route('citizens.bulk'));
+    const ALL_TAGS = @json($allTagsJs);
+    const plural = n => n.toLocaleString() + (n === 1 ? ' citizen' : ' citizens');
+
+    function tooMany() {
+        if (selected.size <= 500) return false;
+        Swal.fire({ icon: 'info', title: 'Too many selected', text: 'Bulk changes work on up to 500 citizens at a time. You have ' + selected.size.toLocaleString() + ' ticked.', didOpen: swalColor('#727cf5') });
+        return true;
+    }
+
+    async function runBulk(payload, after) {
+        try {
+            const res = await postJson(BULK_URL, { ...payload, ids: [...selected].map(Number) });
+            toast('success', res.message);
+            after && after(res);
+        } catch (err) {
+            Swal.fire({ icon: 'error', title: 'Could not finish', text: err.message, didOpen: swalColor('#727cf5') });
+        }
+    }
+
+    function bulkTag(action) {
+        if (tooMany()) return;
+        const adding = action === 'tag_add';
+        Swal.fire({
+            title: adding ? 'Add a tag' : 'Remove a tag',
+            text: (adding ? 'Add this tag to ' : 'Remove this tag from ') + plural(selected.size) + '.',
+            input: 'select',
+            inputOptions: ALL_TAGS,
+            inputPlaceholder: 'Choose a tag',
+            showCancelButton: true,
+            confirmButtonText: adding ? 'Add tag' : 'Remove tag',
+            reverseButtons: true,
+            inputValidator: v => !v && 'Choose a tag.',
+            didOpen: swalColor(adding ? '#727cf5' : '#fa5c7c'),
+        }).then(r => {
+            if (r.isConfirmed) runBulk({ action, tag_id: Number(r.value) }, () => fetchTable(false));
+        });
+    }
+    document.getElementById('bulk-tag-add')?.addEventListener('click', () => bulkTag('tag_add'));
+    document.getElementById('bulk-tag-remove')?.addEventListener('click', () => bulkTag('tag_remove'));
+
+    document.getElementById('bulk-export')?.addEventListener('click', () => {
+        if (window.openExportModal) window.openExportModal([...selected]);
+    });
+
+    document.getElementById('bulk-archive')?.addEventListener('click', () => {
+        if (tooMany()) return;
+        Swal.fire({
+            title: 'Set ' + plural(selected.size) + ' as inactive?',
+            html: '<p class="text-sm">They will be moved to the Archive. You can restore them later.</p>',
+            icon: 'warning',
+            input: 'textarea',
+            inputLabel: 'Reason (required)',
+            inputPlaceholder: 'e.g. Moved out of barangay, duplicate records…',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, set inactive',
+            reverseButtons: true,
+            inputValidator: v => (!v || v.trim().length < 5) && 'Please give a reason of at least 5 characters.',
+            didOpen: swalColor('#f5a623'),
+        }).then(r => {
+            // Reload so the count cards and totals reflect the archived records.
+            if (r.isConfirmed) runBulk({ action: 'archive', reason: r.value.trim() }, () => { selected.clear(); setTimeout(() => location.reload(), 900); });
+        });
+    });
+
+    // ── Column chooser ─────────────────────────────────────
+    const COL_KEY = 'citizens.columns.' + @json(auth()->id());
+    const colStyle = document.createElement('style');
+    document.head.append(colStyle);
+    let hiddenCols = [];
+    try { hiddenCols = JSON.parse(localStorage.getItem(COL_KEY) || '[]'); } catch (e) { hiddenCols = []; }
+    if (!Array.isArray(hiddenCols)) hiddenCols = [];
+
+    function paintColumns() {
+        colStyle.textContent = hiddenCols.map(c => '#citizens-table-wrap [data-col="' + c.replace(/[^a-z]/g, '') + '"]{display:none}').join('\n');
+        document.querySelectorAll('.col-toggle').forEach(cb => { cb.checked = !hiddenCols.includes(cb.value); });
+        try { localStorage.setItem(COL_KEY, JSON.stringify(hiddenCols)); } catch (e) {}
+    }
+    document.querySelectorAll('.col-toggle').forEach(cb => cb.addEventListener('change', () => {
+        hiddenCols = [...document.querySelectorAll('.col-toggle')].filter(x => !x.checked).map(x => x.value);
+        paintColumns();
+    }));
+    document.getElementById('col-reset').addEventListener('click', () => { hiddenCols = []; paintColumns(); });
+    paintColumns();
+
+    // Small drop-down menus (Columns, Saved filters): toggle on the button, close on outside click.
+    function dropdown(btnId, menuId) {
+        const btn = document.getElementById(btnId), menu = document.getElementById(menuId);
+        if (!btn || !menu) return;
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const open = menu.classList.contains('hidden');
+            document.querySelectorAll('#col-chooser-menu, #saved-filters-menu').forEach(m => m.classList.add('hidden'));
+            menu.classList.toggle('hidden', !open);
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        menu.addEventListener('click', e => e.stopPropagation());
+        document.addEventListener('click', () => { menu.classList.add('hidden'); btn.setAttribute('aria-expanded', 'false'); });
+    }
+    dropdown('col-chooser-btn', 'col-chooser-menu');
+    dropdown('saved-filters-btn', 'saved-filters-menu');
+
+    // The chooser only affects the table, so hide it in grid view.
+    const colChooser = document.getElementById('col-chooser');
+    function paintColChooser() { colChooser.style.display = currentView === 'grid' ? 'none' : ''; }
+    viewBtns.forEach(b => b.addEventListener('click', paintColChooser));
+    paintColChooser();
+
+    // ── Saved filters ──────────────────────────────────────
+    const SAVED_URL = @json(route('citizens.saved-filters.store'));
+    let savedFilters = @json($savedFiltersJs);
+    const savedList = document.getElementById('saved-filters-list');
+
+    function renderSaved() {
+        if (!savedFilters.length) {
+            savedList.innerHTML = '<p class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">No saved filters yet. Set up the list the way you like, then save it here.</p>';
+            return;
+        }
+        savedList.innerHTML = savedFilters.map(f => `
+            <div class="group flex items-center gap-1 px-2">
+                <a href="${AJAX_URL}?${esc(f.query)}" class="flex-1 min-w-0 px-2 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <span class="block text-sm text-gray-800 dark:text-gray-100 truncate">${esc(f.name)}</span>
+                    ${f.mine ? (f.is_shared ? '<span class="block text-[11px] text-info">Shared with all staff</span>' : '')
+                             : `<span class="block text-[11px] text-gray-400">Shared by ${esc(f.by)}</span>`}
+                </a>
+                ${f.mine ? `<button type="button" data-del="${f.id}" class="p-1.5 rounded text-gray-400 hover:text-danger hover:bg-danger/10" title="Delete this saved filter"><i class="mgc_delete_2_line"></i></button>` : ''}
+            </div>`).join('');
+    }
+    renderSaved();
+
+    document.getElementById('save-filter-btn').addEventListener('click', () => {
+        const params = getParams();
+        params.delete('page');
+        params.delete('view');
+        Swal.fire({
+            title: 'Save these filters',
+            html: `<p class="text-sm text-gray-500 mb-3">Give this view a name, e.g. "Purok 1 · Seniors · Voters".</p>
+                   <input id="sf-name" class="swal2-input" maxlength="80" placeholder="Name" style="margin:0 auto;width:100%">
+                   <label class="flex items-center justify-center gap-2 mt-3 text-sm"><input type="checkbox" id="sf-shared"> Share with all staff</label>`,
+            showCancelButton: true,
+            confirmButtonText: 'Save',
+            reverseButtons: true,
+            focusConfirm: false,
+            didOpen: () => { swalColor('#727cf5')(); document.getElementById('sf-name').focus(); },
+            preConfirm: () => {
+                const name = document.getElementById('sf-name').value.trim();
+                if (!name) { Swal.showValidationMessage('Please enter a name.'); return false; }
+                return { name, is_shared: document.getElementById('sf-shared').checked };
+            },
+        }).then(async r => {
+            if (!r.isConfirmed) return;
+            try {
+                const res = await postJson(SAVED_URL, { ...r.value, query: params.toString() });
+                savedFilters.unshift({ ...res.filter, mine: true });
+                renderSaved();
+                toast('success', 'Saved "' + res.filter.name + '"');
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Could not save', text: err.message, didOpen: swalColor('#727cf5') });
+            }
+        });
+    });
+
+    savedList.addEventListener('click', e => {
+        const del = e.target.closest('[data-del]');
+        if (!del) return;
+        const f = savedFilters.find(x => String(x.id) === del.dataset.del);
+        Swal.fire({
+            title: 'Delete saved filter?',
+            text: '"' + f.name + '" will be removed' + (f.is_shared ? ' for everyone it was shared with.' : '.'),
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete',
+            reverseButtons: true,
+            didOpen: swalColor('#fa5c7c'),
+        }).then(async r => {
+            if (!r.isConfirmed) return;
+            try {
+                await postJson(SAVED_URL + '/' + f.id, null, 'DELETE');
+                savedFilters = savedFilters.filter(x => x !== f);
+                renderSaved();
+            } catch (err) {
+                Swal.fire({ icon: 'error', title: 'Could not delete', text: err.message, didOpen: swalColor('#727cf5') });
+            }
+        });
+    });
+
+    // ── Quick view panel ───────────────────────────────────
+    const qv = document.getElementById('qv'), qvPanel = document.getElementById('qv-panel'), qvBody = document.getElementById('qv-body');
+    let qvId = null, qvSeq = 0;
+
+    function closeQuickView() {
+        qvPanel.classList.add('translate-x-full');
+        setTimeout(() => qv.classList.add('hidden'), 180);
+        qvId = null;
+    }
+
+    async function openQuickView(id) {
+        const mine = ++qvSeq;
+        qvId = id;
+        qv.classList.remove('hidden');
+        requestAnimationFrame(() => qvPanel.classList.remove('translate-x-full'));
+        qvBody.innerHTML = '<p class="text-center text-gray-400 py-16 text-sm"><i class="mgc_loading_line animate-spin"></i> Loading…</p>';
+        document.getElementById('qv-profile').href = URLS.citizens + '/' + id;
+        const edit = document.getElementById('qv-edit');
+        if (edit) edit.href = URLS.citizens + '/' + id + '/edit';
+
+        let res;
+        try {
+            const r = await fetch(ACTIVITY_URL + '?' + new URLSearchParams({ id }), { headers: { Accept: 'application/json' } });
+            res = await r.json();
+        } catch (e) {
+            res = { found: false, message: 'Could not reach the server. Please try again.' };
+        }
+        if (mine !== qvSeq) return;
+        if (!res.found) {
+            qvBody.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400 py-16 text-sm">${esc(res.message || 'Citizen not found.')}</p>`;
+            return;
+        }
+
+        const c = res.citizen;
+        const initials = esc((c.name || '?').replace(',', '').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase());
+        let badges = c.voter ? actPill('Voter', 'success') : actPill('Non-voter', 'gray');
+        if (c.senior) badges += actPill('Senior', 'warning');
+        if (c.pwd)    badges += actPill('PWD', 'info');
+        if (c.solo)   badges += actPill('Solo parent', 'info');
+        if (c.hold)   badges += actPill('On hold', 'danger');
+        if (c.income) badges += c.income.key ? actPill(c.income.label, c.income.tone) : actPill('Income not assessed', 'gray');
+        (c.tags || []).forEach(t => { badges += `<span class="inline-flex items-center py-1 px-2.5 rounded-full text-xs font-medium text-white" style="background:${esc(t.color || '#6c757d')}">${esc(t.name)}</span>`; });
+
+        const line = (icon, label, value) => value ? `
+            <div class="flex gap-3 py-2">
+                <i class="${icon} text-gray-400 text-lg shrink-0"></i>
+                <div class="min-w-0"><p class="text-[11px] uppercase tracking-wide text-gray-400">${label}</p>
+                <p class="text-sm text-gray-800 dark:text-gray-100 break-words">${esc(value)}</p></div>
+            </div>` : '';
+
+        const recent = (res.items || []).slice(0, 5);
+        const recentHtml = recent.length ? recent.map(i => {
+            const cat = ACT_CATS[i.cat] || ACT_CATS.records;
+            return `<div class="flex items-start gap-3 py-2.5 border-b last:border-0 dark:border-gray-700">
+                <span class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0"><i class="${esc(i.icon || cat.icon)}"></i></span>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm text-gray-800 dark:text-gray-100 truncate">${esc(i.title)}</p>
+                    <p class="text-xs text-gray-400">${esc(cat.label)}${i.date ? ' · ' + esc(i.date) : ''}</p>
+                </div>
+                ${i.label ? `<div class="shrink-0">${actPill(i.label, i.tone)}</div>` : ''}
+            </div>`;
+        }).join('') : '<p class="text-sm text-gray-400 py-3">No activity yet.</p>';
+
+        qvBody.innerHTML = `
+            <div class="p-5 flex flex-col items-center text-center border-b dark:border-gray-700">
+                <div class="w-24 h-24 rounded-full overflow-hidden bg-primary/10 text-primary flex items-center justify-center text-2xl font-bold ${c.hold ? 'ring-4 ring-danger/40' : ''}">
+                    ${c.photo ? `<img src="${esc(c.photo)}" alt="" class="w-full h-full object-cover">` : initials}
+                </div>
+                <h4 id="qv-name" class="mt-3 text-lg font-bold text-gray-800 dark:text-white">${esc(c.name)}</h4>
+                <p class="text-xs font-mono text-gray-400">${esc(c.code)}</p>
+                <div class="flex flex-wrap justify-center gap-1.5 mt-2">${badges}</div>
+            </div>
+            ${c.hold ? `<div class="mx-5 mt-4 p-3 rounded-lg bg-danger/10 border border-danger/30 text-sm text-danger"><i class="mgc_lock_line"></i> <strong>On hold</strong> — ${esc(c.hold)}</div>` : ''}
+            <div class="px-5 py-3 divide-y divide-gray-100 dark:divide-gray-700">
+                ${line('mgc_user_3_line', 'Age · Gender', [c.age != null ? c.age + ' yrs' : null, c.gender].filter(Boolean).join(' · '))}
+                ${line('mgc_location_line', 'Address', c.address)}
+                ${line('mgc_phone_line', 'Contact', c.contact)}
+                ${line('mgc_home_3_line', 'Household', c.household)}
+                ${line('mgc_IDcard_line', 'Barangay ID', c.id_valid ? 'Valid until ' + c.id_valid : null)}
+            </div>
+            <div class="px-5 pb-5">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1 mt-2">Recent activity</p>
+                ${recentHtml}
+                ${(res.items || []).length > 5 ? `<p class="text-xs text-gray-400 mt-2">${(res.items.length - 5).toLocaleString()} more under All transactions.</p>` : ''}
+            </div>`;
+    }
+
+    document.addEventListener('click', e => {
+        const b = e.target.closest('.quick-view');
+        if (!b) return;
+        e.preventDefault();
+        openQuickView(b.dataset.id);
+    });
+    document.getElementById('qv-close').addEventListener('click', closeQuickView);
+    document.getElementById('qv-backdrop').addEventListener('click', closeQuickView);
+    document.getElementById('qv-activity').addEventListener('click', () => {
+        const id = qvId;
+        closeQuickView();
+        if (id) openCitizenActivity({ id });
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !qv.classList.contains('hidden')) closeQuickView(); });
+
+    // First paint
+    paintStatCards();
+    syncChecks();
+
 }); // end DOMContentLoaded
 
 // ── Export Modal ──────────────────────────────────────────
@@ -1413,18 +1957,46 @@ window.addEventListener('DOMContentLoaded', () => {
     const submitLabel = document.getElementById('export-submit-label');
     const fieldCount  = document.getElementById('export-field-count');
 
-    function openModal() {
+    // What to export: the ticked citizens, or whatever the list is filtered by
+    // right now (the address bar is kept in step with the list).
+    const scope      = document.getElementById('export-scope');
+    const matchCount = document.getElementById('export-match-count');
+    const matchLabel = document.getElementById('export-match-label');
+    const LIST_ONLY  = ['page', 'per_page', 'view', 'sort', 'dir'];
+
+    function addHidden(name, value) {
+        const i = document.createElement('input');
+        i.type = 'hidden'; i.name = name; i.value = value;
+        scope.append(i);
+    }
+
+    function openModal(ids) {
+        scope.replaceChildren();
+        if (Array.isArray(ids) && ids.length) {
+            ids.forEach(id => addHidden('ids[]', id));
+            matchCount.textContent = ids.length.toLocaleString();
+            matchLabel.textContent = ids.length === 1 ? 'selected citizen' : 'selected citizens';
+        } else {
+            const params = new URLSearchParams(window.location.search);
+            if (!params.has('voters')) params.set('voters', '1');       // the list's default
+            for (const [k, v] of params.entries()) {
+                if (!LIST_ONLY.includes(k) && v !== '') addHidden(k, v);
+            }
+            if (window.citizenListTotal !== undefined) matchCount.textContent = window.citizenListTotal.toLocaleString();
+            matchLabel.textContent = 'records match current filter';
+        }
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         updateCount();
     }
+    window.openExportModal = openModal;
 
     function closeModal() {
         modal.classList.add('hidden');
         document.body.style.overflow = '';
     }
 
-    openBtn.addEventListener('click', openModal);
+    openBtn.addEventListener('click', () => openModal());
     closeBtn.addEventListener('click', closeModal);
     cancelBtn.addEventListener('click', closeModal);
     backdrop.addEventListener('click', closeModal);
@@ -1478,7 +2050,8 @@ window.addEventListener('DOMContentLoaded', () => {
         const checked = document.querySelectorAll('.export-field-checkbox:checked').length;
         if (checked === 0) {
             e.preventDefault();
-            alert('Please select at least one field to export.');
+            Swal.fire({ icon: 'info', title: 'No fields chosen', text: 'Please select at least one field to export.',
+                didOpen: () => document.querySelector('.swal2-confirm').style.setProperty('background-color', '#727cf5', 'important') });
             return;
         }
         closeModal();

@@ -84,7 +84,8 @@
                 </div>
             @endif
 
-            <div class="p-4 flex flex-col items-center text-center gap-2 flex-1">
+            <div class="relative p-4 flex flex-col items-center text-center gap-2 flex-1">
+                <input type="checkbox" class="bulk-check form-checkbox rounded text-primary absolute top-3 start-3" value="{{ $citizen->id }}" aria-label="Select {{ $citizen->lname }}, {{ $citizen->fname }}">
                 <div class="relative">
                     @if($citizen->profile)
                         <img src="{{ $citizen->profile_url }}"
@@ -104,11 +105,11 @@
                 </div>
 
                 <div class="min-w-0 w-full">
-                    <p class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate" title="{{ $citizen->lname }}, {{ $citizen->fname }}">
+                    <button type="button" class="quick-view block w-full text-sm font-semibold text-gray-800 dark:text-gray-100 truncate hover:text-primary hover:underline" data-id="{{ $citizen->id }}" title="Quick view — {{ $citizen->lname }}, {{ $citizen->fname }}">
                         {{ $citizen->lname }}, {{ $citizen->fname }}
                         @if($citizen->mname) {{ substr($citizen->mname, 0, 1) }}. @endif
                         @if($citizen->suffix) <span class="text-gray-400">{{ $citizen->suffix }}</span> @endif
-                    </p>
+                    </button>
                     <p class="text-xs font-mono text-gray-400">{{ $idSetting->formatCitizenId($citizen->id) }}</p>
                 </div>
 
@@ -178,15 +179,83 @@
     @endif
 </div>
 @else
-{{-- Table --}}
-<div class="overflow-x-auto">
+{{-- Phones: one card per citizen instead of a wide table --}}
+<div class="md:hidden divide-y divide-gray-200 dark:divide-gray-700">
+    @forelse($citizens as $citizen)
+    <div class="citizen-row selectable flex items-start gap-3 px-4 py-3"
+         data-id="{{ $citizen->id }}"
+         data-name="{{ $citizen->lname }}, {{ $citizen->fname }}"
+         data-code="{{ $idSetting->formatCitizenId($citizen->id) }}"
+         data-photo="{{ $citizen->profile_url }}">
+        <input type="checkbox" class="bulk-check form-checkbox rounded text-primary mt-3 shrink-0" value="{{ $citizen->id }}" aria-label="Select {{ $citizen->lname }}, {{ $citizen->fname }}">
+        <div class="relative shrink-0">
+            @if($citizen->profile)
+                <img src="{{ $citizen->profile_url }}" alt="{{ $citizen->fname }}"
+                     class="w-11 h-11 rounded-full object-cover border {{ $citizen->activeHold ? 'border-danger ring-2 ring-danger/40' : 'border-gray-200 dark:border-gray-600' }}">
+            @else
+                <div class="w-11 h-11 rounded-full flex items-center justify-center font-semibold text-sm {{ $citizen->activeHold ? 'bg-danger/15 text-danger ring-2 ring-danger/40' : 'bg-primary/20 text-primary' }}">
+                    {{ strtoupper(substr($citizen->fname, 0, 1)) }}{{ strtoupper(substr($citizen->lname, 0, 1)) }}
+                </div>
+            @endif
+        </div>
+        <div class="min-w-0 flex-1">
+            <button type="button" class="quick-view block max-w-full text-start text-sm font-semibold text-gray-800 dark:text-gray-100 truncate hover:text-primary" data-id="{{ $citizen->id }}">
+                {{ $citizen->lname }}, {{ $citizen->fname }}
+                @if($citizen->mname) {{ substr($citizen->mname, 0, 1) }}. @endif
+                @if($citizen->suffix) <span class="text-gray-400">{{ $citizen->suffix }}</span> @endif
+            </button>
+            <p class="text-xs font-mono text-gray-400">{{ $idSetting->formatCitizenId($citizen->id) }}</p>
+            <p class="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                @if($citizen->bday){{ $citizen->age }} yrs · @endif{{ $citizen->gender == 1 ? 'Male' : 'Female' }}
+                · {{ $citizen->addressZone->description ?? ($citizen->full_address ?: '—') }}
+            </p>
+            @if($citizen->contact)
+                <p class="text-xs text-gray-400"><i class="mgc_phone_line"></i> {{ $citizen->contact }}</p>
+            @endif
+            <div class="flex flex-wrap gap-1 mt-1.5">
+                @if($citizen->activeHold)
+                    <span class="text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded px-1.5 py-0.5"><i class="mgc_lock_line"></i> On Hold</span>
+                @endif
+                @if($citizen->voters)
+                    <span class="text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 rounded px-1.5 py-0.5">Voter</span>
+                @endif
+                @if($citizen->age >= 60)
+                    <span class="text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300 rounded px-1.5 py-0.5">Senior</span>
+                @endif
+                @if($citizen->is_pwd)
+                    <span class="text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 rounded px-1.5 py-0.5">PWD</span>
+                @endif
+                @if($citizen->is_soloparents)
+                    <span class="text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 rounded px-1.5 py-0.5">Solo Parent</span>
+                @endif
+                @foreach($citizen->tags as $tag)
+                    <span class="text-xs font-semibold text-white rounded px-1.5 py-0.5" style="background:{{ $tag->color }}">{{ $tag->name }}</span>
+                @endforeach
+            </div>
+        </div>
+        <a href="{{ route('citizens.show', $citizen->id) }}" class="p-2 -me-2 rounded text-gray-400 hover:text-primary shrink-0" title="View profile">
+            <i class="mgc_right_line text-lg"></i>
+        </a>
+    </div>
+    @empty
+    <div class="flex flex-col items-center gap-2 text-gray-400 py-16">
+        <i class="mgc_user_search_line text-5xl"></i>
+        <p class="text-sm font-medium">No citizens found</p>
+        <p class="text-xs">Try adjusting your filters.</p>
+    </div>
+    @endforelse
+</div>
+
+{{-- Table (tablet and up) --}}
+<div class="hidden md:block overflow-x-auto">
     <div class="min-w-full inline-block align-middle">
         <div class="overflow-hidden">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
+                        <th class="ps-4 pe-1 py-3 w-8"><input type="checkbox" class="bulk-check-page form-checkbox rounded text-primary" title="Select everyone on this page" aria-label="Select everyone on this page"></th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase w-10">#</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Household</th>
+                        <th data-col="household" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Household</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                             <a href="{{ $sortLink('name') }}" data-sort="name"
                                class="inline-flex items-center gap-1 hover:text-primary transition-colors"
@@ -194,21 +263,21 @@
                                 Citizen <i class="{{ $sortIcon('name') }} text-base leading-none"></i>
                             </a>
                         </th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Age</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Gender</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Address / Zone</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Civil Status</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Tags</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Flags</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                        <th data-col="age" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Age</th>
+                        <th data-col="gender" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Gender</th>
+                        <th data-col="address" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Address / Zone</th>
+                        <th data-col="civil" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Civil Status</th>
+                        <th data-col="tags" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Tags</th>
+                        <th data-col="flags" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Flags</th>
+                        <th data-col="status" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                        <th data-col="registered" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                             <a href="{{ $sortLink('date_created') }}" data-sort="date_created"
                                class="inline-flex items-center gap-1 hover:text-primary transition-colors"
                                title="Sort by date registered">
                                 Registered <i class="{{ $sortIcon('date_created') }} text-base leading-none"></i>
                             </a>
                         </th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                        <th data-col="updated" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                             <a href="{{ $sortLink('date_last_updated') }}" data-sort="date_last_updated"
                                class="inline-flex items-center gap-1 hover:text-primary transition-colors"
                                title="Sort by date last updated">
@@ -226,13 +295,17 @@
                         data-code="{{ $idSetting->formatCitizenId($citizen->id) }}"
                         data-photo="{{ $citizen->profile_url }}">
 
+                        <td class="ps-4 pe-1 py-3">
+                            <input type="checkbox" class="bulk-check form-checkbox rounded text-primary" value="{{ $citizen->id }}" aria-label="Select {{ $citizen->lname }}, {{ $citizen->fname }}">
+                        </td>
+
                         {{-- Row Number --}}
                         <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                             {{ $citizens->firstItem() + $index }}
                         </td>
 
                         {{-- Household --}}
-                        <td class="px-4 py-3 whitespace-nowrap">
+                        <td data-col="household" class="px-4 py-3 whitespace-nowrap">
                             @if($citizen->family?->household)
                                 @php
                                     $hh = $citizen->family->household;
@@ -281,11 +354,11 @@
                                     @endif
                                 </div>
                                 <div>
-                                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                    <button type="button" class="quick-view text-start text-sm font-medium text-gray-800 dark:text-gray-200 hover:text-primary hover:underline" data-id="{{ $citizen->id }}" title="Quick view">
                                         {{ $citizen->lname }}, {{ $citizen->fname }}
                                         @if($citizen->mname) {{ substr($citizen->mname, 0, 1) }}. @endif
                                         @if($citizen->suffix) <span class="text-gray-400">{{ $citizen->suffix }}</span> @endif
-                                    </p>
+                                    </button>
                                     @if($citizen->activeHold)
                                         <p class="text-xs font-semibold text-danger flex items-center gap-1" title="{{ $citizen->activeHold->reason }}">
                                             <i class="mgc_lock_line"></i> On Hold
@@ -300,7 +373,7 @@
                         </td>
 
                         {{-- Age --}}
-                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                        <td data-col="age" class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
                             @if($citizen->bday)
                                 {{ $citizen->age }}
                                 <span class="text-xs text-gray-400 block">{{ $citizen->bday->format('M d, Y') }}</span>
@@ -310,7 +383,7 @@
                         </td>
 
                         {{-- Gender --}}
-                        <td class="px-4 py-3 whitespace-nowrap">
+                        <td data-col="gender" class="px-4 py-3 whitespace-nowrap">
                             @if($citizen->gender == 1)
                                 <span class="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400 rounded-full px-2 py-0.5">
                                     <i class="mgc_male_line"></i> Male
@@ -323,7 +396,7 @@
                         </td>
 
                         {{-- Address --}}
-                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                        <td data-col="address" class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                             @if($citizen->addressZone)
                                 <span>{{ $citizen->addressZone->description }}</span>
                                 @if($citizen->addressZone->is_subd && ($citizen->blk || $citizen->lot))
@@ -342,12 +415,12 @@
                         </td>
 
                         {{-- Civil Status --}}
-                        <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                        <td data-col="civil" class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
                             {{ $citizen->civilStatus->description ?? '—' }}
                         </td>
 
                         {{-- Tags --}}
-                        <td class="px-4 py-3">
+                        <td data-col="tags" class="px-4 py-3">
                             @if($citizen->tags->isNotEmpty())
                             <div class="flex flex-wrap gap-1">
                                 @foreach($citizen->tags as $tag)
@@ -361,7 +434,7 @@
                         </td>
 
                         {{-- Flags --}}
-                        <td class="px-4 py-3 whitespace-nowrap">
+                        <td data-col="flags" class="px-4 py-3 whitespace-nowrap">
                             <div class="flex flex-wrap gap-1">
                                 @if($citizen->activeHold)
                                     <span class="inline-flex items-center gap-1 text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 rounded px-1.5 py-0.5"
@@ -385,7 +458,7 @@
                         </td>
 
                         {{-- Approval Status --}}
-                        <td class="px-4 py-3 whitespace-nowrap">
+                        <td data-col="status" class="px-4 py-3 whitespace-nowrap">
                             @php
                                 $statusColor = match($citizen->approval_status) {
                                     1 => 'bg-success/15 text-success',
@@ -402,7 +475,7 @@
                         </td>
 
                         {{-- Registered --}}
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                        <td data-col="registered" class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                             @if($citizen->date_created)
                                 {{ $citizen->date_created->format('M d, Y') }}
                                 <span class="block text-xs text-gray-400">{{ $citizen->date_created->format('g:i A') }}</span>
@@ -412,7 +485,7 @@
                         </td>
 
                         {{-- Last Updated --}}
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                        <td data-col="updated" class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                             @if($citizen->date_last_updated)
                                 {{ $citizen->date_last_updated->format('M d, Y') }}
                                 <span class="block text-xs text-gray-400">{{ $citizen->date_last_updated->diffForHumans() }}</span>
@@ -452,7 +525,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="13" class="px-6 py-16 text-center">
+                        <td colspan="14" class="px-6 py-16 text-center">
                             <div class="flex flex-col items-center gap-2 text-gray-400">
                                 <i class="mgc_user_search_line text-5xl"></i>
                                 <p class="text-sm font-medium">No citizens found</p>

@@ -205,6 +205,7 @@ Route::middleware('auth')->group(function () {
         Route::get('filter-citizens',           [HouseholdController::class, 'filterCitizens'])->name('filter-citizens');
         Route::get('citizen-address',           [HouseholdController::class, 'getCitizenAddress'])->name('citizen-address');
         Route::get('kpi',                       [HouseholdController::class, 'kpi'])->name('kpi');
+        Route::get('unassigned',                [HouseholdController::class, 'unassigned'])->name('unassigned');
         Route::get('search',                    [HouseholdController::class, 'search'])->name('search');
         Route::post('export',                   [HouseholdController::class, 'export'])->name('export');
 
@@ -241,6 +242,10 @@ Route::middleware('auth')->group(function () {
         // swallowed by the "citizens/{citizen}" show route.
         Route::get('citizens/inactive', [CitizenController::class, 'inactive'])->name('citizens.inactive');
         Route::get('citizens/duplicate-check', [CitizenController::class, 'duplicateCheck'])->name('citizens.duplicate-check');
+        // Bulk actions on ticked rows (each action checks its own permission).
+        Route::post('citizens/bulk', [CitizenController::class, 'bulk'])->name('citizens.bulk');
+        Route::post('citizens/saved-filters', [CitizenController::class, 'saveFilter'])->name('citizens.saved-filters.store');
+        Route::delete('citizens/saved-filters/{savedFilter}', [CitizenController::class, 'deleteFilter'])->name('citizens.saved-filters.destroy');
         Route::patch('citizens/{citizen}/restore', [CitizenController::class, 'restore'])
             ->middleware('can:citizens.restore')
             ->name('citizens.restore');

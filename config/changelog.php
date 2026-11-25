@@ -21,8 +21,8 @@ return [
     [
         'version' => '3.6',
         'date'    => '2026-11-25',
-        'title'   => 'Citizen Fields settings, stronger duplicate check, clearer filters',
-        'summary' => 'Adding a citizen now checks every record (including archived, walk-ins and other zones) and warns about likely duplicates. The Citizens filter shows what is filtered, and the ID photo window shows in front.',
+        'title'   => 'Citizen Fields settings, duplicate check, faster Citizens list',
+        'summary' => 'Adding a citizen now checks every record and warns about likely duplicates. The Citizens list gets count cards, bulk actions, saved filters, a quick view, a column chooser and a phone-friendly layout.',
         'changes' => [
             ['type' => 'new', 'module' => 'Settings', 'text' => 'Settings → Citizen Fields: choose which citizen details are required (e.g. middle name, photo, contact no., emergency contact) and whether a contact no. or email must be unique. Add Citizen, Edit and Register Minor follow it, and required fields get a red *. You can also make the middle name part of the duplicate-person check.'],
             ['type' => 'improved', 'module' => 'Citizens', 'text' => 'Duplicate check: adding a citizen, registering a minor or editing a name or birthday now checks every record, including archived citizens, walk-ins and other zones. The same name and birthday cannot be saved; an archived match points you to the Archive to restore the person instead. Capital letters, extra spaces and dots no longer let a duplicate slip through.'],
@@ -30,7 +30,16 @@ return [
             ['type' => 'fixed', 'module' => 'Citizens', 'text' => 'Barangay ID text fields: placeholders now work however they are typed — {{Municipality}}, {{ address }} and {{ADDRESS}} all fill in — and {{Barangay}} and {{City}} can be used for the barangay name and city. Before, a tag with a capital letter printed as-is on the card.'],
             ['type' => 'improved', 'module' => 'Citizens', 'text' => 'Photo positioning window: labelled Zoom with − / + buttons, a Straighten slider for tilted photos, a Brightness slider for dark photos, a Reset button, and a live preview of how the photo will look on the ID. It is wider on computers and stacks neatly on phones.'],
             ['type' => 'fixed', 'module' => 'Citizens', 'text' => 'Barangay ID: when uploading or taking a picture, the "Position the photo" window now appears in front of the Generate ID window instead of hidden behind it.'],
-            ['type' => 'improved', 'module' => 'Citizens', 'text' => 'Citizens list: the Advanced Filter panel closes after you click Apply Filter (or press Enter), so the results are right in view. A "Filtered by" row then lists every filter in plain words (e.g. Voters only · PWD · Age: 18–25 · Zone: Purok 1), and each one has an × to remove just that filter, plus Clear all.'],
+            ['type' => 'improved', 'module' => 'Citizens', 'text' => 'Citizens list: the Advanced Filter panel closes after you click Apply Filter (or press Enter), so the results are right in view. A "Filtered by" row then lists every filter in plain words (e.g. Voters only · PWD · Age: 18–25 · Zone: Purok 1), and each one has an × to remove just that filter, plus Clear all. The row also shows how many citizens match (e.g. "1,245 citizens found").'],
+            ['type' => 'new', 'module' => 'Citizens', 'text' => 'Count cards above the Citizens list: All citizens, Voters, Seniors, PWD, Solo parents and Minors. Click one to show just that group. The numbers follow your other filters, so with a zone or search picked they count only that zone or search.'],
+            ['type' => 'new', 'module' => 'Citizens', 'text' => 'Tick several citizens (or a whole page) to add or remove a tag, export only those, or set them inactive in one go. Ticks stay while you move between pages.'],
+            ['type' => 'new', 'module' => 'Citizens', 'text' => 'Saved filters: save the current filters under a name (e.g. "Purok 1 · Seniors · Voters") and bring them back with one click. You can share a saved filter with all staff.'],
+            ['type' => 'new', 'module' => 'Citizens', 'text' => 'Click a citizen name in the list for a quick view: photo, contact, address, household, ID validity and recent activity, without leaving the list.'],
+            ['type' => 'new', 'module' => 'Citizens', 'text' => 'Columns button on the Citizens list: hide the columns you do not need. Your choice is remembered on that computer.'],
+            ['type' => 'improved', 'module' => 'Citizens', 'text' => 'On phones the Citizens list shows one card per citizen instead of a wide table you had to scroll sideways.'],
+            ['type' => 'fixed', 'module' => 'Citizens', 'text' => 'Citizens list: the "Non-PWD" and "Not Solo Parent" filters now work, and choosing Voter: All really shows everyone instead of voters only.'],
+            ['type' => 'fixed', 'module' => 'Citizens', 'text' => 'Export now uses the filters currently on the list. Before, it could use the filters from when the page was first opened, and it ignored tag and household filters.'],
+            ['type' => 'new', 'module' => 'Households', 'text' => 'Households page: a "Not in a household" card shows how many citizens are not in any household yet. Click it for the list (search, zone, and sort by newest registered, name or age; your sort is remembered), then start a new household with that person as head, or add them to the household you have open. It replaces the Avg / Household card.'],
         ],
     ],
 

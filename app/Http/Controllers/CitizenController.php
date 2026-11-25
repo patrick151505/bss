@@ -17,12 +17,7 @@ class CitizenController extends Controller
 {
     public function index(Request $request)
     {
-        $filters = $request->only([
-            'search', 'gender', 'civil_status', 'address',
-            'approval_status', 'age_min', 'age_max',
-            'voters', 'is_pwd', 'is_soloparents', 'senior',
-            'household_search', 'hh_role', 'hh_assigned', 'tags', 'income_class',
-        ]);
+        $filters = $request->only(self::LIST_FILTERS);
 
         // The list defaults to voters only. A request that has been through
         // the filter form always carries `voters` (even as an empty string
@@ -35,54 +30,7 @@ class CitizenController extends Controller
             // The list only ever shows active citizens; there is no filter for
             // this, so archived records never surface here.
             ->where('is_active', 1)
-            ->when($filters['search'] ?? null, fn($q, $search) => $q->searchName($search))
-            ->when($filters['gender'] ?? null, fn($q, $v) => $q->where('gender', $v))
-            ->when($filters['civil_status'] ?? null, fn($q, $v) => $q->where('civil_status', $v))
-            ->when($filters['address'] ?? null, fn($q, $v) => $q->where('address', $v))
-            ->when($filters['approval_status'] ?? null, fn($q, $v) => $q->where('approval_status', $v))
-            // "Non-Voter" is the value 0, which a truthy check would drop,
-            // so test for presence instead.
-            ->when(($filters['voters'] ?? '') !== '', fn($q) => $q->where('voters', $filters['voters']))
-            ->when($filters['is_pwd'] ?? null, fn($q, $v) => $q->where('is_pwd', $v))
-            ->when($filters['is_soloparents'] ?? null, fn($q, $v) => $q->where('is_soloparents', $v))
-            ->when($filters['age_min'] ?? null, function ($q, $v) {
-                $q->whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) >= ?', [$v]);
-            })
-            ->when($filters['age_max'] ?? null, function ($q, $v) {
-                $q->whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) <= ?', [$v]);
-            })
-            ->when(($filters['senior'] ?? null) !== null && $filters['senior'] !== '', function ($q) use ($filters) {
-                if ($filters['senior'] == '1') {
-                    $q->whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) >= 60');
-                } else {
-                    $q->whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) < 60');
-                }
-            })
-            ->when(($filters['hh_assigned'] ?? '') !== '', function ($q) use ($filters) {
-                if ($filters['hh_assigned'] == '1') {
-                    $q->whereNotNull('familyId');
-                } else {
-                    $q->whereNull('familyId');
-                }
-            })
-            ->when(($filters['hh_role'] ?? '') !== '', fn($q) => $q->where('isHead', $filters['hh_role']))
-            // Optional income classification (only when switched on and allowed)
-            ->when(($filters['income_class'] ?? '') !== '' && \App\Support\IncomeClass::visibleTo(auth()->user()),
-                fn($q) => \App\Support\IncomeClass::applyCitizenFilter($q, $filters['income_class']))
-            ->when(!empty($filters['tags']), function ($q) use ($filters) {
-                $tagIds = array_filter((array) $filters['tags']);
-                if ($tagIds) {
-                    $q->whereHas('tags', fn($q) => $q->whereIn('eb_tags.id', $tagIds));
-                }
-            })
-            ->when(($filters['household_search'] ?? '') !== '', function ($q) use ($filters) {
-                $term = $filters['household_search'];
-                $q->whereHas('family.household', function ($q) use ($term) {
-                    $q->where('no', 'like', "%$term%")
-                      ->orWhere('phaseStreet', 'like', "%$term%")
-                      ->orWhere('completeAdress', 'like', "%$term%");
-                });
-            })
+            ->tap(fn ($q) => $this->applyFilters($q, $filters))
             ->when(true, function ($q) use ($request) {
                 // Only whitelisted columns are sortable, so the value can go
                 // straight into orderBy without risking injection.
@@ -117,6 +65,7 @@ class CitizenController extends Controller
             return response()->json([
                 'html'  => view('citizens._table', compact('citizens', 'sort', 'dir'))->render(),
                 'total' => $citizens->total(),
+                'stats' => $this->listStats($filters),
             ]);
         }
 
@@ -129,33 +78,174 @@ class CitizenController extends Controller
             'addresses'       => Address::where('is_active', true)->orderBy('description')->get(),
             'approvalStatuses'=> ApprovalStatus::orderBy('id')->get(),
             'allTags'         => \App\Models\Tag::orderBy('name')->get(),
+            'stats'           => $this->listStats($filters),
+            'savedFilters'    => \App\Models\SavedFilter::visibleTo(auth()->id(), 'citizens'),
         ]);
     }
 
-    public function export(Request $request)
+    /**
+     * Counts for the quick-filter cards above the list. They follow the list's
+     * other filters (zone, search, tags, household…) but not the group filters
+     * the cards themselves set (voter, senior, PWD, solo parent, age), so each
+     * card still says how many a click on it would show.
+     */
+    private function listStats(array $filters = []): array
     {
-        $filters = $request->only([
-            'search', 'gender', 'civil_status', 'address',
-            'approval_status', 'age_min', 'age_max',
-            'voters', 'is_pwd', 'is_soloparents', 'senior', 'income_class',
+        $base = array_diff_key($filters, array_flip(['voters', 'senior', 'is_pwd', 'is_soloparents', 'age_min', 'age_max']));
+        $age = 'TIMESTAMPDIFF(YEAR, bday, CURDATE())';
+        $row = Citizen::query()->where('is_active', 1)->tap(fn ($q) => $this->applyFilters($q, $base))->selectRaw("
+            COUNT(*) AS total,
+            SUM(voters = 1) AS voters,
+            SUM({$age} >= 60) AS seniors,
+            SUM(is_pwd = 1) AS pwd,
+            SUM(is_soloparents = 1) AS solo,
+            SUM({$age} < 18) AS minors
+        ")->toBase()->first();
+
+        return array_map('intval', (array) $row);
+    }
+
+    /**
+     * Bulk actions on the citizens ticked in the list.
+     * action: tag_add | tag_remove (tag_id) · archive (reason)
+     */
+    public function bulk(Request $request)
+    {
+        $data = $request->validate([
+            'action' => 'required|in:tag_add,tag_remove,archive',
+            'ids'    => 'required|array|min:1|max:500',
+            'ids.*'  => 'integer',
+            'tag_id' => 'required_if:action,tag_add,tag_remove|nullable|integer|exists:eb_tags,id',
+            'reason' => 'required_if:action,archive|nullable|string|min:5|max:500',
+        ], [
+            'reason.required_if' => 'A reason is required before archiving.',
+            'reason.min'         => 'Please give a slightly fuller reason (at least 5 characters).',
+            'tag_id.required_if' => 'Choose a tag.',
+            'ids.max'            => 'Select up to 500 citizens at a time.',
         ]);
 
-        $query = Citizen::with(['civilStatus', 'addressZone', 'approvalStatus'])
-            // Mirrors the list: exports cover active citizens only.
-            ->where('is_active', 1)
+        $permission = $data['action'] === 'archive' ? 'citizens.archive' : 'citizens.tag';
+        abort_unless(auth()->user()->can($permission), 403);
+
+        // Global scopes keep this to citizens the user may see (zone access).
+        $citizens = Citizen::whereIn('id', $data['ids'])->where('is_active', 1)->get();
+        if ($citizens->isEmpty()) {
+            return response()->json(['ok' => false, 'message' => 'None of the selected citizens can be changed.'], 422);
+        }
+
+        $done = 0;
+        DB::transaction(function () use ($data, $citizens, &$done) {
+            if ($data['action'] === 'archive') {
+                foreach ($citizens as $c) {
+                    $c->update([
+                        'is_active'         => 0,
+                        'archive_reason'    => $data['reason'],
+                        'archived_at'       => now(),
+                        'archived_by'       => auth()->id(),
+                        'date_last_updated' => now(),
+                    ]);
+                    ActivityLog::record('archived', 'citizen', $c->id,
+                        "{$c->lname}, {$c->fname} was archived (bulk)", ['reason' => $data['reason']]);
+                    $done++;
+                }
+                return;
+            }
+
+            $tag = \App\Models\Tag::find($data['tag_id']);
+            $has = DB::table('eb_citizen_tag')->where('tag_id', $tag->id)
+                ->whereIn('citizen_id', $citizens->pluck('id'))->pluck('citizen_id')->map('intval')->all();
+
+            foreach ($citizens as $c) {
+                $already = in_array((int) $c->id, $has, true);
+                if ($data['action'] === 'tag_add' && ! $already) {
+                    $c->tags()->attach($tag->id);
+                } elseif ($data['action'] === 'tag_remove' && $already) {
+                    $c->tags()->detach($tag->id);
+                } else {
+                    continue;
+                }
+                ActivityLog::record('tags_updated', 'citizen', $c->id,
+                    ($data['action'] === 'tag_add' ? 'Tag added' : 'Tag removed') . " for {$c->lname}, {$c->fname} (bulk)",
+                    [$data['action'] === 'tag_add' ? 'added' : 'removed' => $tag->name]);
+                $done++;
+            }
+        });
+
+        $n = number_format($done) . ' ' . ($done === 1 ? 'citizen' : 'citizens');
+        $message = match ($data['action']) {
+            'archive'    => "{$n} moved to the Archive.",
+            'tag_add'    => $done ? "Tag added to {$n}." : 'They all have this tag already.',
+            'tag_remove' => $done ? "Tag removed from {$n}." : 'None of them had this tag.',
+        };
+
+        return response()->json(['ok' => true, 'count' => $done, 'message' => $message]);
+    }
+
+    /** Save the current list filters under a name (Citizens → Saved filters). */
+    public function saveFilter(Request $request)
+    {
+        $data = $request->validate([
+            'name'      => 'required|string|max:80',
+            'query'     => 'nullable|string|max:2000',
+            'is_shared' => 'nullable|boolean',
+        ]);
+
+        // Keep only real filter keys, so a saved filter can never carry anything else.
+        parse_str(ltrim((string) ($data['query'] ?? ''), '?'), $parsed);
+        $clean = array_intersect_key($parsed, array_flip(array_merge(self::LIST_FILTERS, ['sort', 'dir', 'per_page'])));
+        $clean = array_filter($clean, fn ($v) => $v !== '' && $v !== []);
+        // An empty "voters" means "All" and must survive, or the list falls back to voters only.
+        if (($parsed['voters'] ?? null) === '') {
+            $clean['voters'] = '';
+        }
+
+        $filter = \App\Models\SavedFilter::create([
+            'user_id'   => auth()->id(),
+            'module'    => 'citizens',
+            'name'      => trim($data['name']),
+            'query'     => http_build_query($clean),
+            'is_shared' => (bool) ($data['is_shared'] ?? false),
+        ]);
+
+        return response()->json(['ok' => true, 'filter' => $filter->only('id', 'name', 'query', 'is_shared')]);
+    }
+
+    public function deleteFilter(\App\Models\SavedFilter $savedFilter)
+    {
+        abort_unless((int) $savedFilter->user_id === (int) auth()->id(), 403, 'Only the person who saved this filter can delete it.');
+        $savedFilter->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Filter keys the Citizens list understands (also used by Export and Saved filters). */
+    public const LIST_FILTERS = [
+        'search', 'gender', 'civil_status', 'address',
+        'approval_status', 'age_min', 'age_max',
+        'voters', 'is_pwd', 'is_soloparents', 'senior',
+        'household_search', 'hh_role', 'hh_assigned', 'tags', 'income_class',
+    ];
+
+    /** The Citizens list filters, shared by the list and Export so both give the same records. */
+    private function applyFilters($query, array $filters): void
+    {
+        $query
             ->when($filters['search'] ?? null, fn($q, $search) => $q->searchName($search))
             ->when($filters['gender'] ?? null, fn($q, $v) => $q->where('gender', $v))
             ->when($filters['civil_status'] ?? null, fn($q, $v) => $q->where('civil_status', $v))
             ->when($filters['address'] ?? null, fn($q, $v) => $q->where('address', $v))
             ->when($filters['approval_status'] ?? null, fn($q, $v) => $q->where('approval_status', $v))
-            ->when($filters['voters'] ?? null, fn($q, $v) => $q->where('voters', $v))
-            ->when($filters['is_pwd'] ?? null, fn($q, $v) => $q->where('is_pwd', $v))
-            ->when($filters['is_soloparents'] ?? null, fn($q, $v) => $q->where('is_soloparents', $v))
+            // "Non-Voter" is the value 0, which a truthy check would drop,
+            // so test for presence instead.
+            ->when(($filters['voters'] ?? '') !== '', fn($q) => $q->where('voters', $filters['voters']))
+            // "Non-PWD" / "Not solo parent" are 0, so test for presence, not truthiness.
+            ->when(($filters['is_pwd'] ?? '') !== '', fn($q) => $q->where('is_pwd', $filters['is_pwd']))
+            ->when(($filters['is_soloparents'] ?? '') !== '', fn($q) => $q->where('is_soloparents', $filters['is_soloparents']))
             ->when($filters['age_min'] ?? null, function ($q, $v) {
                 $q->whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) >= ?', [$v]);
             })
-            ->when($filters['age_max'] ?? null, function ($q, $v) {
-                $q->whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) <= ?', [$v]);
+            ->when(($filters['age_max'] ?? '') !== '', function ($q) use ($filters) {
+                $q->whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) <= ?', [(int) $filters['age_max']]);
             })
             ->when(($filters['senior'] ?? null) !== null && $filters['senior'] !== '', function ($q) use ($filters) {
                 if ($filters['senior'] == '1') {
@@ -164,8 +254,45 @@ class CitizenController extends Controller
                     $q->whereRaw('TIMESTAMPDIFF(YEAR, bday, CURDATE()) < 60');
                 }
             })
+            ->when(($filters['hh_assigned'] ?? '') !== '', function ($q) use ($filters) {
+                if ($filters['hh_assigned'] == '1') {
+                    $q->whereNotNull('familyId');
+                } else {
+                    $q->whereNull('familyId');
+                }
+            })
+            ->when(($filters['hh_role'] ?? '') !== '', fn($q) => $q->where('isHead', $filters['hh_role']))
+            // Optional income classification (only when switched on and allowed)
             ->when(($filters['income_class'] ?? '') !== '' && \App\Support\IncomeClass::visibleTo(auth()->user()),
                 fn($q) => \App\Support\IncomeClass::applyCitizenFilter($q, $filters['income_class']))
+            ->when(!empty($filters['tags']), function ($q) use ($filters) {
+                $tagIds = array_filter((array) $filters['tags']);
+                if ($tagIds) {
+                    $q->whereHas('tags', fn($q) => $q->whereIn('eb_tags.id', $tagIds));
+                }
+            })
+            ->when(($filters['household_search'] ?? '') !== '', function ($q) use ($filters) {
+                $term = $filters['household_search'];
+                $q->whereHas('family.household', function ($q) use ($term) {
+                    $q->where('no', 'like', "%$term%")
+                      ->orWhere('phaseStreet', 'like', "%$term%")
+                      ->orWhere('completeAdress', 'like', "%$term%");
+                });
+            });
+    }
+
+    public function export(Request $request)
+    {
+        $filters = $request->only(self::LIST_FILTERS);
+
+        // Bulk "Export selected" sends the ticked citizens instead of filters.
+        $ids = array_values(array_filter(array_map('intval', (array) $request->input('ids', []))));
+
+        $query = Citizen::with(['civilStatus', 'addressZone', 'approvalStatus'])
+            // Mirrors the list: exports cover active citizens only.
+            ->where('is_active', 1)
+            ->when($ids, fn ($q) => $q->whereIn('id', $ids))
+            ->when(! $ids, fn ($q) => $this->applyFilters($q, $filters))
             ->orderBy('lname')
             ->orderBy('fname');
 
@@ -226,7 +353,7 @@ class CitizenController extends Controller
         $filename    = 'citizens_' . date('Ymd_His');
         $exportCount = $query->count();
 
-        $activeFilters = array_filter($filters, fn($v) => $v !== '' && $v !== null);
+        $activeFilters = $ids ? ['selected' => count($ids)] : array_filter($filters, fn($v) => $v !== '' && $v !== null && $v !== []);
 
         ActivityLog::record(
             'exported', 'export', null,

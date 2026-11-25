@@ -117,15 +117,17 @@
             <p class="text-2xl font-bold text-gray-800 dark:text-gray-100" id="kpi-members">—</p>
         </div>
     </div>
-    <div class="card p-4 flex items-center gap-3">
-        <div class="w-11 h-11 rounded-xl bg-info/10 flex items-center justify-center shrink-0">
-            <i class="mgc_chart_bar_line text-xl text-info"></i>
+    {{-- Citizens not in any household yet — opens the list to assign them --}}
+    <button type="button" id="kpi-unassigned-card" class="card p-4 flex items-center gap-3 text-start border-2 border-transparent hover:border-danger/40 transition" title="Show citizens not in a household">
+        <div class="w-11 h-11 rounded-xl bg-danger/10 flex items-center justify-center shrink-0">
+            <i class="mgc_user_add_line text-xl text-danger"></i>
         </div>
-        <div>
-            <p class="text-xs text-gray-400 uppercase tracking-wide">Avg / Household</p>
-            <p class="text-2xl font-bold text-gray-800 dark:text-gray-100" id="kpi-avg">—</p>
+        <div class="min-w-0">
+            <p class="text-xs text-gray-400 uppercase tracking-wide">Not in a household</p>
+            <p class="text-2xl font-bold text-gray-800 dark:text-gray-100" id="kpi-unassigned">—</p>
+            <p class="text-[11px] text-danger font-medium">View &amp; assign <i class="mgc_right_line"></i></p>
         </div>
-    </div>
+    </button>
 </div>
 
 {{-- ── Two-column layout ──────────────────────────────────────────────────── --}}
@@ -269,6 +271,47 @@
         </div>
     </div>
 
+</div>
+
+{{-- ══════════════════════════════════════════════════════════════════════════
+     MODAL: Citizens not in a household (opened from the stat card)
+══════════════════════════════════════════════════════════════════════════ --}}
+<div id="modal-unassigned" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" id="ua-backdrop"></div>
+    <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl z-10 flex flex-col max-h-[90vh]">
+        <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 shrink-0">
+            <div class="flex items-center justify-between gap-3">
+                <h5 class="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    <i class="mgc_user_add_line text-danger"></i> Not in a household
+                    <span id="ua-total" class="text-sm font-normal text-gray-400"></span>
+                </h5>
+                <button type="button" id="ua-close" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="Close"><i class="mgc_close_line text-xl"></i></button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+                <div class="relative">
+                    <i class="mgc_search_line absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                    <input type="text" id="ua-search" class="form-input pl-8 w-full text-sm" placeholder="Search name…" autocomplete="off">
+                </div>
+                <select id="ua-zone" class="form-select text-sm">
+                    <option value="">All zones</option>
+                    @foreach($addresses as $addr)
+                        <option value="{{ $addr->id }}">{{ $addr->description }}</option>
+                    @endforeach
+                </select>
+                <select id="ua-sort" class="form-select text-sm" title="Sort — your choice is remembered">
+                    <option value="newest">Newest registered first</option>
+                    <option value="oldest">Oldest registered first</option>
+                    <option value="az">Name A–Z</option>
+                    <option value="za">Name Z–A</option>
+                    <option value="age_desc">Oldest age first</option>
+                    <option value="age_asc">Youngest first</option>
+                </select>
+            </div>
+            <p id="ua-target" class="hidden mt-2 text-xs text-gray-500 dark:text-gray-400"></p>
+        </div>
+        <div id="ua-list" class="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700"></div>
+        <div id="ua-pager" class="flex items-center justify-between gap-2 px-5 py-3 border-t border-gray-100 dark:border-gray-700 shrink-0 text-sm"></div>
+    </div>
 </div>
 
 {{-- ══════════════════════════════════════════════════════════════════════════
@@ -639,6 +682,7 @@ const ROUTES = {
     removeMember:   '{{ route('households.remove-member') }}',
     setHead:        '{{ route('households.set-household-head') }}',
     filterCitizens: '{{ route('households.filter-citizens') }}',
+    unassigned:     '{{ route('households.unassigned') }}',
     citizenAddress: '{{ route('households.citizen-address') }}',
     familyIncome:   '{{ route('households.family-income') }}',
 };
@@ -658,6 +702,7 @@ const CAN = {
 let currentPage        = 1;
 let currentFilter      = { addressId: '', search: '' };
 let currentHouseholdId = null;
+let currentHouseholdData = null;   // details of the open household (for "Add to this household")
 let pickerMode         = null;
 let pickerFamilyId     = null;
 let pickerSearch       = '';
@@ -683,7 +728,7 @@ function loadKpi() {
         document.getElementById('kpi-households').textContent = res.households;
         document.getElementById('kpi-families').textContent   = res.families;
         document.getElementById('kpi-members').textContent    = res.members;
-        document.getElementById('kpi-avg').textContent        = res.avg;
+        document.getElementById('kpi-unassigned').textContent = Number(res.unassigned ?? 0).toLocaleString();
     });
 }
 
@@ -828,6 +873,7 @@ function viewHousehold(id, cardEl) {
         .then(r => r.json()).then(res => {
             if (!res.success) return;
             const d = res.data;
+            currentHouseholdData = d;
 
             document.getElementById('panel-hh-id').textContent      = d.household_id_format;
             document.getElementById('panel-address').textContent     = d.full_address;
@@ -1493,6 +1539,178 @@ document.getElementById('edit-hh-form').addEventListener('submit', function (e) 
 document.getElementById('btn-add-family')?.addEventListener('click', () => {
     if (!currentHouseholdId) return;
     openCitizenPicker('family-head');
+});
+
+// ─── "Not in a household" list (stat card) ────────────────────────────────────
+// Citizens with no family / household yet. Each row can start a new household
+// (that citizen as head) or, when a household is open on the right, be added to it.
+const UA_SORT_KEY = 'households.unassigned.sort';
+let uaPage = 1, uaTimer = null, uaSeq = 0;
+const uaEsc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uaColor = color => () => {
+    const b = document.querySelector('.swal2-confirm');
+    if (b) b.style.setProperty('background-color', color, 'important');
+};
+
+(function initUnassignedSort() {
+    let saved = null;
+    try { saved = localStorage.getItem(UA_SORT_KEY); } catch (e) {}
+    const sel = document.getElementById('ua-sort');
+    if (saved && [...sel.options].some(o => o.value === saved)) sel.value = saved;
+})();
+
+function openUnassigned() {
+    // Start with the zone picked in the household filter, if any.
+    document.getElementById('ua-zone').value = currentFilter.addressId || '';
+    const target = document.getElementById('ua-target');
+    const open = openHousehold();
+    target.innerHTML = open
+        ? `<i class="mgc_information_line"></i> <b>Add to ${uaEsc(open.household_id_format)}</b> puts the person in the household open on the right.`
+        : '<i class="mgc_information_line"></i> Tip: open a household first to add people to it, or start a new household with the person as head.';
+    target.classList.remove('hidden');
+    openModal('modal-unassigned');
+    loadUnassigned(1);
+}
+
+function openHousehold() {
+    return currentHouseholdId && currentHouseholdData && currentHouseholdData.household_id == currentHouseholdId
+        ? currentHouseholdData : null;
+}
+
+function loadUnassigned(page = 1) {
+    uaPage = page;
+    const mine = ++uaSeq;
+    const list = document.getElementById('ua-list');
+    list.innerHTML = skeletonPickerRows(6);
+    const params = new URLSearchParams({
+        page,
+        search:    document.getElementById('ua-search').value.trim(),
+        addressId: document.getElementById('ua-zone').value,
+        sort:      document.getElementById('ua-sort').value,
+    });
+    fetch(ROUTES.unassigned + '?' + params, { headers: { Accept: 'application/json' } })
+        .then(r => r.json())
+        .then(res => {
+            if (mine !== uaSeq) return;
+            document.getElementById('ua-total').textContent = '(' + Number(res.total).toLocaleString() + ')';
+            renderUnassigned(res);
+        })
+        .catch(() => { if (mine === uaSeq) list.innerHTML = emptyState('Could not load the list. Please try again.'); });
+}
+
+function renderUnassigned(res) {
+    const list = document.getElementById('ua-list');
+    const open = openHousehold();
+    if (!res.items.length) {
+        list.innerHTML = `<div class="py-12 text-center text-gray-400">
+            <i class="mgc_check_circle_line text-4xl mb-2 block opacity-40"></i>
+            <p class="text-sm">${document.getElementById('ua-search').value.trim() || document.getElementById('ua-zone').value
+                ? 'No one matches.' : 'Everyone is in a household.'}</p></div>`;
+    } else {
+        list.innerHTML = res.items.map(c => `
+            <div class="flex items-center gap-3 px-5 py-3">
+                <div class="w-10 h-10 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
+                    ${c.photo ? `<img src="${uaEsc(c.photo)}" class="w-full h-full object-cover" alt="">`
+                              : `<span class="text-sm font-bold text-primary">${uaEsc((c.name || '?').charAt(0).toUpperCase())}</span>`}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">${uaEsc(c.name)}</p>
+                    <p class="text-xs text-gray-400 truncate">
+                        <span class="font-mono">${uaEsc(c.code)}</span>
+                        · ${c.age != null ? 'Age ' + c.age + ' · ' : ''}${uaEsc(c.gender)}
+                        ${c.zone ? '· ' + uaEsc(c.zone) : ''}
+                        ${c.registered ? '· Registered ' + uaEsc(c.registered) : ''}
+                    </p>
+                </div>
+                ${CAN.create ? `<div class="flex flex-wrap justify-end gap-1.5 shrink-0">
+                    ${open ? `<button type="button" class="btn btn-sm bg-primary text-white text-xs" onclick="uaAddToOpen(${c.id})" data-name="${uaEsc(c.name)}" data-photo="${uaEsc(c.photo || '')}">
+                        <i class="mgc_add_line"></i> Add to ${uaEsc(open.household_id_format)}</button>` : ''}
+                    <button type="button" class="btn btn-sm bg-success/25 text-success hover:bg-success hover:text-white text-xs" onclick="uaNewHousehold(${c.id})" data-name="${uaEsc(c.name)}" data-photo="${uaEsc(c.photo || '')}">
+                        <i class="mgc_home_3_line"></i> New household</button>
+                </div>` : ''}
+            </div>`).join('');
+    }
+
+    const pager = document.getElementById('ua-pager');
+    pager.innerHTML = res.last_page > 1 ? `
+        <span class="text-gray-400 text-xs">Page ${res.page} of ${Number(res.last_page).toLocaleString()}</span>
+        <div class="flex gap-1">
+            <button type="button" class="btn btn-sm bg-dark/10 text-slate-700 dark:text-slate-200 hover:bg-dark/20" ${res.page <= 1 ? 'disabled' : ''} onclick="loadUnassigned(${res.page - 1})"><i class="mgc_left_line"></i> Prev</button>
+            <button type="button" class="btn btn-sm bg-dark/10 text-slate-700 dark:text-slate-200 hover:bg-dark/20" ${res.page >= res.last_page ? 'disabled' : ''} onclick="loadUnassigned(${res.page + 1})">Next <i class="mgc_right_line"></i></button>
+        </div>` : '';
+}
+
+function uaRow(id) {
+    const b = document.querySelector(`#ua-list [onclick="uaNewHousehold(${id})"]`);
+    return { name: b?.dataset.name || '', photo: b?.dataset.photo || null };
+}
+
+// Start the New Household wizard with this citizen already chosen as head.
+function uaNewHousehold(id) {
+    const { name, photo } = uaRow(id);
+    closeModal('modal-unassigned');
+    openWizard();
+    selectCitizenForWizard(id, name, photo || null, false);
+}
+
+// Add to the household open on the right: as a member of one of its families,
+// or as the head of a new family in it.
+function uaAddToOpen(id) {
+    const open = openHousehold();
+    if (!open) return;
+    const { name } = uaRow(id);
+    const options = {};
+    (open.families || []).forEach(f => { options['m' + f.family_id] = 'Member of ' + f.head_name + '’s family'; });
+    options['new'] = 'Head of a new family in this household';
+
+    Swal.fire({
+        title: 'Add to ' + open.household_id_format,
+        html: `<p class="text-sm">Where does <b>${uaEsc(name)}</b> belong?</p>`,
+        input: 'select',
+        inputOptions: options,
+        inputValue: Object.keys(options)[0],
+        showCancelButton: true,
+        confirmButtonText: 'Continue',
+        reverseButtons: true,
+        didOpen: uaColor('#727cf5'),
+    }).then(r => {
+        if (!r.isConfirmed) return;
+        if (r.value === 'new') {
+            postJson(ROUTES.storeFamily, { householdId: currentHouseholdId, citizenId: id }).then(res => {
+                if (!res.success) { Swal.fire({ icon: 'error', title: 'Error', text: res.message }); return; }
+                Swal.fire({ icon: 'success', title: 'Family added', timer: 1600, showConfirmButton: false });
+                refreshPanel();
+                loadHouseholds(currentPage);
+                loadKpi();
+                loadUnassigned(uaPage);
+            });
+            return;
+        }
+        // Member: reuse the relationship step of the normal Add Member flow.
+        closeModal('modal-unassigned');
+        document.getElementById('relation-citizen-id').value         = id;
+        document.getElementById('relation-family-id').value          = r.value.slice(1);
+        document.getElementById('relation-citizen-name').textContent = name;
+        document.getElementById('relation-select').value             = '';
+        document.getElementById('relation-error').classList.add('hidden');
+        openModal('modal-relation');
+    });
+}
+
+document.getElementById('kpi-unassigned-card').addEventListener('click', openUnassigned);
+document.getElementById('ua-close').addEventListener('click', () => closeModal('modal-unassigned'));
+document.getElementById('ua-backdrop').addEventListener('click', () => closeModal('modal-unassigned'));
+document.getElementById('ua-search').addEventListener('input', () => {
+    clearTimeout(uaTimer);
+    uaTimer = setTimeout(() => loadUnassigned(1), 350);
+});
+document.getElementById('ua-zone').addEventListener('change', () => loadUnassigned(1));
+document.getElementById('ua-sort').addEventListener('change', function () {
+    try { localStorage.setItem(UA_SORT_KEY, this.value); } catch (e) {}
+    loadUnassigned(1);
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !document.getElementById('modal-unassigned').classList.contains('hidden')) closeModal('modal-unassigned');
 });
 
 // ─── Citizen picker (family-head / member) ────────────────────────────────────

@@ -57,7 +57,63 @@ class HouseholdController extends Controller
             ];
         });
 
+        // Not cached: it moves with every registration, and the zone scope
+        // makes it differ per account.
+        $payload['unassigned'] = self::unassignedQuery()->count();
+
         return response()->json(['success' => true] + $payload);
+    }
+
+    /** Active, not-rejected citizens who are not in any family / household yet. */
+    private static function unassignedQuery()
+    {
+        return Citizen::query()->where('is_active', 1)->notRejected()->whereNull('familyId');
+    }
+
+    /**
+     * The "Not in a household" list behind the stat card.
+     * GET ?search=&addressId=&sort=newest|oldest|az|za|age_desc|age_asc&page=
+     */
+    public function unassigned(Request $request)
+    {
+        $sorts = [
+            'newest'   => [['date_created', 'desc'], ['id', 'desc']],
+            'oldest'   => [['date_created', 'asc'], ['id', 'asc']],
+            'az'       => [['lname', 'asc'], ['fname', 'asc']],
+            'za'       => [['lname', 'desc'], ['fname', 'desc']],
+            'age_desc' => [['bday', 'asc']],
+            'age_asc'  => [['bday', 'desc']],
+        ];
+        $sort  = array_key_exists($request->input('sort'), $sorts) ? $request->input('sort') : 'newest';
+        $limit = 20;
+
+        $query = self::unassignedQuery()
+            ->when($request->filled('addressId'), fn ($q) => $q->where('address', $request->integer('addressId')))
+            ->when(mb_strlen(trim((string) $request->input('search'))) >= 2, fn ($q) => $q->searchName(trim($request->input('search'))));
+        foreach ($sorts[$sort] as [$col, $dir]) {
+            $query->orderBy($col, $dir);
+        }
+
+        $page = $query->with('addressZone')->paginate($limit);
+        $setting = \App\Models\Setting::instance();
+
+        return response()->json([
+            'success'   => true,
+            'sort'      => $sort,
+            'total'     => $page->total(),
+            'page'      => $page->currentPage(),
+            'last_page' => $page->lastPage(),
+            'items'     => $page->getCollection()->map(fn (Citizen $c) => [
+                'id'         => $c->id,
+                'name'       => $c->full_name,
+                'code'       => $setting->formatCitizenId($c->id),
+                'photo'      => $c->profile ? $c->profile_url : null,
+                'age'        => $c->bday ? $c->age : null,
+                'gender'     => (int) $c->gender === 1 ? 'Male' : 'Female',
+                'zone'       => $c->addressZone?->description,
+                'registered' => $c->date_created?->format('M d, Y'),
+            ])->values(),
+        ]);
     }
 
     // Drop the cached KPI figures after any write that changes them.
