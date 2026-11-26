@@ -354,6 +354,9 @@
                                     @if($req->citizen?->is_walkin)<span class="ms-1 inline-flex items-center gap-1 py-0.5 px-1.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-700 align-middle">Walk-in</span>@endif
                                 </p>
                                 <p class="text-xs text-gray-400 truncate max-w-[240px]">{{ $req->citizen?->full_address }}</p>
+                                @if($req->careOf)
+                                <p class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[240px]"><i class="mgc_user_follow_line text-warning"></i> c/o {{ $req->careOf->full_name }}</p>
+                                @endif
                             </div>
                         </div>
                     </td>
@@ -418,7 +421,7 @@
                     <div class="min-w-0">
                         <p class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{{ $req->citizen->full_name ?? '—' }}</p>
                         <p class="text-xs text-gray-400 truncate">
-                            @if($req->citizen?->is_walkin)Walk-in · @endif{{ $req->purpose ?: 'No purpose given' }}
+                            @if($req->citizen?->is_walkin)Walk-in{{ $req->careOf ? ' c/o ' . $req->careOf->full_name : '' }} · @endif{{ $req->purpose ?: 'No purpose given' }}
                         </p>
                     </div>
                 </div>

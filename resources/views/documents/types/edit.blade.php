@@ -430,6 +430,8 @@ html[data-mode="dark"] .note-toolbar .note-color-select-btn { border-color: #3f4
                                 'or_number'   => 'O.R. Number',
                                 'doc_number'  => 'Document Control No.',
                                 'purpose'     => 'Purpose of Request',
+                                'care_of'     => 'Care of (walk-ins: the vouching resident)',
+                                'care_of_address' => "Care of — resident's address",
                                 'captain_signature' => "Captain's Signature (image)",
                             ] as $tag => $label)
                             <button type="button" onclick="copyTag('{{ $tag }}')" title="{{ $label }}"

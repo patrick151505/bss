@@ -14,7 +14,7 @@ class DocumentRequestController extends Controller
     public function index(Request $request)
     {
         $query = $this->filteredRequests($request)
-            ->with(['documentType', 'citizen', 'createdBy'])
+            ->with(['documentType', 'citizen', 'createdBy', 'careOf'])
             ->latest();
 
         $requests = $query->paginate(20)->appends($request->query());
@@ -274,6 +274,10 @@ class DocumentRequestController extends Controller
         if (!$user) {
             return false;
         }
+        // "All document types" covers every type, including ones added later.
+        if ($user->can(DocumentType::ISSUE_ALL)) {
+            return true;
+        }
         $perm = $type->issuePermissionName();
         $exists = \Spatie\Permission\Models\Permission::where('name', $perm)->exists();
         return $exists ? $user->can($perm) : true;
@@ -288,7 +292,7 @@ class DocumentRequestController extends Controller
         // permission names once, then decide in-memory.
         $types = DocumentType::active()->with('fields')->orderBy('name')->get();
 
-        if ($user && !$user->hasRole('Super Admin')) {
+        if ($user && !$user->hasRole('Super Admin') && !$user->can(DocumentType::ISSUE_ALL)) {
             $issuePerms = \Spatie\Permission\Models\Permission::where('name', 'like', 'issue_document.%')
                 ->pluck('name')->flip();                 // [name => idx] for O(1) lookup
             $userPerms  = $user->getAllPermissions()->pluck('name')->flip();
@@ -503,6 +507,29 @@ class DocumentRequestController extends Controller
         return null;
     }
 
+    // A walk-in's request must name the resident it is "care of" — a registered,
+    // active resident (not a walk-in, not the person themself). Returns
+    // [errors|null, careOf|null]. Residents' own requests ignore the field.
+    private function careOfFor(Citizen $citizen, Request $request): array
+    {
+        if (!$citizen->is_walkin) {
+            return [null, null];
+        }
+        $id = (int) $request->input('care_of_citizen_id');
+        if (!$id) {
+            return [['care_of_citizen_id' => ['Choose the resident this walk-in is care of.']], null];
+        }
+        // Residents only (the global scope leaves walk-ins out), active.
+        $careOf = Citizen::with('activeHold')->where('is_active', 1)->find($id);
+        if (!$careOf || $careOf->id === $citizen->id) {
+            return [['care_of_citizen_id' => ['The "care of" person must be a registered, active resident.']], null];
+        }
+        if ($careOf->activeHold) {
+            return [['care_of_citizen_id' => ["{$careOf->full_name} is on hold and cannot vouch for a walk-in."]], null];
+        }
+        return [null, $careOf];
+    }
+
     // Resolve {{ placeholder }} default values for a document type's custom
     // fields against a specific citizen — used by the create-request form to
     // show real data (e.g. the citizen's actual first name) instead of the
@@ -605,6 +632,10 @@ class DocumentRequestController extends Controller
         if ($walkinErrors = $this->prepareWalkin($citizen, $type, $request, false)) {
             return response()->json(['errors' => $walkinErrors], 422);
         }
+        [$careOfErrors, $careOf] = $this->careOfFor($citizen, $request);
+        if ($careOfErrors) {
+            return response()->json(['errors' => $careOfErrors], 422);
+        }
 
         try {
             $customFields = $this->buildCustomFields($type, $request, $citizen);
@@ -618,6 +649,7 @@ class DocumentRequestController extends Controller
         $draft = new DocumentRequest([
             'document_type_id' => $type->id,
             'citizen_id'       => $citizen->id,
+            'care_of_citizen_id' => $careOf?->id,
             'purpose'          => $purpose,
             'custom_fields'    => $customFields,
             'is_paid'          => $type->is_paid,
@@ -627,6 +659,7 @@ class DocumentRequestController extends Controller
         ]);
         $draft->setRelation('documentType', $type);
         $draft->setRelation('citizen', $citizen);
+        $draft->setRelation('careOf', $careOf);
         if ($templateVersionId) {
             $draft->setRelation('templateVersion', \App\Models\DocumentTemplateVersion::find($templateVersionId));
         }
@@ -649,6 +682,7 @@ class DocumentRequestController extends Controller
             ],
             'summary' => [
                 'citizen_name'   => $citizen->full_name,
+                'care_of'        => $careOf?->full_name,
                 'document_type'  => $type->name,
                 'purpose'        => $purpose,
                 'is_paid'        => (bool) $type->is_paid,
@@ -698,6 +732,14 @@ class DocumentRequestController extends Controller
             }
             return back()->withErrors(['citizen_id' => $holdMessage])->withInput();
         }
+        // Check "care of" before prepareWalkin saves the walk-in's details.
+        [$careOfErrors, $careOf] = $this->careOfFor($citizen, $request);
+        if ($careOfErrors) {
+            if ($request->wantsJson()) {
+                return response()->json(['errors' => $careOfErrors], 422);
+            }
+            return back()->withErrors($careOfErrors)->withInput();
+        }
         if ($walkinErrors = $this->prepareWalkin($citizen, $type, $request, true)) {
             if ($request->wantsJson()) {
                 return response()->json(['errors' => $walkinErrors], 422);
@@ -724,6 +766,7 @@ class DocumentRequestController extends Controller
             'document_type_id'   => $type->id,
             'doc_number'         => $type->allocateNextNumber(),
             'citizen_id'         => $request->citizen_id,
+            'care_of_citizen_id' => $careOf?->id,
             'created_by'         => $request->user()?->id,
             'purpose'            => $purpose,
             'status'             => 'pending',
@@ -786,7 +829,7 @@ class DocumentRequestController extends Controller
 
     public function show(DocumentRequest $documentRequest)
     {
-        $documentRequest->load(['documentType.fields', 'templateVersion', 'citizen.civilStatus', 'citizen.activeHold', 'approvedBy', 'createdBy', 'voidedBy']);
+        $documentRequest->load(['careOf', 'documentType.fields', 'templateVersion', 'citizen.civilStatus', 'citizen.activeHold', 'approvedBy', 'createdBy', 'voidedBy']);
         $header  = $documentRequest->renderHeader();
         $preview = $documentRequest->resolveTemplate();
 

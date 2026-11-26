@@ -55,12 +55,23 @@ class RoleController extends Controller
             $permissions = $permissions->whereIn('name', $held);
         }
 
+        // Issue permissions: "All document types" first, then one per EXISTING
+        // type by name. Leftovers of deleted types are not shown.
+        $docLabels   = self::documentTypeLabels();
+        $permissions = $permissions->reject(fn ($p) => str_starts_with($p->name, 'issue_document.') && ! isset($docLabels[$p->name]));
+
         $all    = $permissions->groupBy(fn($p) => explode('.', $p->name)[0]);
+        if (isset($all['issue_document'])) {
+            $order = array_flip(array_keys($docLabels));
+            $all['issue_document'] = $all['issue_document']->sortBy(fn ($p) => $order[$p->name] ?? PHP_INT_MAX)->values();
+        }
         $groups = [];
 
         foreach ($labels as $key => $label) {
             if (isset($all[$key])) {
-                $perms = $all[$key]->sortBy(fn($p) => array_search(explode('.', $p->name)[1], self::ACTION_ORDER) ?: 99)->values();
+                $perms = $key === 'issue_document'
+                    ? $all[$key]
+                    : $all[$key]->sortBy(fn($p) => array_search(explode('.', $p->name)[1], self::ACTION_ORDER) ?: 99)->values();
                 $groups[$label] = isset($groups[$label]) ? $groups[$label]->concat($perms) : $perms;
             }
         }
@@ -127,9 +138,10 @@ class RoleController extends Controller
     // so the Roles page shows the type name instead of a numeric id.
     public static function documentTypeLabels(): array
     {
-        return DocumentType::orderBy('name')->pluck('name', 'id')
-            ->mapWithKeys(fn ($name, $id) => ['issue_document.' . $id => $name])
-            ->all();
+        return [DocumentType::ISSUE_ALL => 'All document types, including ones added later']
+            + DocumentType::orderByDesc('is_active')->orderBy('name')->get(['id', 'name', 'is_active'])
+                ->mapWithKeys(fn ($t) => ['issue_document.' . $t->id => $t->name . ($t->is_active ? '' : ' (inactive — not offered on requests)')])
+                ->all();
     }
 
     public function index()

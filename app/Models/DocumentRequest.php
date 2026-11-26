@@ -19,6 +19,7 @@ class DocumentRequest extends Model
         'document_type_id',
         'doc_number',
         'citizen_id',
+        'care_of_citizen_id',
         'created_by',
         'source',
         'kiosk_id',
@@ -68,6 +69,12 @@ class DocumentRequest extends Model
     public function citizen()
     {
         return $this->belongsTo(Citizen::class, 'citizen_id')->withoutGlobalScope('residents');
+    }
+
+    /** The resident a walk-in's request is "care of" (vouches for them). */
+    public function careOf()
+    {
+        return $this->belongsTo(Citizen::class, 'care_of_citizen_id')->withoutGlobalScopes();
     }
 
     public function approvedBy()
@@ -308,6 +315,10 @@ class DocumentRequest extends Model
             'or_number'    => $request?->or_number ?? '',
             'doc_number'   => $request?->control_number ?? '',
             'purpose'      => $request?->purpose ?? '',
+
+            // ── Walk-ins: the resident the request is "care of" ──────
+            'care_of'         => $request?->care_of_citizen_id ? ($request->careOf?->full_name ?? '') : '',
+            'care_of_address' => $request?->care_of_citizen_id ? ($request->careOf?->full_address ?? '') : '',
         ];
     }
 

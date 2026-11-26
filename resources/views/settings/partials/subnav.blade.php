@@ -11,6 +11,7 @@
         ['route' => 'citizens.ids.template.designer', 'pattern' => 'citizens.ids.template.*', 'icon' => 'mgc_IDcard_line',    'label' => 'ID Template',        'can' => 'citizen_ids.template'],
         ['route' => 'settings.registration-links', 'pattern' => 'settings.registration-links*', 'icon' => 'mgc_link_line',      'label' => 'Registration Links', 'role' => 'Super Admin'],
         ['route' => 'settings.kiosks',           'pattern' => 'settings.kiosks*',           'icon' => 'mgc_computer_line',     'label' => 'Kiosks',             'role' => 'Super Admin'],
+        ['route' => 'settings.backups',          'pattern' => 'settings.backups*',          'icon' => 'mgc_safe_box_line',     'label' => 'Backups',            'role' => 'Super Admin'],
         ['route' => 'settings.updates',          'pattern' => 'settings.updates',           'icon' => 'mgc_rocket_line',       'label' => 'Updates',            'can' => 'settings.view', 'badge' => true],
     ];
     $appVersion = config('app.version');

@@ -256,7 +256,7 @@
                         <th class="ps-4 pe-1 py-3 w-8"><input type="checkbox" class="bulk-check-page form-checkbox rounded text-primary" title="Select everyone on this page" aria-label="Select everyone on this page"></th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase w-10">#</th>
                         <th data-col="household" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Household</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
+                        <th data-col="citizen" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">
                             <a href="{{ $sortLink('name') }}" data-sort="name"
                                class="inline-flex items-center gap-1 hover:text-primary transition-colors"
                                title="Sort by name (surname, first name)">
@@ -284,6 +284,10 @@
                                 Last Updated <i class="{{ $sortIcon('date_last_updated') }} text-base leading-none"></i>
                             </a>
                         </th>
+                        {{-- Extra details — hidden until ticked in the Columns menu --}}
+                        @foreach(\App\Support\CitizenListColumns::MORE as $colKey => $colLabel)
+                        <th data-col="{{ $colKey }}" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap">{{ $colLabel }}</th>
+                        @endforeach
                         <th class="px-4 py-3 text-end text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Action</th>
                     </tr>
                 </thead>
@@ -333,7 +337,7 @@
                         </td>
 
                         {{-- Citizen Name + Photo --}}
-                        <td class="px-4 py-3 whitespace-nowrap">
+                        <td data-col="citizen" class="px-4 py-3 whitespace-nowrap">
                             <div class="flex items-center gap-3">
                                 {{-- Lock badge on the photo when the citizen is on hold --}}
                                 <div class="relative shrink-0">
@@ -494,6 +498,13 @@
                             @endif
                         </td>
 
+                        @foreach(\App\Support\CitizenListColumns::MORE as $colKey => $colLabel)
+                        @php $colVal = \App\Support\CitizenListColumns::value($colKey, $citizen); @endphp
+                        <td data-col="{{ $colKey }}" class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 {{ in_array($colKey, ['emergency', 'owner', 'email']) ? 'min-w-[160px]' : 'whitespace-nowrap' }}">
+                            @if($colVal !== '') {{ $colVal }} @else <span class="text-gray-300 dark:text-gray-600">—</span> @endif
+                        </td>
+                        @endforeach
+
                         {{-- Actions — pinned to the right edge so they are
                              reachable without scrolling the table sideways. --}}
                         <td class="px-4 py-3 whitespace-nowrap text-end">
@@ -525,7 +536,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="14" class="px-6 py-16 text-center">
+                        <td colspan="{{ 14 + count(\App\Support\CitizenListColumns::MORE) }}" class="px-6 py-16 text-center">
                             <div class="flex flex-col items-center gap-2 text-gray-400">
                                 <i class="mgc_user_search_line text-5xl"></i>
                                 <p class="text-sm font-medium">No citizens found</p>

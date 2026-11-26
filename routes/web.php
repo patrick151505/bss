@@ -400,6 +400,16 @@ Route::middleware('auth')->group(function () {
     Route::patch('settings/registration-links/{token}/toggle', [\App\Http\Controllers\RegistrationTokenController::class, 'toggle'])->name('settings.registration-links.toggle');
     Route::delete('settings/registration-links/{token}', [\App\Http\Controllers\RegistrationTokenController::class, 'destroy'])->name('settings.registration-links.destroy');
     // Kiosk accounts + start screen pictures — Super Admin only (checked in the controller).
+    // Settings → Backups (the controller allows Super Admin only).
+    Route::prefix('settings/backups')->name('settings.backups')->controller(\App\Http\Controllers\BackupController::class)->group(function () {
+        Route::get('/',                    'index')->name('');
+        Route::post('run',                 'run')->name('.run');
+        Route::get('{backup}/download',    'download')->name('.download');
+        Route::get('google/connect',       'connect')->name('.google.connect');
+        Route::get('google/callback',      'callback')->name('.google.callback');
+        Route::post('google/disconnect',   'disconnect')->name('.google.disconnect');
+    });
+
     Route::get('settings/kiosks',                      [\App\Http\Controllers\KioskSettingsController::class, 'index'])->name('settings.kiosks');
     Route::post('settings/kiosk-slides',               [\App\Http\Controllers\KioskSettingsController::class, 'slideStore'])->name('settings.kiosk-slides.store');
     Route::patch('settings/kiosk-slides/{slide}',      [\App\Http\Controllers\KioskSettingsController::class, 'slideUpdate'])->name('settings.kiosk-slides.update');

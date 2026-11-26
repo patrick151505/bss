@@ -19,6 +19,19 @@
 return [
 
     [
+        'version' => '3.7',
+        'date'    => '2026-11-26',
+        'title'   => 'Automatic backups, walk-in "Care of", issue all document types',
+        'summary' => 'Weekly backups of the database and uploads to Google Drive. Walk-in document requests must name the resident who vouches for them. A role can be allowed to issue every document type.',
+        'changes' => [
+            ['type' => 'new', 'module' => 'Settings', 'text' => 'Settings → Backups (Super Admin only): every Friday at 2:00 AM the whole database and all uploaded photos and files are saved in a password-protected backup, copied to Google Drive in a folder named after the barangay (e.g. "BSS Backups – Barangay San Jose"), and the last 4 weeks are kept. The page shows the last good backup, lets you back up now or download a backup, and every Super Admin gets an email if a backup fails.'],
+            ['type' => 'new', 'module' => 'Roles', 'text' => 'Roles → Document Types (Issue) has an "All document types, including ones added later" box. Tick it and the role can issue every type, and any new document type is included automatically, so roles do not need to be updated each time a type is added.'],
+            ['type' => 'new', 'module' => 'Documents', 'text' => 'Walk-ins must now have a "Care of": when a document is requested for a walk-in, pick the registered resident who vouches for them (not a walk-in, not on hold). It shows on the review, in the Remarks of the request ("Walk-in, care of …") and as "c/o …" in the Requests list, and certificates can print it with {{ care_of }} and {{ care_of_address }}.'],
+            ['type' => 'fixed', 'module' => 'Roles', 'text' => 'Document Types (Issue) no longer lists types that were deleted (they showed as a number). Types are listed by name, and inactive types are marked "inactive — not offered on requests".'],
+        ],
+    ],
+
+    [
         'version' => '3.6',
         'date'    => '2026-11-25',
         'title'   => 'Citizen Fields settings, duplicate check, faster Citizens list',
@@ -35,7 +48,7 @@ return [
             ['type' => 'new', 'module' => 'Citizens', 'text' => 'Tick several citizens (or a whole page) to add or remove a tag, export only those, or set them inactive in one go. Ticks stay while you move between pages.'],
             ['type' => 'new', 'module' => 'Citizens', 'text' => 'Saved filters: save the current filters under a name (e.g. "Purok 1 · Seniors · Voters") and bring them back with one click. You can share a saved filter with all staff.'],
             ['type' => 'new', 'module' => 'Citizens', 'text' => 'Click a citizen name in the list for a quick view: photo, contact, address, household, ID validity and recent activity, without leaving the list.'],
-            ['type' => 'new', 'module' => 'Citizens', 'text' => 'Columns button on the Citizens list: hide the columns you do not need. Your choice is remembered on that computer.'],
+            ['type' => 'new', 'module' => 'Citizens', 'text' => 'Columns button on the Citizens list: hide columns you do not need, and add more details as columns: contact no., email, place of birth, citizenship, occupation, precinct no., resident since, house ownership, Barangay ID released, verified and emergency contact. Use the up / down arrows to change the order of the columns. Show all, Default and Hide all buttons; your choice and order are remembered on that computer.'],
             ['type' => 'improved', 'module' => 'Citizens', 'text' => 'On phones the Citizens list shows one card per citizen instead of a wide table you had to scroll sideways.'],
             ['type' => 'fixed', 'module' => 'Citizens', 'text' => 'Citizens list: the "Non-PWD" and "Not Solo Parent" filters now work, and choosing Voter: All really shows everyone instead of voters only.'],
             ['type' => 'fixed', 'module' => 'Citizens', 'text' => 'Export now uses the filters currently on the list. Before, it could use the filters from when the page was first opened, and it ignored tag and household filters.'],

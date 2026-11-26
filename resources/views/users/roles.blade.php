@@ -191,17 +191,21 @@
                                             $isDocType = isset($docTypeLabels[$perm->name]);
                                             $hint = \App\Http\Controllers\RoleController::actionHint($perm->name);
                                         @endphp
-                                        <label class="perm-module-{{ Str::slug($moduleName) }} flex items-center gap-2 cursor-pointer select-none {{ $isDocType ? 'w-full' : '' }}"
+                                        @php $isIssueAll = $perm->name === \App\Models\DocumentType::ISSUE_ALL; @endphp
+                                        <label class="perm-module-{{ Str::slug($moduleName) }} flex items-center gap-2 cursor-pointer select-none {{ $isDocType ? 'w-full' : '' }} {{ $isIssueAll ? 'pb-2 mb-1 border-b border-gray-100 dark:border-gray-700' : '' }} {{ $isDocType && ! $isIssueAll ? 'issue-type-row' : '' }}"
                                                @if($hint) title="{{ ucfirst($hint) }}" @endif>
                                             <input type="checkbox"
                                                    name="permissions[]"
                                                    value="{{ $perm->name }}"
-                                                   class="perm-checkbox rounded border-gray-300 text-primary focus:ring-primary"
+                                                   class="perm-checkbox rounded border-gray-300 text-primary focus:ring-primary {{ $isIssueAll ? 'issue-all-checkbox' : '' }} {{ $isDocType && ! $isIssueAll ? 'issue-type-checkbox' : '' }}"
                                                    id="perm-{{ $perm->id }}">
-                                            <span class="text-sm text-gray-700 dark:text-gray-200 {{ $isDocType ? '' : 'capitalize' }}">
+                                            <span class="text-sm {{ $isIssueAll ? 'font-semibold text-primary' : 'text-gray-700 dark:text-gray-200' }} {{ $isDocType ? '' : 'capitalize' }} {{ str_contains($label, '(inactive') ? 'text-gray-400 dark:text-gray-500' : '' }}">
                                                 {{ $label }}@if($hint)<i class="mgc_information_line text-xs text-gray-400 ms-0.5"></i>@endif
                                             </span>
                                         </label>
+                                        @if($isIssueAll)
+                                        <p class="issue-all-note hidden w-full -mt-1 mb-1 text-xs text-gray-500 dark:text-gray-400">This role can issue every document type, and new types are included automatically, so the list below is not needed.</p>
+                                        @endif
                                         @endforeach
                                     </div>
                                     @endforeach
@@ -242,8 +246,11 @@ function editRole(id, name, perms) {
 
     // Reset + set permissions
     document.querySelectorAll('.perm-checkbox').forEach(cb => {
+        cb.disabled = false;
         cb.checked = perms.includes(cb.value);
     });
+    issueTypeSnapshot = null;
+    syncIssueAll();
 
     document.getElementById('role-form-title').innerHTML = '<i class="mgc_edit_line me-2 text-warning"></i>Edit Role';
     document.getElementById('role-submit-btn').innerHTML = '<i class="mgc_save_line me-1"></i> Save Changes';
@@ -259,6 +266,9 @@ function cancelRoleEdit() {
     form.action = '{{ route('roles.store') }}';
     document.getElementById('role-form-method').value = 'POST';
     form.reset();
+    document.querySelectorAll('.perm-checkbox').forEach(cb => { cb.disabled = false; });
+    issueTypeSnapshot = null;
+    syncIssueAll();
 
     document.getElementById('role-form-title').innerHTML = '<i class="mgc_add_circle_line me-2 text-primary"></i>Create Role';
     document.getElementById('role-submit-btn').innerHTML = '<i class="mgc_add_circle_line me-1"></i> Create Role';
@@ -268,12 +278,34 @@ function cancelRoleEdit() {
 
 function selectAll(state) {
     document.querySelectorAll('.perm-checkbox').forEach(cb => cb.checked = state);
+    syncIssueAll();
 }
 
 function toggleModule(slug) {
     const checkboxes = document.querySelectorAll(`.perm-module-${slug} .perm-checkbox`);
     const anyUnchecked = [...checkboxes].some(cb => !cb.checked);
     checkboxes.forEach(cb => cb.checked = anyUnchecked);
+    syncIssueAll();
 }
+
+// "All document types": while ticked, the per-type boxes are shown ticked and
+// locked (they are covered anyway). Unticking it restores what was ticked before.
+let issueTypeSnapshot = null;
+function syncIssueAll() {
+    const all = document.querySelector('.issue-all-checkbox');
+    if (!all) return;
+    const boxes = document.querySelectorAll('.issue-type-checkbox');
+    if (all.checked) {
+        if (!issueTypeSnapshot) issueTypeSnapshot = [...boxes].map(cb => cb.checked);
+        boxes.forEach(cb => { cb.checked = true; cb.disabled = true; });
+    } else {
+        boxes.forEach((cb, i) => { cb.disabled = false; if (issueTypeSnapshot) cb.checked = issueTypeSnapshot[i]; });
+        issueTypeSnapshot = null;
+    }
+    document.querySelectorAll('.issue-type-row').forEach(r => r.classList.toggle('opacity-60', all.checked));
+    document.querySelector('.issue-all-note')?.classList.toggle('hidden', !all.checked);
+}
+document.querySelector('.issue-all-checkbox')?.addEventListener('change', syncIssueAll);
+// Disabled boxes are not submitted, which is fine: "all" covers them.
 </script>
 @endpush

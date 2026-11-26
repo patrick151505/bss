@@ -437,26 +437,49 @@
                     <div class="flex items-center gap-2">
                         {{-- Column chooser (table view, tablet and up) — remembered per user in this browser --}}
                         @php
-                            $listColumns = [
-                                'household' => 'Household', 'age' => 'Age', 'gender' => 'Gender',
-                                'address' => 'Address / Zone', 'civil' => 'Civil Status', 'tags' => 'Tags',
-                                'flags' => 'Flags', 'status' => 'Status', 'registered' => 'Registered',
-                                'updated' => 'Last Updated',
-                            ];
+                            $stdColumns  = \App\Support\CitizenListColumns::STANDARD;
+                            $moreColumns = \App\Support\CitizenListColumns::MORE;
                         @endphp
+                        {{-- Extra columns start hidden (before any script runs, so they never flash) --}}
+                        <style id="col-style">@foreach(array_keys($moreColumns) as $k)#citizens-table-wrap [data-col="{{ $k }}"]{display:none}@endforeach</style>
                         <div class="relative hidden md:block" id="col-chooser">
                             <button type="button" id="col-chooser-btn" title="Choose columns"
                                 class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-600 dark:text-gray-300 hover:text-primary transition">
                                 <i class="mgc_column_line text-base"></i> Columns
+                                <span id="col-hidden-count" class="hidden ms-0.5 px-1.5 rounded-full bg-primary text-white text-[11px] font-semibold"></span>
                             </button>
-                            <div id="col-chooser-menu" class="hidden absolute end-0 mt-2 w-56 z-30 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-2">
-                                <p class="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Show columns</p>
-                                @foreach($listColumns as $key => $label)
-                                <label class="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 text-sm text-gray-700 dark:text-gray-200">
-                                    <input type="checkbox" class="col-toggle form-checkbox rounded text-primary" value="{{ $key }}" checked> {{ $label }}
-                                </label>
-                                @endforeach
-                                <button type="button" id="col-reset" class="w-full mt-1 text-xs text-primary hover:underline py-1">Show all</button>
+                            <div id="col-chooser-menu" class="hidden absolute end-0 mt-2 w-72 z-30 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg p-2">
+                                <p class="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Columns</p>
+                                <p class="px-2 pb-2 text-[11px] text-gray-400">Tick to show. Use <i class="mgc_up_line"></i> <i class="mgc_down_line"></i> to change the order (top = left).</p>
+                                @php
+                                    // Default arrangement = the table's own order.
+                                    $colItems = ['household' => [$stdColumns['household'], true], 'citizen' => ['Citizen (name)', null]];
+                                    foreach ($stdColumns as $k => $l) { if ($k !== 'household') $colItems[$k] = [$l, true]; }
+                                    foreach ($moreColumns as $k => $l) { $colItems[$k] = [$l, false]; }
+                                @endphp
+                                <div id="col-list" class="max-h-[50vh] overflow-y-auto">
+                                    @foreach($colItems as $key => [$label, $on])
+                                    <div class="col-item flex items-center gap-0.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50" data-key="{{ $key }}">
+                                        @if($on === null)
+                                        <span class="flex-1 flex items-center gap-2 px-2 py-1.5 text-sm text-gray-700 dark:text-gray-200" title="Always shown">
+                                            <i class="mgc_lock_line text-gray-400 w-4 text-center"></i> {{ $label }}
+                                        </span>
+                                        @else
+                                        <label class="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 cursor-pointer text-sm text-gray-700 dark:text-gray-200">
+                                            <input type="checkbox" class="col-toggle form-checkbox rounded text-primary" value="{{ $key }}" @checked($on)>
+                                            <span class="truncate">{{ $label }}</span>
+                                        </label>
+                                        @endif
+                                        <button type="button" class="col-move p-1 rounded text-gray-400 hover:text-primary hover:bg-primary/10" data-dir="-1" title="Move up (further left)" aria-label="Move {{ $label }} up"><i class="mgc_up_line"></i></button>
+                                        <button type="button" class="col-move p-1 rounded text-gray-400 hover:text-primary hover:bg-primary/10" data-dir="1" title="Move down (further right)" aria-label="Move {{ $label }} down"><i class="mgc_down_line"></i></button>
+                                    </div>
+                                    @endforeach
+                                </div>
+                                <div class="flex items-center justify-between gap-1 mt-1 pt-2 border-t border-gray-100 dark:border-gray-700 text-xs font-medium">
+                                    <button type="button" id="col-show-all" class="text-primary hover:underline px-1.5 py-1">Show all</button>
+                                    <button type="button" id="col-default" class="text-gray-600 dark:text-gray-300 hover:underline px-1.5 py-1">Default</button>
+                                    <button type="button" id="col-hide-all" class="text-gray-600 dark:text-gray-300 hover:underline px-1.5 py-1">Hide all</button>
+                                </div>
                             </div>
                         </div>
                         {{-- Table / Grid toggle — choice is remembered per browser --}}
@@ -1418,6 +1441,7 @@ window.addEventListener('DOMContentLoaded', () => {
             renderFilterChips();
             paintStatCards();
             syncChecks();
+            applyColumnOrder();
             // Intercept pagination + sort links in the swapped HTML
             attachPaginationLinks();
             attachSortLinks();
@@ -1716,24 +1740,97 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── Column chooser ─────────────────────────────────────
-    const COL_KEY = 'citizens.columns.' + @json(auth()->id());
-    const colStyle = document.createElement('style');
-    document.head.append(colStyle);
-    let hiddenCols = [];
-    try { hiddenCols = JSON.parse(localStorage.getItem(COL_KEY) || '[]'); } catch (e) { hiddenCols = []; }
-    if (!Array.isArray(hiddenCols)) hiddenCols = [];
+    // Saves which columns are SHOWN, so the extra "More details" columns stay
+    // off until someone ticks them. Name, # and actions are always shown.
+    const STD_COLS = @json(array_keys(\App\Support\CitizenListColumns::STANDARD));
+    const ALL_COLS = [...document.querySelectorAll('.col-toggle')].map(cb => cb.value);
+    const COL_KEY  = 'citizens.columns.shown.' + @json(auth()->id());
+    const OLD_KEY  = 'citizens.columns.' + @json(auth()->id());
+    const colStyle = document.getElementById('col-style');
+    let shownCols = null;
+    try {
+        shownCols = JSON.parse(localStorage.getItem(COL_KEY) || 'null');
+        if (!Array.isArray(shownCols)) {
+            // The earlier version saved the hidden ones; carry that choice over.
+            const oldHidden = JSON.parse(localStorage.getItem(OLD_KEY) || '[]');
+            shownCols = STD_COLS.filter(c => !(Array.isArray(oldHidden) && oldHidden.includes(c)));
+        }
+    } catch (e) { shownCols = null; }
+    if (!Array.isArray(shownCols)) shownCols = [...STD_COLS];
+    shownCols = shownCols.filter(c => ALL_COLS.includes(c));
 
     function paintColumns() {
-        colStyle.textContent = hiddenCols.map(c => '#citizens-table-wrap [data-col="' + c.replace(/[^a-z]/g, '') + '"]{display:none}').join('\n');
-        document.querySelectorAll('.col-toggle').forEach(cb => { cb.checked = !hiddenCols.includes(cb.value); });
-        try { localStorage.setItem(COL_KEY, JSON.stringify(hiddenCols)); } catch (e) {}
+        const hidden = ALL_COLS.filter(c => !shownCols.includes(c));
+        colStyle.textContent = hidden.map(c => '#citizens-table-wrap [data-col="' + c.replace(/[^a-z_]/g, '') + '"]{display:none}').join('\n');
+        document.querySelectorAll('.col-toggle').forEach(cb => { cb.checked = shownCols.includes(cb.value); });
+        try { localStorage.setItem(COL_KEY, JSON.stringify(shownCols)); } catch (e) {}
+        // Badge only when the choice differs from the default set.
+        const isDefault = shownCols.length === STD_COLS.length && STD_COLS.every(c => shownCols.includes(c));
+        const badge = document.getElementById('col-hidden-count');
+        badge.textContent = shownCols.length + ' of ' + ALL_COLS.length;
+        badge.classList.toggle('hidden', isDefault);
     }
     document.querySelectorAll('.col-toggle').forEach(cb => cb.addEventListener('change', () => {
-        hiddenCols = [...document.querySelectorAll('.col-toggle')].filter(x => !x.checked).map(x => x.value);
+        shownCols = [...document.querySelectorAll('.col-toggle')].filter(x => x.checked).map(x => x.value);
         paintColumns();
     }));
-    document.getElementById('col-reset').addEventListener('click', () => { hiddenCols = []; paintColumns(); });
+    document.getElementById('col-show-all').addEventListener('click', () => { shownCols = [...ALL_COLS]; paintColumns(); });
+    document.getElementById('col-default').addEventListener('click',  () => {
+        shownCols = [...STD_COLS];
+        colOrder  = [...DEFAULT_ORDER];
+        paintColumns();
+        applyColumnOrder();
+    });
+    document.getElementById('col-hide-all').addEventListener('click', () => { shownCols = []; paintColumns(); });
     paintColumns();
+
+    // ── Column order (↑ / ↓ in the Columns menu) ──
+    // The table is re-rendered on every search / page, so the saved order is
+    // re-applied to each new table: cells are moved in front of the Action cell.
+    const colList       = document.getElementById('col-list');
+    const DEFAULT_ORDER = [...colList.querySelectorAll('.col-item')].map(el => el.dataset.key);
+    const ORDER_KEY     = 'citizens.columns.order.' + @json(auth()->id());
+    let colOrder = null;
+    try { colOrder = JSON.parse(localStorage.getItem(ORDER_KEY) || 'null'); } catch (e) {}
+    if (!Array.isArray(colOrder)) colOrder = [];
+    colOrder = colOrder.filter(k => DEFAULT_ORDER.includes(k));
+    DEFAULT_ORDER.forEach(k => { if (!colOrder.includes(k)) colOrder.push(k); });   // new columns go last
+
+    function applyColumnOrder() {
+        // Menu
+        colOrder.forEach(k => { const el = colList.querySelector('.col-item[data-key="' + k + '"]'); if (el) colList.append(el); });
+        colList.querySelectorAll('.col-item').forEach((el, i, all) => {
+            el.querySelector('[data-dir="-1"]').disabled = i === 0;
+            el.querySelector('[data-dir="1"]').disabled  = i === all.length - 1;
+            el.querySelectorAll('.col-move').forEach(b => b.classList.toggle('opacity-30', b.disabled));
+        });
+        // Table
+        wrap.querySelectorAll('table tr').forEach(tr => {
+            if (!tr.querySelector(':scope > [data-col]')) return;          // e.g. the "No citizens found" row
+            const anchor = tr.lastElementChild;                             // Action stays last
+            colOrder.forEach(k => {
+                const cell = tr.querySelector(':scope > [data-col="' + k + '"]');
+                if (cell) tr.insertBefore(cell, anchor);
+            });
+        });
+        try {
+            const isDefault = colOrder.every((k, i) => k === DEFAULT_ORDER[i]);
+            isDefault ? localStorage.removeItem(ORDER_KEY) : localStorage.setItem(ORDER_KEY, JSON.stringify(colOrder));
+        } catch (e) {}
+    }
+
+    colList.addEventListener('click', e => {
+        const btn = e.target.closest('.col-move');
+        if (!btn || btn.disabled) return;
+        const key = btn.closest('.col-item').dataset.key;
+        const i = colOrder.indexOf(key), j = i + Number(btn.dataset.dir);
+        if (j < 0 || j >= colOrder.length) return;
+        [colOrder[i], colOrder[j]] = [colOrder[j], colOrder[i]];
+        applyColumnOrder();
+        // Keep the moved row under the pointer's view in the scrolling list.
+        colList.querySelector('.col-item[data-key="' + key + '"]').scrollIntoView({ block: 'nearest' });
+    });
+    applyColumnOrder();
 
     // Small drop-down menus (Columns, Saved filters): toggle on the button, close on outside click.
     function dropdown(btnId, menuId) {

@@ -35,6 +35,7 @@
 <form action="{{ route('documents.requests.store') }}" method="POST" id="request-form">
     @csrf
     <input type="hidden" name="citizen_id" id="citizen_id" value="{{ old('citizen_id') }}">
+    <input type="hidden" name="care_of_citizen_id" id="care_of_citizen_id" value="">
     <input type="hidden" name="body_override" id="body_override_input" value="">
 
     <div class="grid grid-cols-12 gap-6">
@@ -95,6 +96,27 @@
                             class="text-gray-400 hover:text-danger transition shrink-0" title="Clear">
                         <i class="mgc_close_line"></i>
                     </button>
+                </div>
+
+                {{-- Walk-ins: the resident who vouches for them ("care of") — required --}}
+                <div id="careof-box" class="hidden mt-3 p-3 rounded-lg border border-warning/40 bg-warning/5">
+                    <label class="form-label text-sm" for="careof-search">
+                        <i class="mgc_user_follow_line text-warning"></i> Care of <span class="text-danger">*</span>
+                        <span class="block text-xs font-normal text-gray-500 dark:text-gray-400">A registered resident who knows this walk-in and vouches for them.</span>
+                    </label>
+                    <div id="careof-picker" class="relative">
+                        <input type="text" id="careof-search" class="form-input w-full" placeholder="Search resident by name…" autocomplete="off">
+                        <div id="careof-results" class="hidden absolute z-20 mt-1 w-full max-h-64 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg"></div>
+                    </div>
+                    <div id="careof-chosen" class="hidden flex items-center gap-2.5">
+                        <div id="careof-avatar" class="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0 overflow-hidden text-xs font-bold"></div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate" id="careof-name"></p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate" id="careof-address"></p>
+                        </div>
+                        <button type="button" onclick="clearCareOf(true)" class="text-xs text-primary hover:underline shrink-0">Change</button>
+                    </div>
+                    <p id="careof-error" class="hidden text-xs text-danger mt-1.5"></p>
                 </div>
 
                 {{-- Shown when the selected citizen is on hold — the request is blocked --}}
@@ -547,6 +569,7 @@
                     <div>
                         <p class="text-xs text-gray-400">Citizen</p>
                         <p class="font-medium text-gray-800 dark:text-gray-100" id="review-citizen-name"></p>
+                        <p class="hidden text-xs text-gray-500 dark:text-gray-400 mt-0.5" id="review-care-of"></p>
                     </div>
                     <div>
                         <p class="text-xs text-gray-400">Document Type</p>
@@ -695,11 +718,78 @@ function selectWalkin(w) {
     selectCitizen(w.id, w.name, w.address || '', w.contact || '', '', w.profile || '',
         { voter: false, senior: w.senior, pwd: false, solo: false, hold: w.hold || null });
     selectedWalkin = w;                                       // selectCitizen() clears it — set after
+    showCareOf(true);
     const tags = document.getElementById('card-tags');
     tags.innerHTML = `<span class="inline-flex items-center gap-1 py-0.5 px-2 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700"><i class="mgc_walk_line"></i> Walk-in · ${escHtml(w.code)}</span>`
         + (w.last_visit ? `<span class="text-[11px] text-gray-400 self-center">last visit ${escHtml(w.last_visit)}</span>` : '');
     checkPersonDetails();
 }
+
+// ── "Care of" for walk-ins ────────────────────────────────────────────
+// A walk-in must name a registered resident who vouches for them. Picked from
+// residents only (the citizen search leaves walk-ins out).
+let careOfTimer = null, careOfSeq = 0;
+function showCareOf(on) {
+    document.getElementById('careof-box').classList.toggle('hidden', !on);
+    clearCareOf(false);
+}
+function clearCareOf(focus) {
+    document.getElementById('care_of_citizen_id').value = '';
+    document.getElementById('careof-chosen').classList.add('hidden');
+    document.getElementById('careof-picker').classList.remove('hidden');
+    document.getElementById('careof-search').value = '';
+    document.getElementById('careof-results').classList.add('hidden');
+    document.getElementById('careof-error').classList.add('hidden');
+    if (focus) document.getElementById('careof-search').focus();
+}
+function pickCareOf(c) {
+    const err = document.getElementById('careof-error');
+    if (c.hold) {
+        err.textContent = c.name + ' is on hold and cannot vouch for a walk-in.';
+        err.classList.remove('hidden');
+        return;
+    }
+    document.getElementById('care_of_citizen_id').value = c.id;
+    document.getElementById('careof-name').textContent = c.name;
+    document.getElementById('careof-address').textContent = c.address || '';
+    document.getElementById('careof-avatar').innerHTML = c.profile
+        ? `<img src="${escHtml(c.profile)}" alt="" class="w-full h-full object-cover">`
+        : escHtml((c.name || '?').charAt(0).toUpperCase());
+    document.getElementById('careof-picker').classList.add('hidden');
+    document.getElementById('careof-results').classList.add('hidden');
+    document.getElementById('careof-chosen').classList.remove('hidden');
+    err.classList.add('hidden');
+}
+document.getElementById('careof-search').addEventListener('input', function () {
+    clearTimeout(careOfTimer);
+    const q = this.value.trim();
+    const box = document.getElementById('careof-results');
+    if (q.length < 2) { box.classList.add('hidden'); return; }
+    careOfTimer = setTimeout(async () => {
+        const mine = ++careOfSeq;
+        const list = await fetch(SEARCH_URL + '?q=' + encodeURIComponent(q), { headers: { Accept: 'application/json' } })
+            .then(r => r.json()).catch(() => []);
+        if (mine !== careOfSeq) return;
+        box.innerHTML = list.length ? list.map((c, i) => `
+            <button type="button" data-i="${i}" class="careof-pick w-full text-left flex items-center gap-2.5 px-3 py-2 hover:bg-primary/5 border-b last:border-0 border-gray-100 dark:border-gray-700 ${c.hold ? 'opacity-60' : ''}">
+                <span class="w-7 h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0 overflow-hidden text-xs font-bold">
+                    ${c.profile ? `<img src="${escHtml(c.profile)}" alt="" class="w-full h-full object-cover">` : escHtml(c.name.charAt(0).toUpperCase())}
+                </span>
+                <span class="min-w-0">
+                    <span class="block text-sm text-gray-800 dark:text-gray-100 truncate">${escHtml(c.name)}${c.hold ? ' <span class="text-danger text-xs">(on hold)</span>' : ''}</span>
+                    <span class="block text-xs text-gray-400 truncate">${escHtml(c.address || '')}</span>
+                </span>
+            </button>`).join('')
+            : '<p class="px-3 py-3 text-sm text-gray-400">No resident found.</p>';
+        box.querySelectorAll('.careof-pick').forEach(b => b.addEventListener('click', () => pickCareOf(list[b.dataset.i])));
+        box.classList.remove('hidden');
+    }, 300);
+});
+// Enter in this box must not submit the request form.
+document.getElementById('careof-search').addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+document.addEventListener('click', e => {
+    if (!e.target.closest('#careof-picker')) document.getElementById('careof-results').classList.add('hidden');
+});
 
 // ── Photo for documents that print the profile photo ─────────────────
 // Saved straight away as the person's profile photo (resident or walk-in),
@@ -1090,6 +1180,7 @@ function renderCitizenTags(flags) {
 function selectCitizen(id, name, address, contact, qrcode, profileUrl, flags) {
     selectedId = id;
     selectedWalkin = null;
+    showCareOf(false);
     document.getElementById('citizen_id').value = id;
     searchInput.value = '';
     dropdown.classList.add('hidden');
@@ -1158,6 +1249,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function clearCitizen() {
     selectedId = '';
     selectedWalkin = null;
+    showCareOf(false);
     document.getElementById('person-section').classList.add('hidden');
     document.getElementById('person-fields').innerHTML = '';
     ppShow(null);
@@ -1595,6 +1687,15 @@ function openRequestReview() {
         return;
     }
 
+    if (selectedWalkin && !document.getElementById('care_of_citizen_id').value) {
+        const err = document.getElementById('careof-error');
+        err.textContent = 'Choose the resident this walk-in is care of.';
+        err.classList.remove('hidden');
+        document.getElementById('careof-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('careof-search').focus();
+        return;
+    }
+
     if (selectedHold) {
         Swal.fire({
             icon: 'error',
@@ -1698,6 +1799,9 @@ function renderReviewCertificate(data) {
 
 function renderReviewSummary(summary) {
     document.getElementById('review-citizen-name').textContent  = summary.citizen_name;
+    const careOfEl = document.getElementById('review-care-of');
+    careOfEl.textContent = summary.care_of ? 'Walk-in · care of ' + summary.care_of : '';
+    careOfEl.classList.toggle('hidden', !summary.care_of);
     document.getElementById('review-document-type').textContent = summary.document_type;
     document.getElementById('review-purpose').textContent       = summary.purpose || '—';
     document.getElementById('review-fee').innerHTML = summary.is_paid

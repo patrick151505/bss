@@ -135,6 +135,12 @@
                         @if($documentRequest->citizen->walkin_id_type)
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">ID presented: {{ $documentRequest->citizen->walkin_id_type }}{{ $documentRequest->citizen->walkin_id_number ? ' · ' . $documentRequest->citizen->walkin_id_number : '' }}</p>
                         @endif
+                        @if($documentRequest->careOf)
+                            <p class="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                                <i class="mgc_user_follow_line text-warning"></i> Care of:
+                                <a href="{{ route('citizens.show', $documentRequest->careOf->id) }}" class="font-medium text-primary hover:underline">{{ $documentRequest->careOf->full_name }}</a>
+                            </p>
+                        @endif
                     @endif
                 </div>
                 <div>
@@ -242,10 +248,20 @@
                     <p class="text-gray-700 dark:text-gray-300"><span id="print-count-info">{{ $documentRequest->print_count }}</span>×</p>
                 </div>
                 @endif
-                @if($documentRequest->remarks)
+                @if($documentRequest->remarks || $documentRequest->careOf)
                 <div>
                     <p class="text-xs text-gray-400">Remarks</p>
+                    {{-- Walk-ins: who vouched for them is always part of the remarks --}}
+                    @if($documentRequest->careOf)
+                    <p class="text-gray-700 dark:text-gray-300">
+                        Walk-in, care of
+                        <a href="{{ route('citizens.show', $documentRequest->careOf->id) }}" class="font-medium text-primary hover:underline">{{ $documentRequest->careOf->full_name }}</a>
+                        @if($documentRequest->careOf->full_address)<span class="text-xs text-gray-400">· {{ $documentRequest->careOf->full_address }}</span>@endif
+                    </p>
+                    @endif
+                    @if($documentRequest->remarks)
                     <p class="text-gray-700 dark:text-gray-300">{{ $documentRequest->remarks }}</p>
+                    @endif
                 </div>
                 @endif
             </div>

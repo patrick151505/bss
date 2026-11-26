@@ -143,6 +143,9 @@ class DocumentType extends Model
         return 'issue_document.' . $this->id;
     }
 
+    /** Roles with this may issue every document type, including types added later. */
+    public const ISSUE_ALL = 'issue_document.all';
+
     protected static function booted(): void
     {
         // Auto-create the per-type "issue" permission when a type is created.

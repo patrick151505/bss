@@ -12,7 +12,15 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Weekly backup (Friday 2:00 AM by default): database + uploads → encrypted ZIP → Google Drive.
+        $days = ['sunday' => 0, 'monday' => 1, 'tuesday' => 2, 'wednesday' => 3, 'thursday' => 4, 'friday' => 5, 'saturday' => 6];
+        $schedule->command('backup:run')
+            ->weeklyOn($days[strtolower(config('backup.day', 'friday'))] ?? 5, config('backup.time', '02:00'))
+            ->timezone('Asia/Manila')
+            ->withoutOverlapping(120);
+
+        // Proof that the server's cron job is calling the scheduler (shown on Settings → Backups).
+        $schedule->call(fn () => @touch(storage_path('framework/scheduler-heartbeat')))->everyFiveMinutes();
     }
 
     /**
