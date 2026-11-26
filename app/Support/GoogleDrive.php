@@ -137,20 +137,24 @@ class GoogleDrive
         return $put->json('id');
     }
 
-    /** Delete backups in the folder older than $days. Returns how many were removed. */
-    public function prune(int $days): int
+    /**
+     * Keep only the newest $keep backups in this barangay's folder; delete the rest.
+     * Only touches backup ZIPs this system made in that folder. Returns how many were removed.
+     */
+    public function prune(int $keep): int
     {
         $folder = $this->folderId();
-        $cutoff = now()->subDays($days)->toRfc3339String();
         $files = $this->api()->get(self::API . '/files', [
-            'q'        => "'{$folder}' in parents and trashed = false and createdTime < '{$cutoff}'",
-            'fields'   => 'files(id,name)',
-            'pageSize' => 100,
+            'q'        => "'{$folder}' in parents and trashed = false and name contains 'bss-backup-'",
+            'orderBy'  => 'createdTime desc',
+            'fields'   => 'files(id,name,createdTime)',
+            'pageSize' => 200,
         ])->json('files') ?? [];
-        foreach ($files as $f) {
+        $old = array_slice($files, max(1, $keep));
+        foreach ($old as $f) {
             $this->api()->delete(self::API . '/files/' . $f['id']);
         }
-        return count($files);
+        return count($old);
     }
 
     /** "BSS Backups – Barangay San Jose" (or BACKUP_DRIVE_FOLDER when set). */

@@ -12,7 +12,7 @@ use ZipArchive;
 /**
  * Makes one backup: the whole database (mysqldump) plus the uploads folder
  * (storage/app/public) in one AES-256 password-protected ZIP, then copies it
- * to Google Drive and removes backups older than `backup.keep_days`.
+ * to Google Drive and keeps only the newest `backup.keep` backups (default 4).
  *
  * The ZIP opens with 7-Zip (or WinZip) using BACKUP_PASSWORD:
  *   database.sql   — import into MySQL to restore
@@ -72,7 +72,7 @@ class BackupRunner
                 try {
                     $drive = new GoogleDrive();
                     $backup->update(['drive_file_id' => $drive->upload($backup->localPath(), $name), 'drive_status' => 'uploaded']);
-                    $drive->prune(config('backup.keep_days'));
+                    $drive->prune(config('backup.keep'));   // only after a good upload
                 } catch (\Throwable $e) {
                     $driveError = $e->getMessage();
                     $backup->update(['drive_status' => 'failed']);
@@ -167,11 +167,14 @@ class BackupRunner
         return $count;
     }
 
-    /** Remove server copies older than keep_days. */
+    /** Keep only the newest `keep` backup files on the server; remove older ones. */
     private function pruneLocal(): void
     {
-        $cutoff = now()->subDays(config('backup.keep_days'));
-        Backup::whereNotNull('filename')->whereNull('deleted_local_at')->where('started_at', '<', $cutoff)->get()
+        Backup::whereNotNull('filename')->whereNull('deleted_local_at')
+            ->orderByDesc('started_at')->orderByDesc('id')
+            ->get()
+            ->filter(fn (Backup $b) => $b->hasLocalFile())
+            ->slice(config('backup.keep'))
             ->each(function (Backup $b) {
                 if ($b->hasLocalFile()) @unlink($b->localPath());
                 $b->update(['deleted_local_at' => now()]);

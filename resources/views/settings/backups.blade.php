@@ -72,7 +72,7 @@
                         <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Automatic backup</p>
                         <p class="text-lg font-bold text-gray-800 dark:text-gray-100">Every {{ $day }}, {{ $time }}</p>
                         @if($schedulerSeen && $schedulerSeen->gt(now()->subMinutes(15)))
-                            <p class="text-xs text-gray-500 dark:text-gray-400">Next: {{ $nextRun->format('M d, Y g:i A') }} · keeps the last {{ intdiv($keepDays, 7) }} weeks</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Next: {{ $nextRun->format('M d, Y g:i A') }} · keeps the newest {{ $keep }} backups</p>
                         @else
                             <p class="text-xs text-warning font-medium">Server timer not running — the cron job is missing (see below)</p>
                         @endif
@@ -181,7 +181,7 @@
                                 @if($b->hasLocalFile())
                                     <a href="{{ route('settings.backups.download', $b) }}" class="btn btn-sm bg-dark/25 text-slate-900 dark:text-slate-200 hover:bg-dark hover:text-white"><i class="mgc_download_2_line"></i></a>
                                 @elseif($b->deleted_local_at)
-                                    <span class="text-xs text-gray-400" title="Older than {{ $keepDays }} days">Removed</span>
+                                    <span class="text-xs text-gray-400" title="Only the newest {{ $keep }} backups are kept">Removed</span>
                                 @endif
                             </td>
                         </tr>
@@ -204,7 +204,7 @@
             <div id="help-body" class="hidden px-6 pb-6 text-sm text-gray-600 dark:text-gray-300 space-y-4">
                 <div>
                     <p class="font-semibold text-gray-800 dark:text-gray-100">What is backed up</p>
-                    <p>Every {{ $day }} at {{ $time }} the whole database and all uploaded files (photos, signatures, logos, templates) are put into one ZIP locked with the backup password. It is kept on the server and copied to Google Drive. Backups older than {{ $keepDays }} days (the last {{ intdiv($keepDays, 7) }} weeks are kept) are deleted in both places. Use "Back up now" any time, e.g. before a big update. If a backup fails, every Super Admin gets an email.</p>
+                    <p>Every {{ $day }} at {{ $time }} the whole database and all uploaded files (photos, signatures, logos, templates) are put into one ZIP locked with the backup password. It is kept on the server and copied to Google Drive. Only the <strong>newest {{ $keep }} backups</strong> are kept — older ones are deleted automatically, on the server and in Google Drive. Use "Back up now" any time, e.g. before a big update. If a backup fails, every Super Admin gets an email.</p>
                 </div>
                 <div>
                     <p class="font-semibold text-gray-800 dark:text-gray-100">Server setup (once)</p>

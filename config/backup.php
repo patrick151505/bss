@@ -6,7 +6,7 @@
 |--------------------------------------------------------------------------
 | Every Friday at 2:00 AM the database and the uploads folder are put into one
 | password-protected ZIP (AES-256), kept on the server and copied to the
-| barangay's Google Drive. Older than `keep_days` is deleted in both places.
+| barangay's Google Drive. Only the newest `keep` backups are kept, in both places.
 */
 
 return [
@@ -19,8 +19,9 @@ return [
     'day'  => env('BACKUP_DAY', 'friday'),
     'time' => env('BACKUP_TIME', '02:00'),
 
-    // 28 days = the last 4 weekly backups (plus any made with "Back up now" in that time).
-    'keep_days' => (int) env('BACKUP_KEEP_DAYS', 28),
+    // How many backups to keep (newest first), on the server AND in Google Drive.
+    // "Back up now" copies count too. Older ones are deleted automatically.
+    'keep' => max(1, (int) env('BACKUP_KEEP', 4)),
 
     // Where backups are kept on the server (never inside public/).
     'path' => storage_path('app/backups'),

@@ -37,7 +37,7 @@ class BackupController extends Controller
             'time'          => \Carbon\Carbon::createFromFormat('H:i', config('backup.time'))->format('g:i A'),
             'day'           => ucfirst(strtolower(config('backup.day'))),
             'nextRun'       => now('Asia/Manila')->next(ucfirst(strtolower(config('backup.day'))))->setTimeFromTimeString(config('backup.time')),
-            'keepDays'      => config('backup.keep_days'),
+            'keep'          => config('backup.keep'),
         ]);
     }
 
